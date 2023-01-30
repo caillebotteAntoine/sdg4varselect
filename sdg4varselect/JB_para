@@ -1,0 +1,105 @@
+from math import pi
+
+import jax.numpy as jnp
+import numpy as np
+import parametrization_cookbook.jax as pc
+from burnin_fct import burnin_fct
+from jax import grad, jit
+from miscellaneous import time_profiler
+
+# === Data simulation === #
+from sdg4varselect.data_sim import (
+    Y_obs,
+    loglikelihood,
+    phi1_obs,
+    phi2_obs,
+    phi3_obs,
+    s,
+    theta_star,
+    theta0,
+    time_obs,
+)
+
+parametrization = s.parametrization(
+    beta1=pc.Real(shape=1),
+    beta2=pc.Real(shape=1),
+    beta3=pc.Real(shape=1, scale=0.5),
+    gamma2_1=pc.Real(shape=1),
+    gamma2_2=pc.Real(shape=1),
+    sigma2=pc.Real(shape=1),
+)
+
+print(parametrization)
+
+print(np.concatenate([x for x in theta0.values()]))
+
+para = parametrization.reals1d_to_params(np.concatenate([x for x in theta0.values()]))
+print(para)
+
+
+@jit
+def jit_logistic(
+    x, supremum: float, midpoint: float, growth_rate: float
+) -> jnp.ndarray:
+    return supremum / (1 + jnp.exp(-(x - midpoint) / growth_rate))
+
+
+@jit
+def gaussian_prior(data, mean, variance) -> jnp.ndarray:
+    # Computation of the current target distrubtion score
+    out = jnp.log(2 * pi * variance) + jnp.power(data - mean, 2) / variance
+    return -jnp.sum(out) / 2
+
+
+@jit
+def model(time, phi1, phi2, phi3, **kwargs):
+    N = len(phi1)
+    out = [jit_logistic(time, phi1[i], phi2[i], phi3[i]) for i in range(N)]
+    return jnp.array(out)
+
+
+@jit
+def loss(theta, Y, time, phi1, phi2, phi3):
+    N = len(phi1)
+    latent_prior = (
+        gaussian_prior(phi1, theta.beta1, theta.gamma2_1)
+        + gaussian_prior(phi2, theta.beta2, theta.gamma2_2)
+        + gaussian_prior(phi3, theta.beta3, 1)
+    )
+
+    pred = model(time, phi1, phi2, phi3)
+    out = jnp.sum(jnp.power(Y - pred, 2))
+    out = latent_prior - out / (2 * theta.sigma2[0])
+
+    return out / N  # - Loglikelihood for the maximization
+
+
+def para_loss(theta, **kwargs):
+    print(theta)
+    print(type(theta))
+    theta_arr = np.concatenate(list(theta))  # [x for x in theta.values()])
+    theta_repar = parametrization.reals1d_to_params(theta_arr)
+    return loss(theta_repar, **kwargs)
+
+
+grad_loss = jit(grad(loss))
+
+
+def para_grad_loss(theta, **kwargs):
+    theta_arr = np.concatenate(list(theta))  # [x for x in theta.values()])
+    theta_repar = parametrization.reals1d_to_params(theta_arr)
+    out = grad_loss(theta_repar, **kwargs)
+    return out
+
+
+step_size = burnin_fct(500, -4, 550, 0.75)
+
+para_grad_loss(s.theta(), **s.data())
+loglikelihood(1, s.theta(), **s.data())
+
+print(s)
+s.step_size(step_size)
+s.SGD(30, loglikelihood, para_grad_loss)
+
+s.to_csv("../cout.txt")
+print(s)
