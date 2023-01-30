@@ -46,27 +46,29 @@ def test_adaptative_sd():
     assert len(x.sd()) == 2
 
 
-def gibbs_sampler_step():
+def test_gibbs_sampler_step():
     x = MCMC_chain(
         10,
         5,
-        sd=1,
+        sd=0.5,
         mean=np.array([5]),
-        variance=np.array([0.5]),
+        variance=np.array([0.1]),
     )
 
+    for i in range(100):
+        x.gibbs_sampler_step(lambda i, x: 0, None)
 
-x = MCMC_chain(
-    10,
-    5,
-    sd=1,
-    mean=np.array([5]),
-    variance=np.array([0.5]),
-)
+    chain_mean = np.mean(x.chain(), axis=1)
+    assert np.mean(np.abs(chain_mean[60:] / 5 - 1)) < 0.05
 
+    a_rate = x.acceptance_rate()
+    assert np.abs(np.mean(a_rate[60:]) - 0.55) < 0.1
 
-for i in range(100):
+    assert len(x.sd()) == 1
+
+    x.adaptative_sd(True)
     x.gibbs_sampler_step(lambda i, x: 0, None)
+    assert len(x.sd()) == 2
 
 
-x.print()
+test_gibbs_sampler_step()
