@@ -2,7 +2,7 @@ import numpy as np
 from numpy.random import uniform
 from math import pi
 
-from chain import chain
+from .chain import chain
 
 
 class MCMC_chain(chain):
@@ -16,7 +16,7 @@ class MCMC_chain(chain):
         name=None,
     ):
         """Constructor of MCMC chain with a gibbs sampler method."""
-        chain.__init__(self, x0, size, name, "mcmc")
+        super().__init__(x0, size, name, "mcmc")
 
         self.__acceptance = [0]
         self.__sd = [sd]
@@ -94,6 +94,9 @@ class MCMC_chain(chain):
         updating the variance of the gibbs sampler proposal
         to obtain an adequate acceptance rate
         """
+        if not self.__adaptative_sd:
+            return None
+
         sd_prop = self.__sd[-1]
         rate = self.acceptance_rate(-1)
 

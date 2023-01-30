@@ -87,5 +87,3 @@ if __name__ == "__main__":
 
     print(y)
     print(x)
-
-    print(chain([1], 4))

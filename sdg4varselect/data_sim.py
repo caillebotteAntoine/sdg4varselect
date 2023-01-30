@@ -20,8 +20,6 @@ def loglikelihood(i: int, theta, Y, time, phi1, phi2, phi3) -> float:
     return -out / (2 * theta.sigma2)
 
 
-N = 500
-J = 20
 theta_star = {
     "beta1": np.array([200]),
     "beta2": np.array([500]),
@@ -30,36 +28,33 @@ theta_star = {
     "gamma2_2": np.array([100.0]),
     "sigma2": np.array([100.0]),
 }
-time_obs = np.linspace(100, 1500, num=J)
-phi1_obs = np.random.normal(theta_star["beta1"], np.sqrt(theta_star["gamma2_1"]), N)
-phi2_obs = np.random.normal(theta_star["beta2"], np.sqrt(theta_star["gamma2_2"]), N)
-phi3_obs = np.array([theta_star["beta3"] for i in range(N)])
-eps = np.random.normal(0, np.sqrt(theta_star["sigma2"]), (N, J))
 
-Y_obs = nlmem(time_obs, phi1_obs, phi2_obs, phi3_obs) + eps
 
-# === solver init === #
-theta0 = {
-    "beta1": np.array([300.0]),
-    "gamma2_1": np.array([30.0]),
-    "beta2": np.array([400.0]),
-    "gamma2_2": np.array([30.0]),
-    "beta3": np.array([100.0]),
-    "sigma2": np.array([10.0]),
-}
+def get_data(theta0, N=500, J=20):
 
-s = solver_init(
-    solver(),
-    theta0,
-    "beta",
-    "gamma2_",
-    "phi",
-    dim={"phi1": N, "phi2": N, "phi3": N},
-    sd={"phi1": 20, "phi2": 20, "phi3": 10},
-)
+    time_obs = np.linspace(100, 1500, num=J)
+    phi1_obs = np.random.normal(theta_star["beta1"], np.sqrt(theta_star["gamma2_1"]), N)
+    phi2_obs = np.random.normal(theta_star["beta2"], np.sqrt(theta_star["gamma2_2"]), N)
+    phi3_obs = np.array([theta_star["beta3"] for i in range(N)])
+    eps = np.random.normal(0, np.sqrt(theta_star["sigma2"]), (N, J))
 
-s.add_variable("Y", Y_obs)
-s.add_variable("time", time_obs)
-s.add_parameter(par_noise_variance(theta0["sigma2"], "Y", nlmem, "sigma2"))
-s.set_data("Y", "time", "phi1", "phi2", "phi3")
-s.init_parameters()
+    Y_obs = nlmem(time_obs, phi1_obs, phi2_obs, phi3_obs) + eps
+
+    # === solver init === #
+    s = solver_init(
+        solver(),
+        theta0,
+        mean_name="beta",
+        variance_name="gamma2_",
+        mcmc_name="phi",
+        dim={"phi1": N, "phi2": N, "phi3": N},
+        sd={"phi1": 20, "phi2": 20, "phi3": 10},
+    )
+
+    s.add_variable("Y", Y_obs)
+    s.add_variable("time", time_obs)
+    s.add_parameter(par_noise_variance(theta0["sigma2"], "Y", nlmem, "sigma2"))
+    s.set_data("Y", "time", "phi1", "phi2", "phi3")
+    s.init_parameters()
+
+    return s

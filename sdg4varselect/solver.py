@@ -12,18 +12,22 @@ from csv_melter import solver2csv
 
 from miscellaneous import step_message, default_arg
 
+import parametrization_cookbook.jax as pc
+
 
 class solver:
     def __init__(self):
         """Constructor of solver."""
         self.__parameters = {}
         self.__theta = {}
+        self.__theta_parametrization: pc.NamedTuple = None
         self.__latent_variables = {}
         self.__global_variables = {}
 
         self.__data = {}
 
         self.__step_size = burnin_fct()
+
         self.__iter = 0
         self.__start = 0
         self.__elapsed_time = 0
@@ -86,7 +90,7 @@ class solver:
         self.__parameters[name] = x
         self.__theta[name] = x.data()
 
-    def init_parameters(self) -> None:
+    def init_parameters(self):
         for par in self.__parameters.values():
 
             name = par.linked_name
@@ -104,13 +108,11 @@ class solver:
 
         from collections import namedtuple
 
-        theta_namedtuple = namedtuple(
-            "theta_namedtuple", [x for x in self.__parameters]
-        )
-        self.__theta = theta_namedtuple(**self.__theta)
+        namedTheta = namedtuple("namedTheta", self.__parameters.keys())
+        self.__theta = namedTheta(**self.__theta)
+        return namedTheta
 
     def parametrization(self, **kwargs):
-        import parametrization_cookbook.jax as pc
 
         sorted_kwargs = {}
         for par in self.__parameters:
@@ -119,6 +121,7 @@ class solver:
             else:
                 sorted_kwargs[par] = kwargs[par]
 
+        self.__theta_parametrization = pc.NamedTuple(**sorted_kwargs)
         return pc.NamedTuple(**sorted_kwargs)
 
     def add_MCMC(
@@ -181,15 +184,8 @@ class solver:
                 var_lat.gibbs_sampler_step(loglikelihood, self.__theta, **self.__data)
 
     def gradient_descent(self, loss_grad, step_size: float):
-        grad_eval = loss_grad(self.__theta, **self.__data)
-        """
-        print(grad_eval)
-        print(type(grad_eval))
-        print(self.__parameters)
-        print(type(self.__parameters))
-
-        print(grad_eval)
-        print(self.__parameters)"""
+        loss_eval, grad_eval = loss_grad(self.__theta, **self.__data)
+        print(loss_eval)
 
         for par in self.__parameters:
             # print(getattr(grad_eval, par))

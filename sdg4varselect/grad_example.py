@@ -1,16 +1,22 @@
+from math import pi
+
 import jax.numpy as jnp
-from jax import jit, grad
-
-from burnin_fct import burnin_fct
-from miscellaneous import time_profiler
-
 import numpy as np
+from burnin_fct import burnin_fct
 
 # === Data simulation === #
-from data_sim import loglikelihood
-from data_sim import Y_obs, time_obs, phi1_obs, phi2_obs, phi3_obs
-from data_sim import s, theta_star
-from math import pi
+from data_sim import (
+    Y_obs,
+    loglikelihood,
+    phi1_obs,
+    phi2_obs,
+    phi3_obs,
+    s,
+    time_obs,
+    theta0,
+)
+from jax import value_and_grad, jit
+from miscellaneous import time_profiler
 
 
 @jit
@@ -74,17 +80,8 @@ def gradient_descent(loss_grad, theta0, step_size: float, **kwargs):
     return theta0
 
 
-grad_loss = jit(grad(loss))
+grad_loss = jit(value_and_grad(loss))
 step_size = burnin_fct(500, -4, 550, 0.75)
-
-theta0 = {
-    "beta1": np.array([300.0]),
-    "gamma2_1": np.array([30.0]),
-    "beta2": np.array([400.0]),
-    "gamma2_2": np.array([30.0]),
-    "beta3": np.array([100.0]),
-    "sigma2": np.array([10.0]),
-}
 
 
 @time_profiler(nrun=1)
@@ -105,7 +102,6 @@ def GD(niter):
 
 # print(GD(5))
 
-print(s)
 s.step_size(step_size)
 s.SGD(600, loglikelihood, grad_loss)
 print(s)

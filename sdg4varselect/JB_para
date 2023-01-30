@@ -4,20 +4,21 @@ import jax.numpy as jnp
 import numpy as np
 import parametrization_cookbook.jax as pc
 from burnin_fct import burnin_fct
-from jax import grad, jit
-from miscellaneous import time_profiler
 
 # === Data simulation === #
-from sdg4varselect.data_sim import (
-    Y_obs,
-    loglikelihood,
-    phi1_obs,
-    phi2_obs,
-    phi3_obs,
-    s,
-    theta_star,
-    theta0,
-    time_obs,
+from data_sim import get_data, loglikelihood
+from jax import jit, value_and_grad
+from miscellaneous import time_profiler
+
+s = get_data(
+    theta0={
+        "beta1": np.array([300.0]),
+        "gamma2_1": np.array([30.0]),
+        "beta2": np.array([400.0]),
+        "gamma2_2": np.array([30.0]),
+        "beta3": np.array([200.0]),
+        "sigma2": np.array([10.0]),
+    }
 )
 
 parametrization = s.parametrization(
@@ -28,13 +29,6 @@ parametrization = s.parametrization(
     gamma2_2=pc.RealPositive(shape=1),
     sigma2=pc.RealPositive(shape=1),
 )
-
-print(parametrization)
-
-print(np.concatenate([x for x in theta0.values()]))
-
-para = parametrization.reals1d_to_params(np.concatenate([x for x in theta0.values()]))
-print(para)
 
 
 @jit
@@ -82,7 +76,7 @@ def para_loss(theta, **kwargs):
     return loss(theta_repar, **kwargs)
 
 
-grad_loss = jit(grad(loss))
+grad_loss = jit(value_and_grad(loss))
 
 
 def para_grad_loss(theta, **kwargs):
@@ -98,7 +92,7 @@ para_grad_loss(s.theta(), **s.data())
 loglikelihood(1, s.theta(), **s.data())
 
 s.step_size(step_size)
-s.SGD(600, loglikelihood, para_grad_loss)
+s.SGD(600, loglikelihood, grad_loss)
 
 s.to_csv("../cout.txt")
 print(s)
