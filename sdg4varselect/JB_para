@@ -24,9 +24,9 @@ parametrization = s.parametrization(
     beta1=pc.Real(shape=1),
     beta2=pc.Real(shape=1),
     beta3=pc.Real(shape=1, scale=0.5),
-    gamma2_1=pc.Real(shape=1),
-    gamma2_2=pc.Real(shape=1),
-    sigma2=pc.Real(shape=1),
+    gamma2_1=pc.RealPositive(shape=1),
+    gamma2_2=pc.RealPositive(shape=1),
+    sigma2=pc.RealPositive(shape=1),
 )
 
 print(parametrization)
@@ -97,9 +97,8 @@ step_size = burnin_fct(500, -4, 550, 0.75)
 para_grad_loss(s.theta(), **s.data())
 loglikelihood(1, s.theta(), **s.data())
 
-print(s)
 s.step_size(step_size)
-s.SGD(30, loglikelihood, para_grad_loss)
+s.SGD(600, loglikelihood, para_grad_loss)
 
 s.to_csv("../cout.txt")
 print(s)
