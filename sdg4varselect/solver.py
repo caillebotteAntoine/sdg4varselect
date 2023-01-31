@@ -4,13 +4,13 @@ from typing import Optional
 import time
 
 # from chain import chain
-from MCMC import MCMC_chain
-from burnin_fct import burnin_fct
-from parameter import parameter, par_grad
+from sdg4varselect.MCMC import MCMC_chain
+from sdg4varselect.burnin_fct import burnin_fct
+from sdg4varselect.parameter import parameter, par_grad
 
-from csv_melter import solver2csv
+from sdg4varselect.csv_melter import solver2csv
 
-from miscellaneous import step_message, default_arg
+from sdg4varselect.miscellaneous import step_message, default_arg
 
 import parametrization_cookbook.jax as pc
 
@@ -18,10 +18,10 @@ import parametrization_cookbook.jax as pc
 class solver:
     def __init__(self):
         """Constructor of solver."""
-        self.__parameters = {}
+        self.parameters = {}
         self.__theta = {}
         self.__theta_parametrization: pc.NamedTuple = None
-        self.__latent_variables = {}
+        self.latent_variables = {}
         self.__global_variables = {}
 
         self.__data = {}
@@ -32,6 +32,8 @@ class solver:
         self.__start = 0
         self.__elapsed_time = 0
 
+        self.__is_init = False
+
     def theta(self):
         return self.__theta
 
@@ -41,8 +43,8 @@ class solver:
     def to_csv(self, file_name: str) -> None:
         solver2csv(
             self.__elapsed_time,
-            self.__parameters,
-            self.__latent_variables,
+            self.parameters,
+            self.latent_variables,
             self.__step_size,
             self.__iter,
             file_name,
@@ -65,10 +67,10 @@ class solver:
         else:
             name = name_args[0]
             if isinstance(name, str):
-                if name in self.__parameters:
-                    self.__data[name] = self.__parameters[name].data()
-                elif name in self.__latent_variables:
-                    self.__data[name] = self.__latent_variables[name].data()
+                if name in self.parameters:
+                    self.__data[name] = self.parameters[name].data()
+                elif name in self.latent_variables:
+                    self.__data[name] = self.latent_variables[name].data()
                 elif name in self.__global_variables:
                     self.__data[name] = self.__global_variables[name]
                 else:
@@ -87,35 +89,36 @@ class solver:
         if name == "NA":
             raise ValueError("parameters must have a name to be added to the solver")
 
-        self.__parameters[name] = x
+        self.parameters[name] = x
         self.__theta[name] = x.data()
 
     def init_parameters(self):
-        for par in self.__parameters.values():
+        for par in self.parameters.values():
 
             name = par.linked_name
-            if name in self.__latent_variables:
-                var = self.__latent_variables[name].data()
+            if name in self.latent_variables:
+                var = self.latent_variables[name].data()
             elif name in self.__global_variables:
                 var = self.__global_variables[name]
             else:
                 raise KeyError(
                     name
-                    + "does not exist neiter in latent variables or in global variables"
+                    + " does not exist neiter in latent variables or in global variables"
                 )
 
             par.init(var)
 
-        from collections import namedtuple
+        from sdg4varselect.miscellaneous import namedTheta
 
-        namedTheta = namedtuple("namedTheta", self.__parameters.keys())
-        self.__theta = namedTheta(**self.__theta)
-        return namedTheta
+        self.__theta, thetaType = namedTheta(**self.__theta)
+
+        self.__is_init = True
+        return thetaType
 
     def parametrization(self, **kwargs):
 
         sorted_kwargs = {}
-        for par in self.__parameters:
+        for par in self.parameters:
             if par not in kwargs:
                 raise ValueError(par + " is missing in the parametrization tuple")
             else:
@@ -136,9 +139,9 @@ class solver:
 
         if not isinstance(mean_name, str):
             raise TypeError("mean_name must be a str")
-        if mean_name not in self.__parameters:
+        if mean_name not in self.parameters:
             raise KeyError(mean_name + " does not exist in parameters")
-        mean = self.__parameters[mean_name].data()
+        mean = self.parameters[mean_name].data()
 
         variance = np.array([1])
         if variance_name is None:
@@ -148,20 +151,20 @@ class solver:
         else:
             if not isinstance(variance_name, str):
                 raise TypeError("variance_name must be a str")
-            if variance_name not in self.__parameters:
+            if variance_name not in self.parameters:
                 raise KeyError(variance_name + "does not exist in parameters")
 
-            variance = self.__parameters[variance_name].data()
+            variance = self.parameters[variance_name].data()
 
-        self.__latent_variables[name] = MCMC_chain(x0, size, sd, mean, variance, name)
+        self.latent_variables[name] = MCMC_chain(x0, size, sd, mean, variance, name)
 
     def __repr__(self) -> str:
         msg = "[ == solver === ]\n\t*latent variables :"
-        for var in self.__latent_variables.values():
+        for var in self.latent_variables.values():
             msg += "\n\t\t-" + str(var)
 
         msg += "\n\t*parameters :"
-        for par in self.__parameters.values():
+        for par in self.parameters.values():
             msg += "\n\t\t-" + str(par)
 
         # msg += "\n\t*theta :" + str(self.__theta)
@@ -170,27 +173,28 @@ class solver:
         for k in self.__data:
             msg += k + ", "
 
-        return msg + "\n\t*elapsed time = " + str(self.__elapsed_time) + "s"
+        msg += "\n\t*elapsed time = {:8.3f}s".format(self.__elapsed_time)
+        return msg
 
     # ===== step regardless of algo ===== #
     def stochastic_approximation(self, step_size: float) -> None:
-        for par in self.__parameters.values():
+        for par in self.parameters.values():
             par.step_stochastic_approximation(self, step_size)
 
     def gibbs_sampler_step(self, loglikelihood, niter: int) -> None:
         """Simulation step"""
         for i in range(niter):
-            for var_lat in self.__latent_variables.values():
+            for var_lat in self.latent_variables.values():
                 var_lat.gibbs_sampler_step(loglikelihood, self.__theta, **self.__data)
 
     def gradient_descent(self, loss_grad, step_size: float):
         loss_eval, grad_eval = loss_grad(self.__theta, **self.__data)
-        print(loss_eval)
+        # print(loss_eval)
 
-        for par in self.__parameters:
+        for par in self.parameters:
             # print(getattr(grad_eval, par))
-            # print(self.__parameters[par])
-            self.__parameters[par].step_gradient_descent(
+            # print(self.parameters[par])
+            self.parameters[par].step_gradient_descent(
                 getattr(grad_eval, par), step_size
             )
 
@@ -199,7 +203,7 @@ class solver:
         gradient.step_stochastic_approximation(self, 1)
 
         for par in self.__theta:
-            self.__parameters[par].step_gradient_descent(gradient[par], step_size)
+            self.parameters[par].step_gradient_descent(gradient[par], step_size)
 
     # ==== handling step method ===== #
     def reset_solver(self) -> None:
@@ -221,6 +225,8 @@ class solver:
     @default_arg
     def algorithm(func, algorithm_name="algo"):
         def new_algorithm(self, *args, **kwargs):
+            if not self.__is_init:
+                raise AssertionError("parameters in solver are not initialized")
             self.start_solver(algorithm_name)
             func(self, *args, **kwargs)
             self.stop_solver(algorithm_name)
@@ -264,7 +270,7 @@ class solver:
 
 
 def solver_init(s: solver, theta0, mean_name, variance_name, mcmc_name, dim, sd):
-    from parameter import par_mean, par_variance
+    from sdg4varselect.parameter import par_mean, par_variance
 
     for k in theta0:
 
@@ -285,11 +291,19 @@ def solver_init(s: solver, theta0, mean_name, variance_name, mcmc_name, dim, sd)
 
 
 if __name__ == "__main__":
-    # === Data simulation === #
-    from data_sim import loglikelihood, s
 
-    s.step_size(burnin_fct.from_1_to_0(1450, 0.75))
-    s.SAEM(1500, loglikelihood)
+    s = solver_init(
+        solver(),
+        theta0={"mu1": 5, "omega2_1": 0.5},
+        mean_name="mu",
+        variance_name="omega2_",
+        mcmc_name="Z",
+        dim={"Z1": 10},
+        sd={"Z1": 0.5},
+    )
+
+    s.init_parameters()
+
+    s.step_size(burnin_fct.from_1_to_0(140, 0.75))
+    s.SAEM(150, loglikelihood=lambda i, theta: 0)
     print(s)
-
-    s.to_csv("../cout.txt")

@@ -73,6 +73,15 @@ def step_message(iter: int, max_iter: int) -> None:
     print(os, end="\r")
 
 
+def namedTheta(**kwargs):
+    from collections import namedtuple
+
+    # kwargs["argnames"] = list(kwargs.keys())
+
+    namedTheta = namedtuple("namedTheta", kwargs.keys())
+    return namedTheta(**kwargs), namedTheta
+
+
 if __name__ == "__main__":
 
     import numpy as np
@@ -89,3 +98,7 @@ if __name__ == "__main__":
 
     np_sum_test(x)
     sum_test(x)
+
+    theta, theta_type = namedTheta(a=2, b=5)
+
+    print(theta)

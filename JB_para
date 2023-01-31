@@ -3,12 +3,13 @@ from math import pi
 import jax.numpy as jnp
 import numpy as np
 import parametrization_cookbook.jax as pc
-from burnin_fct import burnin_fct
+import sdg4varselect as sdg
 
 # === Data simulation === #
 from data_sim import get_data, loglikelihood
 from jax import jit, value_and_grad
-from miscellaneous import time_profiler
+
+# from miscellaneous import time_profiler
 
 s = get_data(
     theta0={
@@ -86,7 +87,7 @@ def para_grad_loss(theta, **kwargs):
     return out
 
 
-step_size = burnin_fct(500, -4, 550, 0.75)
+step_size = sdg.burnin_fct(500, -4, 550, 0.75)
 
 para_grad_loss(s.theta(), **s.data())
 loglikelihood(1, s.theta(), **s.data())

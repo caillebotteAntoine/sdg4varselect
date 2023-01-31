@@ -1,6 +1,6 @@
 from typing import Optional
 import numpy as np
-from chain import chain
+from sdg4varselect.chain import chain
 
 
 class parameter(chain):
@@ -120,7 +120,7 @@ class par_grad(parameter):
         super().__init__(0.0, len(grad_ind[0]), name + str(id), "gradient")
         self.__grad_ind = grad_ind
 
-        self.step_size_stochastic_approximation = 1
+        self.step_size_stochastic_approximation = 1.0
 
         self.__index = {}
         i = 0

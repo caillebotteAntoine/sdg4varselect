@@ -1,8 +1,8 @@
 import csv
 
-from chain import chain
-from MCMC import MCMC_chain
-from parameter import parameter
+from sdg4varselect.chain import chain
+from sdg4varselect.MCMC import MCMC_chain
+from sdg4varselect.parameter import parameter
 
 
 def csv_melter(writer, x) -> None:
