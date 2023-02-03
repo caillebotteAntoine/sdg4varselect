@@ -1,5 +1,6 @@
 from typing import Optional
 import numpy as np
+import jax.numpy as jnp
 from sdg4varselect.chain import chain
 
 
@@ -90,56 +91,24 @@ class par_noise_variance(linked_parameter):
         self._data[0] = np.var(noise)
 
 
-class par_grad_ind(parameter):
-    def __init__(
-        self,
-        size: int,
-        id: int,
-        loss_grad_id,
-        name: str = "gradient",
-    ):
-        super().__init__(0.0, size, name + str(id), "gradient")
-        self.__loss_grad_id = loss_grad_id
-
-        self.__id = id
-
-    def estimate(self, s) -> None:
-        # from solver import solver
-        out = self.__loss_grad_id(s.theta(), self.__id, **s.data())
-        out = np.concatenate([out[k] for k in out])
-
-        for i in range(self._size):
-            self._data[i] = out[i]
-
-
 class par_grad(parameter):
-    def __init__(
-        self, theta: dict[str, np.ndarray], grad_ind: list[par_grad_ind], name: str
-    ):
+    def __init__(self, n_individual, dim_parameter, jac_loss, smart_start, name: str):
 
-        super().__init__(0.0, len(grad_ind[0]), name + str(id), "gradient")
-        self.__grad_ind = grad_ind
+        super().__init__(0.0, dim_parameter, name, "gradient")
+        self.__jac_loss = jac_loss
 
-        self.step_size_stochastic_approximation = 1.0
+        self.__jac = jnp.zeros((n_individual, dim_parameter))
+        self.__grad = jnp.zeros(n_individual, dim_parameter)
 
-        self.__index = {}
-        i = 0
-        for v in theta:
-            self.__index[v] = [i + k for k in range(len(theta[v]))]
-            i += len(theta[v])
+        self.__smart_start = smart_start
 
-        # print(self.__index)
+    def jac_and_grad(self, solver, step_size):
+        jac_tmp = self.__jac_loss(solver.theta(), **solver.data())
+        jac_tmp = jnp.array(jac_tmp).T[0]
 
-    def compute_all_individual_grad(self, solver):
-        for i in range(self._size):
-            self._data[i] = 0.0
+        self.__grad = jac_tmp.mean(axis=0)
 
-        for i in range(len(self.__grad_ind)):
-            self.__grad_ind[i].step_stochastic_approximation(
-                solver, self.step_size_stochastic_approximation
-            )
-
-            self._data += self.__grad_ind[i].data()
+        self.__jac += step_size * (self.__jac - jac_tmp)
 
     def estimate(self, solver) -> None:
         self.compute_all_individual_grad(solver)

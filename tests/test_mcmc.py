@@ -56,7 +56,7 @@ def test_gibbs_sampler_step():
     )
 
     for i in range(100):
-        x.gibbs_sampler_step(lambda i, x: 0, None)
+        x.gibbs_sampler_step(lambda theta: 0, None)
 
     chain_mean = np.mean(x.chain(), axis=1)
     assert np.mean(np.abs(chain_mean[60:] / 5 - 1)) < 0.05
@@ -67,7 +67,7 @@ def test_gibbs_sampler_step():
     assert len(x.sd()) == 1
 
     x.adaptative_sd(True)
-    x.gibbs_sampler_step(lambda i, x: 0, None)
+    x.gibbs_sampler_step(lambda theta: 0, None)
     assert len(x.sd()) == 2
 
 

@@ -1,5 +1,5 @@
 import numpy as np
-from sdg4varselect.solver import solver, solver_init
+from sdg4varselect.solver import solver_init
 from sdg4varselect.parameter import par_noise_variance
 
 
@@ -15,7 +15,7 @@ theta_star = {
 }
 
 
-def get_data(theta0, N=500, J=20):
+def get_data(s, theta0, N=500, J=20):
     from sdg4varselect.logistic_model import model
 
     time_obs = np.linspace(100, 1500, num=J)
@@ -28,7 +28,7 @@ def get_data(theta0, N=500, J=20):
 
     # === solver init === #
     s = solver_init(
-        solver(),
+        s,
         theta0,
         mean_name="beta",
         variance_name="gamma2_",
@@ -41,6 +41,6 @@ def get_data(theta0, N=500, J=20):
     s.add_variable("time", time_obs)
     s.add_parameter(par_noise_variance(theta0["sigma2"], "Y", model, "sigma2"))
     s.set_data("Y", "time", "phi1", "phi2", "phi3")
-    s.init_parameters()
+    thetaType = s.init_parameters()
 
-    return s
+    return (s, thetaType)

@@ -72,7 +72,7 @@ def DG_dict(h, niter, eps=1e-1):
 
 # ========================================================#
 
-niter = 100
+niter = 10
 print(DG(f, niter))
 print(DG_2dim(g, niter))
 print(DG_dict(h, niter))
@@ -82,3 +82,18 @@ print(DG_dict(h_jit, niter))
 # 10 loops:    5.169 s per loop
 # 7 loops:    9.449 s per loop
 # 10 loops:    2.510 s per loop
+
+
+class test:
+    def __init__(self, x, func):
+        self.__x = x
+
+        self.__loglike = lambda *args, **kwargs: self.__x * func(*args, **kwargs)
+
+    def val(self, y):
+        return self.__loglike(y)
+
+
+x = test(10, lambda x: x**2)
+
+print(x.val(2))

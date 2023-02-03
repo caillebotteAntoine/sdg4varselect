@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 import sdg4varselect as sdg
 

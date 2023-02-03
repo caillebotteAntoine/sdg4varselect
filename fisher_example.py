@@ -1,25 +1,26 @@
-from math import pi
-
-import jax.numpy as jnp
 import numpy as np
+from jax import jit, value_and_grad
 import parametrization_cookbook.jax as pc
-from burnin_fct import burnin_fct
+
+import sdg4varselect as sdg
+from sdg4varselect.parameter import par_grad, par_grad_ind
 
 # === Data simulation === #
-from data_sim import (
-    N,
-    Y_obs,
-    loglikelihood,
-    phi1_obs,
-    phi2_obs,
-    phi3_obs,
-    s,
-    theta_star,
-    time_obs,
+from data_sim import get_data
+from sdg4varselect.logistic_model import loss_id, loss, partial_loglikelihood
+from sdg4varselect.miscellaneous import time_profiler, difftime
+
+s = get_data(
+    theta0={
+        "beta1": np.array([300.0]),
+        "gamma2_1": np.array([30.0]),
+        "beta2": np.array([400.0]),
+        "gamma2_2": np.array([30.0]),
+        "beta3": np.array([200.0]),
+        "sigma2": np.array([10.0]),
+    }
 )
-from jax import grad, jit
-from miscellaneous import time_profiler
-from parameter import par_grad, par_grad_ind
+
 
 parametrization = s.parametrization(
     beta1=pc.Real(shape=1),
@@ -29,51 +30,6 @@ parametrization = s.parametrization(
     gamma2_2=pc.Real(shape=1),
     sigma2=pc.Real(shape=1),
 )
-
-theta0 = {
-    "beta1": np.array([300.0]),
-    "gamma2_1": np.array([30.0]),
-    "beta2": np.array([400.0]),
-    "gamma2_2": np.array([30.0]),
-    "beta3": np.array([100.0]),
-    "sigma2": np.array([10.0]),
-}
-
-
-@jit
-def jit_logistic(
-    x, supremum: float, midpoint: float, growth_rate: float
-) -> jnp.ndarray:
-    return supremum / (1 + jnp.exp(-(x - midpoint) / growth_rate))
-
-
-@jit
-def gaussian_prior(data, mean, variance) -> jnp.ndarray:
-    # Computation of the current target distrubtion score
-    out = jnp.log(2 * pi * variance) + jnp.power(data - mean, 2) / variance
-    return -jnp.sum(out) / 2
-
-
-@jit
-def model(time, phi1, phi2, phi3, **kwargs):
-    N = len(phi1)
-    out = [jit_logistic(time, phi1[i], phi2[i], phi3[i]) for i in range(N)]
-    return jnp.array(out)
-
-
-@jit
-def loss_id(theta, i, Y, time, phi1, phi2, phi3):
-    latent_prior = (
-        gaussian_prior(phi1[i], theta.beta1, theta.gamma2_1)
-        + gaussian_prior(phi2[i], theta.beta2, theta.gamma2_2)
-        + gaussian_prior(phi3[i], theta.beta3, 1)
-    )
-
-    pred = model(time, phi1[i], phi2[i], phi3[i])
-    out = jnp.sum(jnp.power(Y[i] - pred, 2))
-    out = latent_prior - out / (2 * theta.sigma2[0])
-
-    return out
 
 
 def fisher(grad):
@@ -106,8 +62,8 @@ def get_grad_ind(loss_grad, theta: dict[str, np.ndarray], Y, time, phi1, phi2, p
     return gradient_list, gradient
 
 
-grad_loss = grad(loss_id)
-step_size = burnin_fct(500, -4, 550, 0.75)
+grad_loss = value_and_grad(loss_id)
+step_size = sdg.burnin_fct(500, -4, 550, 0.75)
 
 
 print(s)
@@ -134,22 +90,7 @@ def test_grad():
         grad_loss(theta0, i, Y_obs, time_obs, phi1_obs, phi2_obs, phi3_obs)
 
 
-def loss(theta, Y, time, phi1, phi2, phi3):
-    N = len(phi1)
-    latent_prior = (
-        gaussian_prior(phi1, theta["beta1"], theta["gamma2_1"])
-        + gaussian_prior(phi2, theta["beta2"], theta["gamma2_2"])
-        + gaussian_prior(phi3, theta["beta3"], 1)
-    )
-
-    pred = model(time, phi1, phi2, phi3)
-    out = jnp.sum(jnp.power(Y - pred, 2))
-    out = latent_prior - out / (2 * theta["sigma2"][0])
-
-    return out / N  # - Loglikelihood for the maximization
-
-
-full_grad = grad(loss)
+full_grad = value_and_grad(loss)
 
 
 @time_profiler

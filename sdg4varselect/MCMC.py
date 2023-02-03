@@ -1,8 +1,24 @@
-import numpy as np
-from numpy.random import uniform
 from math import pi
 
-from .chain import chain
+import jax.numpy as jnp
+import numpy as np
+from jax import jit
+
+from sdg4varselect.chain import chain
+
+
+@jit
+def logistic_curve(
+    x, supremum: float, midpoint: float, growth_rate: float
+) -> jnp.ndarray:
+    return supremum / (1 + jnp.exp(-(x - midpoint) / growth_rate))
+
+
+@jit
+def gaussian_prior(data, mean, variance) -> jnp.ndarray:
+    # Computation of the current target distrubtion score
+    out = jnp.log(2 * pi * variance) + jnp.power(data - mean, 2) / variance
+    return -out / 2
 
 
 class MCMC_chain(chain):
@@ -51,43 +67,34 @@ class MCMC_chain(chain):
 
         return rate
 
-    def prior(self, i, loglikelihood, theta, **kwargs) -> np.ndarray:
+    def prior(self, loglike_without_prior_array, theta, **kwargs) -> jnp.ndarray:
         # Computation of the current target distrubtion score
-        gaussian_prior = -0.5 * (
-            np.log(2 * pi * self.__variance)
-            + pow(self._data[i] - self.__mean, 2) / self.__variance
-        )
+        out = gaussian_prior(self._data, self.__mean, self.__variance)
+        out += loglike_without_prior_array(theta, **kwargs)
 
-        out = gaussian_prior + loglikelihood(i, theta, **kwargs)
         return out
 
-    def gibbs_sampler_step(self, loglikelihood, theta, **kwargs) -> None:
+    def gibbs_sampler_step(self, loglike_without_prior_array, theta, **kwargs) -> None:
         old_data = self._data.copy()
 
         nacceptance = self.__acceptance[-1]
-        current_score = [
-            self.prior(i, loglikelihood, theta, **kwargs) for i in range(self._size)
-        ]
         standard_deviation = self.__sd[-1]
+        current_score = self.prior(loglike_without_prior_array, theta, **kwargs)
 
-        for i in range(len(self._data)):
-            self._data[i] += standard_deviation * np.random.normal()
+        # === proposal value ===
+        self._data += standard_deviation * np.random.normal(size=self._size)
+        proposal_score = self.prior(loglike_without_prior_array, theta, **kwargs)
+        # choose the new value
+        rd = np.log(np.random.uniform(size=self._size))
+        rejected_id = proposal_score - current_score <= rd
 
-            proposal_score = self.prior(i, loglikelihood, theta, **kwargs)
-
-            rd = uniform()  # random value between 0 and 1
-            if (proposal_score > current_score[i]) or (
-                np.log(rd) < proposal_score - current_score[i]
-            ):
-                nacceptance += 1  # acceptation
-            else:
-                self._data[i] = old_data[i]  # rejection
+        self._data[rejected_id] = old_data[rejected_id]
+        nacceptance += self._size - rejected_id.sum()
 
         self.update_chain()  # append the new data to the chain
 
         self.__acceptance.append(nacceptance)
-        if self.__adaptative_sd:
-            self.adapt_sd()
+        self.adapt_sd()
 
     def adapt_sd(self) -> None:
         """
@@ -126,11 +133,6 @@ if __name__ == "__main__":
 
     eps = np.random.normal(0, np.sqrt(sigma2), N * J)
 
-    def logistic_curve(
-        x, supremum: float, midpoint: float, growth_rate: float
-    ) -> float:
-        return supremum / (1 + np.exp(-(x - midpoint) / growth_rate))
-
     time = np.linspace(100, 1500, num=J)
     Y = np.array([logistic_curve(time, phi1[i], phi2[i], phi3[i]) for i in range(N)])
     print(Y.shape)
@@ -140,13 +142,17 @@ if __name__ == "__main__":
     plt.plot(time, Y.transpose())
     # plt.show()
 
-    def loglikelihood(i: int, theta, phi1, phi2, phi3) -> float:
-        # print(phi1)
-        pred = logistic_curve(time, phi1[i], phi2[i], phi3[i])
-        # print(Y[i])
-        # print(pred)
-        out = sum(Y[i] - pred) ** 2 / theta["sigma2"]
-        return out
+    def partial_loglike(theta, Y, time, phi1, phi2, phi3) -> jnp.ndarray:
+        pred = logistic_curve(time, phi1, phi2, phi3)
+        out = jnp.sum(jnp.power(Y - pred, 2))
+        return jnp.sum(-out / (2 * theta.sigma2))
+
+    def partial_loss_array(theta, Y, time, phi1, phi2, phi3):
+        out = [
+            partial_loglike(theta, Y[i], time, phi1[i], phi2[i], phi3[i])
+            for i in range(len(phi1))
+        ]
+        return jnp.array(out)
 
     beta1 = chain(theta0[0])
     gamma1 = chain(theta0[3])
@@ -157,9 +163,32 @@ if __name__ == "__main__":
 
     phi1 = MCMC_phi1.data()
 
+    from miscellaneous import namedTheta, time_profiler
+
     MCMC_phi1.gibbs_sampler_step(
-        loglikelihood, {"sigma2": sigma2}, phi1=phi1, phi2=phi2, phi3=phi3
+        partial_loss_array,
+        namedTheta(sigma2=sigma2),
+        time=time,
+        Y=Y,
+        phi1=phi1,
+        phi2=phi2,
+        phi3=phi3,
     )
+
+    @time_profiler(nrun=2000)
+    def gibbs():
+        MCMC_phi1.gibbs_sampler_step(
+            partial_loss_array,
+            namedTheta(sigma2=sigma2),
+            time=time,
+            Y=Y,
+            phi1=phi1,
+            phi2=phi2,
+            phi3=phi3,
+        )
+
+    gibbs()
+
     print(MCMC_phi1)
     print(phi1)
 

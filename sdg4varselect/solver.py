@@ -1,64 +1,45 @@
-import numpy as np
-from warnings import warn
 from typing import Optional
-import time
+from warnings import warn
+
+import numpy as np
+import parametrization_cookbook.jax as pc
 
 # from chain import chain
 from sdg4varselect.MCMC import MCMC_chain
-from sdg4varselect.burnin_fct import burnin_fct
-from sdg4varselect.parameter import parameter, par_grad
-
-from sdg4varselect.csv_melter import solver2csv
-
-from sdg4varselect.miscellaneous import step_message, default_arg
-
-import parametrization_cookbook.jax as pc
+from sdg4varselect.parameter import parameter
 
 
 class solver:
     def __init__(self):
         """Constructor of solver."""
         self.parameters = {}
-        self.__theta = {}
-        self.__theta_parametrization: pc.NamedTuple = None
+        self._theta = {}
+        self._theta_parametrization: pc.NamedTuple = None
         self.latent_variables = {}
         self.__global_variables = {}
 
-        self.__data = {}
-
-        self.__step_size = burnin_fct()
-
-        self.__iter = 0
-        self.__start = 0
-        self.__elapsed_time = 0
+        self._data = {}
 
         self.__is_init = False
 
+    def is_init(self):
+        return self.__is_init
+
+    def theta_to_params(self):
+        theta_array = np.concatenate([x for x in self._theta])
+        theta = self._theta_parametrization.reals1d_to_params(theta_array)
+        return theta
+
     def theta(self):
-        return self.__theta
+        return self._theta
 
     def data(self):
-        return self.__data
-
-    def to_csv(self, file_name: str) -> None:
-        solver2csv(
-            self.__elapsed_time,
-            self.parameters,
-            self.latent_variables,
-            self.__step_size,
-            self.__iter,
-            file_name,
-        )
+        return self._data
 
     def get_global(self, name):
         if name in self.__global_variables:
             return self.__global_variables[name]
         raise KeyError(name + " isn't in global variables")
-
-    def step_size(self, fct: burnin_fct):
-        if not isinstance(fct, burnin_fct):
-            raise TypeError("fct must be a burnin fct")
-        self.__step_size = fct
 
     def set_data(self, *name_args) -> None:
         if len(name_args) > 1:
@@ -68,11 +49,11 @@ class solver:
             name = name_args[0]
             if isinstance(name, str):
                 if name in self.parameters:
-                    self.__data[name] = self.parameters[name].data()
+                    self._data[name] = self.parameters[name].data()
                 elif name in self.latent_variables:
-                    self.__data[name] = self.latent_variables[name].data()
+                    self._data[name] = self.latent_variables[name].data()
                 elif name in self.__global_variables:
-                    self.__data[name] = self.__global_variables[name]
+                    self._data[name] = self.__global_variables[name]
                 else:
                     raise KeyError(
                         name
@@ -90,7 +71,7 @@ class solver:
             raise ValueError("parameters must have a name to be added to the solver")
 
         self.parameters[name] = x
-        self.__theta[name] = x.data()
+        self._theta[name] = x.data()
 
     def init_parameters(self):
         for par in self.parameters.values():
@@ -110,7 +91,7 @@ class solver:
 
         from sdg4varselect.miscellaneous import namedTheta
 
-        self.__theta, thetaType = namedTheta(**self.__theta)
+        self._theta, thetaType = namedTheta(**self._theta)
 
         self.__is_init = True
         return thetaType
@@ -124,7 +105,7 @@ class solver:
             else:
                 sorted_kwargs[par] = kwargs[par]
 
-        self.__theta_parametrization = pc.NamedTuple(**sorted_kwargs)
+        self._theta_parametrization = pc.NamedTuple(**sorted_kwargs)
         return pc.NamedTuple(**sorted_kwargs)
 
     def add_MCMC(
@@ -167,106 +148,13 @@ class solver:
         for par in self.parameters.values():
             msg += "\n\t\t-" + str(par)
 
-        # msg += "\n\t*theta :" + str(self.__theta)
+        # msg += "\n\t*theta :" + str(self._theta)
 
         msg += "\n\t*data : "
-        for k in self.__data:
+        for k in self._data:
             msg += k + ", "
 
-        msg += "\n\t*elapsed time = {:8.3f}s".format(self.__elapsed_time)
         return msg
-
-    # ===== step regardless of algo ===== #
-    def stochastic_approximation(self, step_size: float) -> None:
-        for par in self.parameters.values():
-            par.step_stochastic_approximation(self, step_size)
-
-    def gibbs_sampler_step(self, loglikelihood, niter: int) -> None:
-        """Simulation step"""
-        for i in range(niter):
-            for var_lat in self.latent_variables.values():
-                var_lat.gibbs_sampler_step(loglikelihood, self.__theta, **self.__data)
-
-    def gradient_descent(self, loss_grad, step_size: float):
-        loss_eval, grad_eval = loss_grad(self.__theta, **self.__data)
-        # print(loss_eval)
-
-        for par in self.parameters:
-            # print(getattr(grad_eval, par))
-            # print(self.parameters[par])
-            self.parameters[par].step_gradient_descent(
-                getattr(grad_eval, par), step_size
-            )
-
-    def gradient_descent_par(self, gradient: par_grad, step_size: float):
-        gradient.step_size_stochastic_approximation = step_size
-        gradient.step_stochastic_approximation(self, 1)
-
-        for par in self.__theta:
-            self.parameters[par].step_gradient_descent(gradient[par], step_size)
-
-    # ==== handling step method ===== #
-    def reset_solver(self) -> None:
-        self.__elapsed_time = 0
-        self.__iter = 0
-
-    def start_solver(self, name: str) -> None:
-        print(name + " started ! ")
-        self.__start = time.time()
-
-    def stop_solver(self, name: str) -> None:
-        end = time.time()
-        self.__elapsed_time += end - self.__start
-        print("\nend of the " + name + " !")
-
-    #########################
-    # ===== algorithm ===== #
-    #########################
-    @default_arg
-    def algorithm(func, algorithm_name="algo"):
-        def new_algorithm(self, *args, **kwargs):
-            if not self.__is_init:
-                raise AssertionError("parameters in solver are not initialized")
-            self.start_solver(algorithm_name)
-            func(self, *args, **kwargs)
-            self.stop_solver(algorithm_name)
-
-        return new_algorithm
-
-    # = = = = = = = = = = = = = = = = = = = = = = = = = #
-    @algorithm(algorithm_name="SAEM")
-    def SAEM(self, niter: int, loglikelihood, MCMC_step: int = 1) -> None:
-
-        for i in range(niter):
-            self.__iter += 1
-            step_message(self.__iter, niter)
-            # Simulation
-            self.gibbs_sampler_step(loglikelihood, MCMC_step)
-            # print(sum([loglikelihood(i, **self.__data) for i in range(N)]))
-            # Stochastic approximation
-            self.stochastic_approximation(self.__step_size(self.__iter))
-
-    # = = = = = = = = = = = = = = = = = = = = = = = = = #
-    @algorithm(algorithm_name="SGD")
-    def SGD(self, niter: int, loglikelihood, loss_grad, MCMC_step: int = 1) -> None:
-        for i in range(niter):
-            self.__iter += 1
-            step_message(self.__iter, niter)
-            # Simulation
-            self.gibbs_sampler_step(loglikelihood, MCMC_step)
-            # Gradient descent
-            self.gradient_descent(loss_grad, self.__step_size(self.__iter))
-
-    # = = = = = = = = = = = = = = = = = = = = = = = = = #
-    @algorithm(algorithm_name="SGD2")
-    def SGD2(self, niter: int, loglikelihood, gradient, MCMC_step: int = 1) -> None:
-        for i in range(niter):
-            self.__iter += 1
-            step_message(self.__iter, niter)
-            # Simulation
-            self.gibbs_sampler_step(loglikelihood, MCMC_step)
-            # Gradient descent
-            self.gradient_descent_par(gradient, self.__step_size(self.__iter))
 
 
 def solver_init(s: solver, theta0, mean_name, variance_name, mcmc_name, dim, sd):
@@ -288,22 +176,3 @@ def solver_init(s: solver, theta0, mean_name, variance_name, mcmc_name, dim, sd)
             else:
                 s.add_MCMC(mcmc, theta0[k], dim[mcmc], sd[mcmc], k)
     return s
-
-
-if __name__ == "__main__":
-
-    s = solver_init(
-        solver(),
-        theta0={"mu1": 5, "omega2_1": 0.5},
-        mean_name="mu",
-        variance_name="omega2_",
-        mcmc_name="Z",
-        dim={"Z1": 10},
-        sd={"Z1": 0.5},
-    )
-
-    s.init_parameters()
-
-    s.step_size(burnin_fct.from_1_to_0(140, 0.75))
-    s.SAEM(150, loglikelihood=lambda i, theta: 0)
-    print(s)
