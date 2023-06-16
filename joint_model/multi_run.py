@@ -1,4 +1,6 @@
 # Create by antoine.caillebotte@inrae.fr
+from time import time
+from sdg4varselect.miscellaneous import time2string
 
 from one_run import kwargs_run_GD, sample_and_estim, params0, N_IND, DIM_COV
 from sdg4varselect.miscellaneous import step_message
@@ -30,7 +32,9 @@ def regularization_path(path, prng_key, nrep=1, verbatim=False):
 # ====================================================== #
 lbd_set = 10 ** jnp.linspace(-1.5, 1, num=5)
 
-res_solver = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
+time_start = time()
+res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
+print(time2string(time() - time_start))
 
 fig, ax, bic_res = sdgplt.plot_regularization_path(
     res_solver,
