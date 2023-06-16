@@ -97,11 +97,11 @@ fig.savefig("images/regularization_path.png")
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
-lbd_selection = 1.27e-3  # lbd_set[bic_res["bic"] == bic_res["min"]]
+lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]]
 print("regularization value selected = {lbd_selection}")
 kwargs_run_GD["prox_regul"] = lbd_selection
 
-n_run = 4
+n_run = 1
 time_start = time()
 solver_list, res_list, res_select_list = multi_estim(n_run, jrd.PRNGKey(0), verbatim = False)
 print(time2string(time() - time_start))
