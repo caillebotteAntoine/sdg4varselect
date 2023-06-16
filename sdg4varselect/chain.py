@@ -3,18 +3,14 @@ from warnings import warn
 
 
 class chain:
-    used_name: list[str] = []
-
     def __init__(self, x0: float, size: int = 1, name=None, type="chain"):
         """Constructor of chain."""
         self.__type = type
-        if name in chain.used_name:
-            raise ValueError(name + " already used as chain name")
+
         if name is None:
             self.__name = "NA"
         else:
             self.__name = name
-            chain.used_name.append(name)
 
         if isinstance(x0, (list, np.ndarray)):
             if len(x0) > 1:
@@ -60,18 +56,27 @@ class chain:
         return self._size
 
     def update_chain(self):
+        """append to the chain a copy of the current value of data"""
         self.__chain.append(self._data.copy())
 
+    @property
     def data(self) -> np.ndarray:
+        """returns the current value of data"""
         return self._data
 
+    @property
     def chain(self) -> list[np.ndarray]:
+        """returns the data chain"""
         return self.__chain
 
+    @property
     def name(self) -> str:
+        """returns chain's name"""
         return self.__name
 
+    @property
     def type(self) -> str:
+        """returns chain's type"""
         return self.__type
 
 
@@ -80,7 +85,7 @@ if __name__ == "__main__":
     x = chain(0, 3)
     print(x)
 
-    y = x.data()
+    y = x.data
     print(y)
 
     y[0] = 2

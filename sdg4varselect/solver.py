@@ -1,178 +1,236 @@
-from typing import Optional
-from warnings import warn
+# Create by caillebotte.antoine@inrae.fr
 
+import jax.numpy as jnp
 import numpy as np
 import parametrization_cookbook.jax as pc
 
-# from chain import chain
 from sdg4varselect.MCMC import MCMC_chain
-from sdg4varselect.parameter import parameter
+
+import jax.random as jrd
+from time import time
 
 
-class solver:
+class Solver:
     def __init__(self):
         """Constructor of solver."""
-        self.parameters = {}
-        self._theta = {}
-        self._theta_parametrization: pc.NamedTuple = None
-        self.latent_variables = {}
-        self.__global_variables = {}
+        self._theta_reals1d: jnp.ndarray = None
+        self._parametrization: pc.NamedTuple = None
 
-        self._data = {}
+        self.latent_variables: dict[str, MCMC_chain] = {}
+        self.__data = {}
+
+        self._likelihood = None
+        self._likelihood_kwargs = {}
 
         self.__is_init = False
 
     def is_init(self):
+        """returns true if the initial parameterization and parameters were provided and initialized"""
         return self.__is_init
 
-    def theta_to_params(self):
-        theta_array = np.concatenate([x for x in self._theta])
-        theta = self._theta_parametrization.reals1d_to_params(theta_array)
-        return theta
+    @property
+    def parametrization(self) -> pc._common.NamedTuple:
+        """returns theta parametrization"""
+        return self._parametrization
 
-    def theta(self):
-        return self._theta
+    @parametrization.setter
+    def parametrization(self, para):  # kwargs):
+        """Define the parametrization for theta"""
+        self._parametrization = para  # pc.NamedTuple(**kwargs)
 
-    def data(self):
-        return self._data
+    @property
+    def params(self):
+        """returns the last estimated value of the parameters"""
+        return self._parametrization.reals1d_to_params(self._theta_reals1d)
 
-    def get_global(self, name):
-        if name in self.__global_variables:
-            return self.__global_variables[name]
-        raise KeyError(name + " isn't in global variables")
+    def parametrization_reals1d_to_params(self, x):
+        return self._parametrization.reals1d_to_params(x)
 
-    def set_data(self, *name_args) -> None:
-        if len(name_args) > 1:
-            for n in name_args:
-                self.set_data(n)
+    @property
+    def theta_reals1d(self):
+        """returns theta in the reparameterized space"""
+        return self._theta_reals1d
+
+    @theta_reals1d.setter
+    def theta_reals1d(self, kwargs):
+        if self._parametrization is None:
+            raise ValueError("parametrization must be initiate first.")
+
+        if isinstance(kwargs, dict):
+            self._theta_reals1d = self._parametrization.params_to_reals1d(**kwargs)
         else:
-            name = name_args[0]
+            self._theta_reals1d = self._parametrization.params_to_reals1d(kwargs)
+
+        self.__is_init = True
+
+    @property
+    def params_names(self):
+        idx_params = self.parametrization.idx_params
+        rep_num = [idx.stop - idx.start for idx in idx_params]
+        names = idx_params._fields
+        return np.repeat(names, rep_num)
+
+    @property
+    def likelihood(self):
+        """returns the likelihood"""
+        return self._likelihood
+
+    @likelihood.setter
+    def likelihood(self, func):
+        self._likelihood = func
+
+    @property
+    def likelihood_kwargs(self) -> dict:
+        """returns the likelihood kwargs"""
+        return self._likelihood_kwargs
+
+    def add_likelihood_kwargs(self, *name_args) -> None:
+        # self.set_likelihood_kwargs(*name_args)
+
+        # def set_likelihood_kwargs(self, *name_args) -> None:
+        """define the default parameters of the function to be optimized by
+        looking for them in the latent variables or the data"""
+        for name in name_args:
             if isinstance(name, str):
-                if name in self.parameters:
-                    self._data[name] = self.parameters[name].data()
-                elif name in self.latent_variables:
-                    self._data[name] = self.latent_variables[name].data()
-                elif name in self.__global_variables:
-                    self._data[name] = self.__global_variables[name]
+                if name in self.latent_variables:
+                    self._likelihood_kwargs[name] = self.latent_variables[name].data
+                elif name in self.__data:
+                    self._likelihood_kwargs[name] = self.__data[name]
                 else:
                     raise KeyError(
-                        name
-                        + "does not exist neiter in parameters or in latent variables or in global variables"
+                        f"{name} does not exist neiter in latent variables or in global variables."
                     )
             else:
                 raise TypeError("name must be a str or a list of str")
 
-    def add_variable(self, name: str, x) -> None:
-        self.__global_variables[name] = x
+    def add_data(self, **kwargs) -> None:
+        """adds variables to the solver data"""
+        for key, item in kwargs.items():
+            if key in self.__data:
+                raise KeyError(key + " all ready exist in solver's data.")
+            self.__data[key] = item
 
-    def add_parameter(self, x: parameter) -> None:
-        name = x.name()
-        if name == "NA":
-            raise ValueError("parameters must have a name to be added to the solver")
-
-        self.parameters[name] = x
-        self._theta[name] = x.data()
-
-    def init_parameters(self):
-        for par in self.parameters.values():
-
-            name = par.linked_name
-            if name in self.latent_variables:
-                var = self.latent_variables[name].data()
-            elif name in self.__global_variables:
-                var = self.__global_variables[name]
-            else:
+    def update_data(self, **kwargs) -> None:
+        """update variables to the solver data"""
+        for key, item in kwargs.items():
+            if key in self.latent_variables:
                 raise KeyError(
-                    name
-                    + " does not exist neiter in latent variables or in global variables"
+                    f"changing the value of a latent variable ({key}) is not allowed."
                 )
 
-            par.init(var)
+            if key in self._likelihood_kwargs:
+                self._likelihood_kwargs[key] = item
 
-        from sdg4varselect.miscellaneous import namedTheta
-
-        self._theta, thetaType = namedTheta(**self._theta)
-
-        self.__is_init = True
-        return thetaType
-
-    def parametrization(self, **kwargs):
-
-        sorted_kwargs = {}
-        for par in self.parameters:
-            if par not in kwargs:
-                raise ValueError(par + " is missing in the parametrization tuple")
+            if key in self.__data:
+                self.__data[key] = item
             else:
-                sorted_kwargs[par] = kwargs[par]
+                raise KeyError(f"{key} does not exist in global variables.")
 
-        self._theta_parametrization = pc.NamedTuple(**sorted_kwargs)
-        return pc.NamedTuple(**sorted_kwargs)
-
-    def add_MCMC(
-        self,
-        name: str,
-        x0: float,
-        size: int,
-        sd: float,
-        mean_name: str,
-        variance_name: Optional[str] = None,
-    ) -> None:
-
-        if not isinstance(mean_name, str):
-            raise TypeError("mean_name must be a str")
-        if mean_name not in self.parameters:
-            raise KeyError(mean_name + " does not exist in parameters")
-        mean = self.parameters[mean_name].data()
-
-        variance = np.array([1])
-        if variance_name is None:
-            warn(
-                "no variance was provided, the default variance was set to 1 as hyper parameter"
+    def add_mcmc(self, *args, **kwargs) -> None:
+        """create a new mcmc chain and add it to the latent variable of the solver"""
+        new_mcmc = MCMC_chain(*args, **kwargs)
+        new_mcmc_name = new_mcmc.name
+        if new_mcmc_name in self.latent_variables:
+            raise KeyError(
+                new_mcmc_name + " all ready exist in solver's latent_variables."
             )
-        else:
-            if not isinstance(variance_name, str):
-                raise TypeError("variance_name must be a str")
-            if variance_name not in self.parameters:
-                raise KeyError(variance_name + "does not exist in parameters")
-
-            variance = self.parameters[variance_name].data()
-
-        self.latent_variables[name] = MCMC_chain(x0, size, sd, mean, variance, name)
+        self.latent_variables[new_mcmc_name] = new_mcmc
+        self.add_data(**dict(((new_mcmc_name, new_mcmc.data),)))
 
     def __repr__(self) -> str:
         msg = "[ == solver === ]\n\t*latent variables :"
         for var in self.latent_variables.values():
             msg += "\n\t\t-" + str(var)
 
-        msg += "\n\t*parameters :"
-        for par in self.parameters.values():
-            msg += "\n\t\t-" + str(par)
+        msg += (
+            str(self.params)
+            .replace("Array", "")
+            .replace(", dtype=float32", "")
+            .replace(", weak_type=True", "")
+            .replace("Parameters(", "\n\t*parameters :\n\t\t")
+            .replace(", ", ",\n\t\t")
+        )
 
         # msg += "\n\t*theta :" + str(self._theta)
 
         msg += "\n\t*data : "
-        for k in self._data:
+        for k in self.__data:
+            msg += k + ", "
+
+        msg += "\n\t*likelihood_kwargs : "
+        for k in self._likelihood_kwargs:
             msg += k + ", "
 
         return msg
 
+    def likelihood_marginal(self, size):
+        var_lat_sample = {}
 
-def solver_init(s: solver, theta0, mean_name, variance_name, mcmc_name, dim, sd):
-    from sdg4varselect.parameter import par_mean, par_variance
+        for var in self.latent_variables:
+            var_lat_sample[var] = self.latent_variables[var].sample(
+                jrd.PRNGKey(int(time())),
+                self.theta_reals1d,
+                size=size - 1,
+                **self.likelihood_kwargs,
+            )
 
-    for k in theta0:
+        out = self.likelihood(self.theta_reals1d, **self.likelihood_kwargs)
+        for k in range(size - 1):
+            for var in self.latent_variables:
+                self.likelihood_kwargs[var] = var_lat_sample[var][k]
 
-        if mean_name in k:
-            name_len = len(mean_name)
+            out += self.likelihood(self.theta_reals1d, **self.likelihood_kwargs)
 
-            mcmc = mcmc_name + k[name_len:]
-            variance = variance_name + k[name_len:]
+        for var in self.latent_variables:
+            self.likelihood_kwargs[var] = self.latent_variables[var].data
+        return out / size
 
-            s.add_parameter(par_mean(theta0[k], mcmc, k))
+    def theta_nonzero_support(self, p, theta=None):
+        """return the mask of non zero last p component of theta"""
+        if theta is None:
+            theta = self.theta_reals1d
 
-            if variance in theta0:
-                s.add_parameter(par_variance(theta0[variance], mcmc, variance))
-                s.add_MCMC(mcmc, theta0[k], dim[mcmc], sd[mcmc], k, variance)
-            else:
-                s.add_MCMC(mcmc, theta0[k], dim[mcmc], sd[mcmc], k)
-    return s
+        d = len(theta) - p
+        LD_mask = [True for k in range(d)]
+        HD_mask = jnp.arange(len(theta)) >= d
+        return jnp.hstack([LD_mask, theta[HD_mask] != 0])
+
+    def shrink_theta(self, index):
+        self._theta_reals1d = self._theta_reals1d[index]
+
+    def BIC(self, n, p, theta=None, size=100):
+        """
+        BIC = k*ln(n) - 2*ln(L)
+
+        where :
+            - k is the number of parameter estimated (ie non zero parameter in HD parameter)
+            - n is the sample size
+            - L the maximzed value of the likelihood function
+        """
+        if theta is None:
+            theta = self.theta_reals1d
+
+        k = jnp.count_nonzero(self.theta_nonzero_support(p, theta))
+        log_L = self.likelihood_marginal(size=size)
+
+        return -2 * log_L + k * jnp.log(n)
+
+
+def shrink_support(solver, name, p):
+    from copy import copy
+
+    solver_shrink = copy(solver)
+    solver_shrink.parametrization = copy(solver.parametrization)
+    d = len(solver.theta_reals1d) - p
+
+    # COV shrinkage
+    mask_select = solver_shrink.theta_nonzero_support(p=p)
+    # id_select = np.where(mask_select)[0]
+    cov = copy(solver_shrink.likelihood_kwargs["cov"])
+    cov_shrink = jnp.where(mask_select[d:], cov, 0)
+    # cov[:, id_select[d:]]
+    # On met des zeros plutot que de reparametriser
+
+    solver_shrink.update_data(cov=cov_shrink)
+
+    return solver_shrink, mask_select

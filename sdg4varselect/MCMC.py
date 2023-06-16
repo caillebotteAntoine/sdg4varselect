@@ -1,24 +1,45 @@
-from math import pi
+from functools import partial
 
 import jax.numpy as jnp
 import numpy as np
 from jax import jit
+from jax import random as jrd
 
 from sdg4varselect.chain import chain
 
 
-@jit
-def logistic_curve(
-    x, supremum: float, midpoint: float, growth_rate: float
-) -> jnp.ndarray:
-    return supremum / (1 + jnp.exp(-(x - midpoint) / growth_rate))
+@partial(
+    jit,
+    static_argnums=(1, 3, 5),
+)
+def gibbs_sampler(
+    key,  # 0
+    data_name,  # 1
+    standard_deviation,  # 2
+    loglikelihood,  # 3
+    theta_reals1d,  # 4
+    parametrization,  # 5
+    **kwargs
+):
+    key1, key2, key_out = jrd.split(key, num=3)
 
+    shape = kwargs[data_name].shape
+    old_data = kwargs[data_name].copy()
 
-@jit
-def gaussian_prior(data, mean, variance) -> jnp.ndarray:
-    # Computation of the current target distrubtion score
-    out = jnp.log(2 * pi * variance) + jnp.power(data - mean, 2) / variance
-    return -out / 2
+    current_score = loglikelihood(theta_reals1d, parametrization, **kwargs)
+
+    # === proposal value ===
+    kwargs[data_name] += standard_deviation * jrd.normal(key1, shape=shape)
+    proposal_score = loglikelihood(theta_reals1d, parametrization, **kwargs)
+
+    # choose the new value
+    rd = jnp.log(jrd.uniform(key2, shape=shape))
+    rejected_id = proposal_score - current_score <= rd
+
+    out = rejected_id * old_data + (1 - rejected_id) * kwargs[data_name]
+    nacceptance = out.size - rejected_id.sum()
+
+    return key_out, out, nacceptance
 
 
 class MCMC_chain(chain):
@@ -27,9 +48,8 @@ class MCMC_chain(chain):
         x0: float,
         size: int,
         sd: float,
-        mean: np.ndarray,
-        variance: np.ndarray,
-        name=None,
+        likelihood,
+        name: str,
     ):
         """Constructor of MCMC chain with a gibbs sampler method."""
         super().__init__(x0, size, name, "mcmc")
@@ -38,19 +58,27 @@ class MCMC_chain(chain):
         self.__sd = [sd]
         self.__adaptative_sd = False
         self.__lambda = 0.01
+        self.__likelihood = likelihood
 
-        if not isinstance(mean, np.ndarray):
-            raise TypeError("mean must be an np.ndarray")
-        self.__mean = mean
+    def __repr__(self) -> str:
+        out = super().__repr__()
+        out += " [mean = " + str(self._data.mean())
+        out += ", var = " + str(self._data.var()) + "]"
 
-        if not isinstance(variance, np.ndarray):
-            raise TypeError("variance must be an np.ndarray")
-        self.__variance = variance
+        return out
 
+    @property
+    def adaptative_sd(self) -> bool:
+        """returns the boolean adaptative_sd"""
+        return self.__adaptative_sd
+
+    @adaptative_sd.setter
     def adaptative_sd(self, x: bool) -> None:
         self.__adaptative_sd = x
 
+    @property
     def sd(self) -> list:
+        """returns the proposal variance"""
         return self.__sd
 
     def acceptance_rate(self, i=None) -> np.ndarray:
@@ -67,36 +95,37 @@ class MCMC_chain(chain):
 
         return rate
 
-    def prior(self, loglike_without_prior_array, theta, **kwargs) -> jnp.ndarray:
-        # Computation of the current target distrubtion score
-        out = gaussian_prior(self._data, self.__mean, self.__variance)
-        out += loglike_without_prior_array(theta, **kwargs)
+    def sample(self, key, theta_reals1d, size=1, **kwargs):
+        out = []
+        for _ in range(size):
+            key, data, nacceptance = gibbs_sampler(
+                key,
+                self.name,
+                self.__sd[-1],
+                self.__likelihood,
+                theta_reals1d,
+                **kwargs
+            )
 
+            out.append(data)
         return out
 
-    def gibbs_sampler_step(self, loglike_without_prior_array, theta, **kwargs) -> None:
-        old_data = self._data.copy()
+    def gibbs_sampler_step(self, key, theta_reals1d, **kwargs):
+        key_out, data, nacceptance = gibbs_sampler(
+            key, self.name, self.__sd[-1], self.__likelihood, theta_reals1d, **kwargs
+        )
 
-        nacceptance = self.__acceptance[-1]
-        standard_deviation = self.__sd[-1]
-        current_score = self.prior(loglike_without_prior_array, theta, **kwargs)
-
-        # === proposal value ===
-        self._data += standard_deviation * np.random.normal(size=self._size)
-        proposal_score = self.prior(loglike_without_prior_array, theta, **kwargs)
-        # choose the new value
-        rd = np.log(np.random.uniform(size=self._size))
-        rejected_id = proposal_score - current_score <= rd
-
-        self._data[rejected_id] = old_data[rejected_id]
-        nacceptance += self._size - rejected_id.sum()
-
+        self._data[:] = data
         self.update_chain()  # append the new data to the chain
 
+        nacceptance += self.__acceptance[-1]
         self.__acceptance.append(nacceptance)
-        self.adapt_sd()
 
-    def adapt_sd(self) -> None:
+        self.__adapt_sd()
+
+        return key_out
+
+    def __adapt_sd(self) -> None:
         """
         updating the variance of the gibbs sampler proposal
         to obtain an adequate acceptance rate
@@ -107,89 +136,69 @@ class MCMC_chain(chain):
         sd_prop = self.__sd[-1]
         rate = self.acceptance_rate(-1)
 
-        if 0.5 > rate or rate > 0.7:
-            if rate < 0.6:
-                sd_prop /= 1 + self.__lambda
+        # if 0.5 > rate or rate > 0.7:
+        if rate < 0.6:
+            sd_prop /= 1 + self.__lambda
 
-            if rate > 0.6:
-                sd_prop *= 1 + self.__lambda
+        if rate > 0.6:
+            sd_prop *= 1 + self.__lambda
 
-            self.__lambda *= 0.999
+        self.__lambda *= 0.999
         self.__sd.append(sd_prop)
 
 
 if __name__ == "__main__":
-    beta = np.array([200, 500, 150])
-    gamma = np.array([40, 100])
-    sigma2 = 100
+    pass
+    # from sdg4varselect.logistic_model import (
+    #     likelihood_array,
+    #     model,
+    #     parametrization,
+    #     theta0_reals1d,
+    # )
 
-    theta0 = np.array([300, 400, 100, 30, 30, 10])
+    # key = jrd.PRNGKey(0)
 
-    N = 5
-    J = 4
-    phi1 = np.random.normal(beta[0], np.sqrt(gamma[0]), N)
-    phi2 = np.random.normal(beta[1], np.sqrt(gamma[1]), N)
-    phi3 = np.array([beta[2] for i in range(N)])
+    # theta0_params = parametrization.reals1d_to_params(theta0_reals1d)
 
-    eps = np.random.normal(0, np.sqrt(sigma2), N * J)
+    # print(theta0_reals1d)
+    # print(theta0_params)
 
-    time = np.linspace(100, 1500, num=J)
-    Y = np.array([logistic_curve(time, phi1[i], phi2[i], phi3[i]) for i in range(N)])
-    print(Y.shape)
+    # # ==== Data simulation ==== #
+    # N, J = 10, 20
 
-    import matplotlib.pyplot as plt
+    # eps = np.random.normal(0, np.sqrt(100), (N, J))
+    # sim = {
+    #     "time": np.linspace(100, 1500, num=J),
+    #     "phi1": np.random.normal(400, np.sqrt(40), N),
+    #     "phi2": np.random.normal(500, np.sqrt(100), N),
+    #     "phi3": np.array([150 for i in range(N)]),
+    # }
 
-    plt.plot(time, Y.transpose())
-    # plt.show()
+    # print(sim["phi1"].mean())
+    # print(sim["phi1"].var())
 
-    def partial_loglike(theta, Y, time, phi1, phi2, phi3) -> jnp.ndarray:
-        pred = logistic_curve(time, phi1, phi2, phi3)
-        out = jnp.sum(jnp.power(Y - pred, 2))
-        return jnp.sum(-out / (2 * theta.sigma2))
+    # sim["Y"] = model(**sim) + eps
 
-    def partial_loss_array(theta, Y, time, phi1, phi2, phi3):
-        out = [
-            partial_loglike(theta, Y[i], time, phi1[i], phi2[i], phi3[i])
-            for i in range(len(phi1))
-        ]
-        return jnp.array(out)
+    # phi1 = MCMC_chain(float(theta0_params.beta1), sd=20, size=N, name="phi1")
+    # sim["phi1"] = phi1.data()
 
-    beta1 = chain(theta0[0])
-    gamma1 = chain(theta0[3])
+    # from miscellaneous import time_profiler
 
-    MCMC_phi1 = MCMC_chain(theta0[0], N, 10, beta1.data(), gamma1.data())
-    beta1.data()[0] = 1
-    print(MCMC_phi1)
+    # print(likelihood_array(theta0_reals1d, **sim))
 
-    phi1 = MCMC_phi1.data()
+    # @time_profiler(nrun=10)
+    # def gibbs(key):
+    #     for i in range(200):
+    #         key = phi1.gibbs_sampler_step(
+    #             key,
+    #             likelihood_array,
+    #             theta0_reals1d,
+    #             **sim,
+    #         )
 
-    from miscellaneous import namedTheta, time_profiler
+    # gibbs(jrd.PRNGKey(0))
 
-    MCMC_phi1.gibbs_sampler_step(
-        partial_loss_array,
-        namedTheta(sigma2=sigma2),
-        time=time,
-        Y=Y,
-        phi1=phi1,
-        phi2=phi2,
-        phi3=phi3,
-    )
+    # print(phi1.data().mean())
+    # print(phi1.data().var())
 
-    @time_profiler(nrun=2000)
-    def gibbs():
-        MCMC_phi1.gibbs_sampler_step(
-            partial_loss_array,
-            namedTheta(sigma2=sigma2),
-            time=time,
-            Y=Y,
-            phi1=phi1,
-            phi2=phi2,
-            phi3=phi3,
-        )
-
-    gibbs()
-
-    print(MCMC_phi1)
-    print(phi1)
-
-    print(beta1)
+    # plot_mcmc(phi1)

@@ -1,4 +1,5 @@
 import numpy as np
+import jax.numpy as jnp
 
 # from warnings import warn
 
@@ -28,10 +29,9 @@ def time2string(x: float, format="{:4.3f}"):
     return out
 
 
-def difftime2saving(nloop, difftime, unit="s", end="\n"):
+def difftime2saving(nloop, difftime, unit="s"):
     if difftime < 0:
-        difftime2saving(nloop, -difftime, unit, end=end)
-        return None
+        return difftime2saving(nloop, -difftime, unit)
 
     units = {"s": 1, "ms": 1e-3, "µs": 1e-6, "ns": 1e-9}
 
@@ -43,7 +43,7 @@ def difftime2saving(nloop, difftime, unit="s", end="\n"):
         + " iteration loops will allow a gain of "
         + time2string(difftime * nloop * units[unit])
     )
-    print(msg, end=end)
+    return msg
 
 
 @default_arg
@@ -123,20 +123,11 @@ def loadnumber(os: str, number: int, max: int, unit: str = "") -> str:
     return os
 
 
-def step_message(iter: int, max_iter: int) -> None:
+def step_message(iter: int, max_iter: int) -> str:
     os = ""
     os = loadnumber(os, iter, max_iter) + " "
     os = loadbar(os, float(iter) / max_iter)
-    print(os, end="\r")
-
-
-def namedTheta(**kwargs):
-    from collections import namedtuple
-
-    # kwargs["argnames"] = list(kwargs.keys())
-
-    namedTheta = namedtuple("namedTheta", kwargs.keys())
-    return namedTheta(**kwargs), namedTheta
+    return os  # you should use `print(os, end="\r")`
 
 
 if __name__ == "__main__":
@@ -155,8 +146,5 @@ if __name__ == "__main__":
         return res
 
     difftime(np_sum, sum, mysum)(x)
-
-    theta = namedTheta(a=2, b=5)
-    print(theta)
 
     print([time2string(x) for x in [2.5, 0.6, 2.3e-4, 2.3e-3, 2.2e-7, 2.2e-6, 2.1e-10]])

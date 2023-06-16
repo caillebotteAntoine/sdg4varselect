@@ -1,0 +1,6 @@
+[FORMAT]
+max-line-length=119
+good-names= i, t, T, Y, x, y, n, N, j, J, p, g, G, f,a,b,k
+
+disable=too-many-arguments
+disable=unused-argument
