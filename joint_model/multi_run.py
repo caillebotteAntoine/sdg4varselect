@@ -32,9 +32,14 @@ lbd_set = 10 ** jnp.linspace(-1.5, 1, num=5)
 
 res_solver = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
 
-fig, _, bic_res = sdgplt.plot_regularization_path(
+fig, ax, bic_res = sdgplt.plot_regularization_path(
     res_solver,
     lbd_set,
     p=DIM_COV,
     N=N_IND,
 )
+
+ax[0].title.set_fontsize(28)
+ax[0].xaxis.label.set_fontsize(28)
+ax[0].yaxis.label.set_fontsize(28)
+fig.savefig("images/regularization_path.png")
