@@ -102,7 +102,7 @@ print("regularization value selected = {lbd_selection}")
 kwargs_run_GD["prox_regul"] = lbd_selection
 
 n_run = 4
-solver_list, res_list, res_select_list = multi_estim(n_run, jrd.PRNGKey(0), True)
+solver_list, res_list, res_select_list = multi_estim(n_run, jrd.PRNGKey(0), verbatim = False)
 solver = solver_list[0]
 res = res_list[0]
 res_select = res_select_list[0]
@@ -183,6 +183,6 @@ def save_estimates(res, file_name):
 
 
 # ====================================================== #
-save_estimates(res_list, "penalized_estimate")
+save_estimates(res_list, "penalized_estimate_")
 save_estimates(res_select_list, "estimate_")
 # ====================================================== #
