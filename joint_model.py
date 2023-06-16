@@ -436,6 +436,7 @@ def regularization_path(path, nrep=1, verbatim=False):
 # ax[0].xaxis.label.set_fontsize(28)
 # ax[0].yaxis.label.set_fontsize(28)
 # fig.savefig("images/regularization_path.png")
+
 # # sdgplt.plot_selected_component(res_solver, lbd_set, DIM_COV)
 # sdgplt.plot_rmse(res_solver, params_star, lbd_set, exclude=["beta"])
 
