@@ -30,7 +30,7 @@ def regularization_path(path, prng_key, nrep=1, verbatim=False):
 # ====================================================== #
 lbd_set = 10 ** jnp.linspace(-1.5, 1, num=5)
 
-res_solver = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
+res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
 
 fig, ax, bic_res = sdgplt.plot_regularization_path(
     res_solver,
