@@ -4,13 +4,12 @@ graphics.off()
 require(dplyr)
 require(ggplot2)
 require(reshape2)
-setwd("~/")
+#setwd("~/")
 
-dt0 <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect", dec = ".")
+dt <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/penalized_estimate_theta.csv", dec = ".") %>%
+  filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
 
 
-
-dt <- rbind(dt0, dt1, dt2, dt3, dt4) %>% filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
 gg <- dt %>% ggplot(aes(value,variable, fill = variable)) +
   geom_violin() +
   geom_boxplot(width = 0.3, col = 'black', size = 0.5) +
@@ -28,18 +27,12 @@ gg <- gg +
              aes(xintercept = value))#shape = 8, col = variable) )
 
 gg
-ggsave('plot_BEAMER_23_05/violin_penalized_plot.png', gg, width = 8.2 , height = 5.6)
+ggsave('images/violin_penalized_plot.png', gg, width = 8.2 , height = 5.6)
 #==============================================================================#
 
-dt0 <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_select.csv", dec = ".")
-dt1 <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_select1.csv", dec = ".")
-dt2 <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_select2.csv", dec = ".")
-dt3 <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_select3.csv", dec = ".")
-dt4 <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_select4.csv", dec = ".")
+dt <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/estimate_theta.csv", dec = ".") %>%
+  filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
 
-
-
-dt <- rbind(dt0, dt1, dt2, dt3, dt4) %>% filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
 gg <- dt %>% ggplot(aes(value,variable, fill = variable)) +
   geom_violin() +
   geom_boxplot(width = 0.3, col = 'black', size = 0.5) +
@@ -58,32 +51,14 @@ gg <- gg +
 
 gg
 
-ggsave('plot_BEAMER_23_05/violin_unpenalized_plot.png', gg, width = 8.2 , height = 5.6)
+ggsave('images/violin_unpenalized_plot.png', gg, width = 8.2 , height = 5.6)
 #==============================================================================#
 
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_beta.csv", dec = ".")
+dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/penalized_estimate_beta.csv", dec = ".")
 dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
-dt_beta0 <- dt_beta[dt_beta$value != 0,]
+dt_beta <- dt_beta[dt_beta$value != 0,]
 
 
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_beta1.csv", dec = ".")
-dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
-dt_beta1 <- dt_beta[dt_beta$value != 0,]
-
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_beta2.csv", dec = ".")
-dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
-dt_beta2 <- dt_beta[dt_beta$value != 0,]
-
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_beta3.csv", dec = ".")
-dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
-dt_beta3 <- dt_beta[dt_beta$value != 0,]
-
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_beta4.csv", dec = ".")
-dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
-dt_beta4 <- dt_beta[dt_beta$value != 0,]
-
-
-dt_beta <- rbind(dt_beta0, dt_beta1,  dt_beta2,  dt_beta3, dt_beta4)
 gg <- dt_beta %>%
 
   ggplot(aes(variable, value)) + geom_boxplot(aes( fill = variable)) +
@@ -101,34 +76,17 @@ gg <- gg +
 gg <- gg + theme(axis.text.x = element_text(size = 16))
 gg
 
-ggsave('plot_BEAMER_23_05/beta_penalized.png', gg, width = 8.2 , height = 5.6)
+ggsave('images/beta_penalized.png', gg, width = 8.2 , height = 5.6)
 
 #==============================================================================#
 
 
 
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_select_beta.csv", dec = ".")
+dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/estimate_beta.csv", dec = ".")
 dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
-dt_beta0 <- dt_beta[dt_beta$value != 0,]
-
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_select_beta1.csv", dec = ".")
-dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
-dt_beta1 <- dt_beta[dt_beta$value != 0,]
-
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_select_beta2.csv", dec = ".")
-dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
-dt_beta2 <- dt_beta[dt_beta$value != 0,]
-
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_select_beta3.csv", dec = ".")
-dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
-dt_beta3 <- dt_beta[dt_beta$value != 0,]
-
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/resf_select_beta4.csv", dec = ".")
-dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
-dt_beta4 <- dt_beta[dt_beta$value != 0,]
+dt_beta <- dt_beta[dt_beta$value != 0,]
 
 
-dt_beta <- rbind(dt_beta0, dt_beta1, dt_beta2, dt_beta3, dt_beta4)
 gg <- dt_beta %>%
 
   ggplot(aes(variable, value)) + geom_boxplot(aes( fill = variable)) +
@@ -146,13 +104,10 @@ gg <- gg +
 gg <- gg + theme(axis.text.x = element_text(size = 16))
 
 gg
-ggsave('plot_BEAMER_23_05/beta_unpenalized.png', gg, width = 8.2 , height = 5.6)
+ggsave('images/beta_unpenalized.png', gg, width = 8.2 , height = 5.6)
 
 
 #==============================================================================#
-
-
-
 
 mysize <- 7
 
@@ -187,7 +142,7 @@ gg <- dt %>% ggplot(aes(beta, prox)) +
 
 
 gg
-ggsave('plot_BEAMER_23_05/proximal_operator.png', gg, width = 8.2 , height = 5.6)
+ggsave('images/proximal_operator.png', gg, width = 8.2 , height = 5.6)
   
 
 logistic <- function(t, phi1, phi2, phi3) return(phi1/(1+exp((phi2-t)/phi3)))
@@ -215,7 +170,7 @@ gg <- gg +geom_segment(aes(x = 3.75, xend = 6.25,
   annotate('text', x = 6.8, y = 0.7, label = expression(phi[3]), size = mysize)  
 
 gg
-ggsave('plot_BEAMER_23_05/logistic.png', gg, width = 8.2 , height = 5.6)
+ggsave('images/logistic.png', gg, width = 8.2 , height = 5.6)
 
 
 
@@ -238,7 +193,7 @@ gg <- data[!grepl("_TT", data$variable),] %>% filter(module == 'date 1') %>% fil
 
 
 
-ggsave('plot_BEAMER_23_05/prevalence.png', gg, width = 8.2 , height = 5.6)
+ggsave('images/prevalence.png', gg, width = 8.2 , height = 5.6)
 
 
 
