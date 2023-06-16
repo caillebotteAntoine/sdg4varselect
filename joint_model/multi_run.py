@@ -175,7 +175,7 @@ def save_estimates(res, file_name):
         estimates[:, :-DIM_COV], columns=solver.params_names[:-DIM_COV]
     ).melt()
     beta = pandas.DataFrame(
-        estimates[:, -DIM_COV:], columns=["beta_{i}" for i in range(DIM_COV)]
+        estimates[:, -DIM_COV:], columns=[f"beta_{i}" for i in range(DIM_COV)]
     ).melt()
 
     theta.to_csv(file_name + "theta.csv", sep=";")
