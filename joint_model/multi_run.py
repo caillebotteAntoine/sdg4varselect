@@ -102,11 +102,13 @@ print("regularization value selected = {lbd_selection}")
 kwargs_run_GD["prox_regul"] = lbd_selection
 
 n_run = 4
+time_start = time()
 solver_list, res_list, res_select_list = multi_estim(n_run, jrd.PRNGKey(0), verbatim = False)
+print(time2string(time() - time_start))
+
 solver = solver_list[0]
 res = res_list[0]
 res_select = res_select_list[0]
-
 
 # ====================================================== #
 # ====================================================== #
