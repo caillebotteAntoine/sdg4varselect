@@ -18,6 +18,7 @@ def get_solver(
     N_IND,
     plateau_start,
     plateau_stop,
+    step_size,
 ):
     key1, key_out = jrd.split(key, num=2)
     # ====== SOLVER CREATION ====== #
@@ -62,7 +63,8 @@ def get_solver(
     solver.add_data(parametrization=solver.parametrization)
     solver.add_likelihood_kwargs("parametrization")
 
-    solver.step_size = learning_rate(plateau_start, np.log(1e-4), plateau_stop, 0.65)
+    solver.step_size = learning_rate(plateau_start, step_size, plateau_stop, 0.65)
+    # p < 200 = np.log(1e-4)
     return solver, key_out
 
 
@@ -75,6 +77,7 @@ def get_sample_and_solver(
     DIM_COV,
     plateau_start,
     plateau_stop,
+    step_size,
 ):
     # ====== DATA GENERATION ====== #
     data_set, _, key2 = data_simulation(
@@ -90,7 +93,14 @@ def get_sample_and_solver(
 
     # ====== SOLVER CREATION ====== #
     solver, key_out = get_solver(
-        parametrization, key2, params0, data_set, N_IND, plateau_start, plateau_stop
+        parametrization,
+        key2,
+        params0,
+        data_set,
+        N_IND,
+        plateau_start,
+        plateau_stop,
+        step_size,
     )
 
     return solver, data_set, key_out

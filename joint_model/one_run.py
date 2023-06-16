@@ -52,9 +52,9 @@ def estim(solver, verbatim=False):
         jac_likelihood=jac_likelihood,
         fisher_preconditionner=True,
         fisher_mask=fisher_mask,
-        smart_start=1000,
+        smart_start=2000,
         p=DIM_COV,
-        niter=2000,
+        niter=5000,
         **kwargs_run_GD,
     )
 
@@ -67,11 +67,12 @@ def sample_and_estim(params0, prng_key, verbatim=False):
         params_star_weibull,
         N_IND,
         DIM_COV,
-        plateau_start=1000,
-        plateau_stop=1000 + 100,
+        plateau_start=5000,
+        plateau_stop=5000 + 100,
+        step_size=np.log(1e-8),
     )
 
-    res = estim(solver)
+    res = estim(solver, verbatim=verbatim)
 
     return res, solver, key
 
@@ -86,3 +87,5 @@ if __name__ == "__main__":
         names=solver.params_names,
         logscale=False,
     )
+
+    sdgplt.plot_params_hd(res.theta, p=DIM_COV, location="right")
