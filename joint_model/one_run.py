@@ -11,6 +11,19 @@ N_IND = 100
 
 parametrization, params_star_weibull = get_parametrization(DIM_COV)
 
+params_star_stack = jnp.hstack(
+    [
+        params_star_weibull.mu1,
+        params_star_weibull.mu2,
+        params_star_weibull.mu3,
+        params_star_weibull.gamma2_1,
+        params_star_weibull.gamma2_2,
+        params_star_weibull.sigma2,
+        params_star_weibull.alpha,
+        params_star_weibull.beta,
+    ]
+)
+
 params0 = {
     "mu1": 0.5,  # 1
     "mu2": 50.0,  # 2
@@ -33,7 +46,8 @@ kwargs_run_GD = {
 }
 
 
-def estim(solver):
+def estim(solver, verbatim=False):
+    solver.verbatim = verbatim
     return solver.stochastic_gradient(
         jac_likelihood=jac_likelihood,
         fisher_preconditionner=True,
@@ -57,7 +71,6 @@ def sample_and_estim(params0, prng_key, verbatim=False):
         plateau_stop=1000 + 100,
     )
 
-    solver.verbatim = verbatim
     res = estim(solver)
 
     return res, solver, key
@@ -65,19 +78,6 @@ def sample_and_estim(params0, prng_key, verbatim=False):
 
 if __name__ == "__main__":
     res, solver, _ = sample_and_estim(params0, jrd.PRNGKey(0), verbatim=True)
-
-    params_star_stack = jnp.hstack(
-        [
-            params_star_weibull.mu1,
-            params_star_weibull.mu2,
-            params_star_weibull.mu3,
-            params_star_weibull.gamma2_1,
-            params_star_weibull.gamma2_2,
-            params_star_weibull.sigma2,
-            params_star_weibull.alpha,
-            params_star_weibull.beta,
-        ]
-    )
 
     sdgplt.plot_params(
         x=res.theta,
