@@ -6,7 +6,7 @@ require(ggplot2)
 require(reshape2)
 setwd("~/")
 
-dt0 <- read.csv2("Z:/sdg4varselect", dec = ".")
+dt0 <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect", dec = ".")
 
 
 
