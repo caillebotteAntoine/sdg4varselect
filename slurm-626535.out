@@ -1,8 +1,13 @@
 No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
 posx and posy should be finite values
-0/5 [>                                                  ]1/5 [==========>                                        ]2/5 [====================>                              ]3/5 [==============================>                    ]4/5 [========================================>          ]17.118s
-regularization value selected = {lbd_selection}
-0/1 [>                                                  ]{'mu1': 0.4557206630706787, 'mu2': 49.41118061542511, 'mu3': 2.451697289943695, 'gamma2_1': 0.00022865483164787292, 'gamma2_2': 1.9712378978729248, 'sigma2': 9.674562215805054e-05, 'alpha': 4.40418004989624, 'beta': array([ 0.573, -0.293, -0.396, ...,  0.482,  0.695, -0.577])}
+0/5 [>                                                  ]
+1/5 [==========>                                        ]
+2/5 [====================>                              ]
+3/5 [==============================>                    ]
+4/5 [========================================>          ]
+16.540s
+regularization value selected = []
+0/1 [>                                                  ]{'mu1': 0.4557206630706787, 'mu2': 49.41118061542511, 'mu3': 2.451697289943695, 'gamma2_1': 0.00022865483164787292, 'gamma2_2': 1.9712378978729248, 'sigma2': 9.674562215805054e-05, 'alpha': 4.40418004989624, 'beta': array([-0.649,  0.329,  0.262, ...,  0.319, -0.881,  0.052])}
 Traceback (most recent call last):
   File "/home/acaillebotte/sdg4varselect/joint_model/multi_run.py", line 106, in <module>
     solver_list, res_list, res_select_list = multi_estim(n_run, jrd.PRNGKey(0), verbatim = False)

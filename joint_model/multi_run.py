@@ -76,10 +76,10 @@ def multi_estim(n_run, prng_key, verbatim=True):
 # ====================================================== #
 # ================ REGULARIZATION PATH ================= #
 # ====================================================== #
-lbd_set = 10 ** jnp.linspace(-1.5, 1, num=5)
+lbd_set = 10 ** jnp.linspace(-4.5, 1, num=10)
 
 time_start = time()
-res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
+res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=True)
 print(time2string(time() - time_start))
 
 fig, ax, bic_res = sdgplt.plot_regularization_path(
@@ -94,14 +94,15 @@ ax[0].xaxis.label.set_fontsize(28)
 ax[0].yaxis.label.set_fontsize(28)
 fig.savefig("images/regularization_path.png")
 
+print(bic_res)
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
-lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]]
-print("regularization value selected = {lbd_selection}")
+lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]][0]
+print(f"regularization value selected = {lbd_selection}")
 kwargs_run_GD["prox_regul"] = lbd_selection
 
-n_run = 1
+n_run = 0
 time_start = time()
 solver_list, res_list, res_select_list = multi_estim(n_run, jrd.PRNGKey(0), verbatim = False)
 print(time2string(time() - time_start))
