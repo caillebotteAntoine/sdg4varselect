@@ -83,7 +83,7 @@ def multi_estim(n_run, prng_key, verbatim=True):
 # ====================================================== #
 # ================ REGULARIZATION PATH ================= #
 # ====================================================== #
-lbd_set = 10 ** jnp.linspace(-1, 1, num=50)
+lbd_set = 10 ** jnp.linspace(-2, 1, num=50)
 
 time_start = time()
 res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
@@ -105,7 +105,7 @@ print(bic_res)
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
-lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]]
+lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]] * 1.01
 print(f"regularization value selected = {lbd_selection}")
 kwargs_run_GD["prox_regul"] = lbd_selection
 
