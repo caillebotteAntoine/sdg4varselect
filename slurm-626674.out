@@ -1,0 +1,11 @@
+No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+ 0/50 [>                                                  ]Traceback (most recent call last):
+  File "/home/acaillebotte/sdg4varselect/joint_model/multi_run.py", line 86, in <module>
+    res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
+  File "/home/acaillebotte/sdg4varselect/joint_model/multi_run.py", line 40, in regularization_path
+    _, solver, prng_key = sample_and_estim(params0, prng_key, verbatim=verbatim)
+  File "/home/acaillebotte/sdg4varselect/joint_model/one_run.py", line 94, in sample_and_estim
+    solver, _, key = sample(params0, prng_key)
+  File "/home/acaillebotte/sdg4varselect/joint_model/one_run.py", line 72, in sample
+    key2,
+UnboundLocalError: local variable 'key2' referenced before assignment

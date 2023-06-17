@@ -1,6 +1,6 @@
 from sample import get_solver
 
-from sample import get_parametrization, get_sample, get_solver, get_sample_and_solver
+from sample import get_parametrization, get_sample, get_solver
 import numpy as np
 from sdg4varselect import jnp, jrd
 from model import jac_likelihood
@@ -50,9 +50,27 @@ kwargs_run_GD = {
 }
 
 
-def estim(solver, verbatim=False):
+def sample(params0, prng_key):
+    """return solver, data_set, key"""
+    # ====== DATA GENERATION ====== #
+    data_set, _, key = get_sample(prng_key, params_star_weibull, N_IND, DIM_COV)
+    return data_set, key
+
+
+def estim(data_set, prng_key, verbatim=False):
+    solver, key = get_solver(
+        parametrization,
+        prng_key,
+        params0,
+        data_set,
+        N_IND,
+        plateau_start=plateau,
+        plateau_stop=plateau + 100,
+        step_size=np.log(lr),
+    )
+
     solver.verbatim = verbatim
-    return solver.stochastic_gradient(
+    res = solver.stochastic_gradient(
         jac_likelihood=jac_likelihood,
         fisher_preconditionner=True,
         fisher_mask=fisher_mask,
@@ -62,37 +80,12 @@ def estim(solver, verbatim=False):
         **kwargs_run_GD,
     )
 
-
-def sample(params0, prng_key, data_set=None):
-    if sample is None:
-        data_set, _, key2 = get_sample(prng_key, params_star_weibull, N_IND, DIM_COV)
-
-    solver, key_out = get_solver(
-        parametrization,
-        key2,
-        params0,
-        data_set,
-        N_IND,
-        plateau_start,
-        plateau_stop,
-        step_size,
-    )
-    return get_sample_and_solver(
-        parametrization,
-        prng_key,
-        params0,
-        params_star_weibull,
-        N_IND,
-        DIM_COV,
-        plateau_start=plateau,
-        plateau_stop=plateau + 100,
-        step_size=np.log(lr),
-    )
+    return res, solver, key
 
 
 def sample_and_estim(params0, prng_key, verbatim=False):
-    solver, _, key = sample(params0, prng_key)
-    res = estim(solver, verbatim=verbatim)
+    data_set, key = sample(params0, prng_key)
+    res, solver, key = estim(data_set, key, verbatim=verbatim)
 
     return res, solver, key
 

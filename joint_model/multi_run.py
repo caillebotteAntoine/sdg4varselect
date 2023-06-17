@@ -29,6 +29,8 @@ folder = "images"
 def regularization_path(path, prng_key, nrep=1, verbatim=False):
     res_solver = []
 
+    data_set, key = sample(params0, prng_key)
+
     for i in range(len(path)):
         print(step_message(i, len(path)), end="\r" if not verbatim else "\n")
 
@@ -37,7 +39,7 @@ def regularization_path(path, prng_key, nrep=1, verbatim=False):
         kwargs_run_GD["prox_regul"] = path[i]
         kwargs_run_GD["proximal_operator"] = True
         for _ in range(nrep):
-            _, solver, prng_key = sample_and_estim(params0, prng_key, verbatim=verbatim)
+            _, solver, key = estim(data_set, key, verbatim=verbatim)
 
             res_solver[-1].append(solver)
 
