@@ -6,7 +6,7 @@ require(ggplot2)
 require(reshape2)
 #setwd("~/")
 
-dt <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/penalized_estimate_theta.csv", dec = ".") %>%
+dt <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/images/penalized_estimate_theta.csv", dec = ".") %>%
   filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
 
 
@@ -30,7 +30,7 @@ gg
 ggsave('images/violin_penalized_plot.png', gg, width = 8.2 , height = 5.6)
 #==============================================================================#
 
-dt <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/estimate_theta.csv", dec = ".") %>%
+dt <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/images/estimate_theta.csv", dec = ".") %>%
   filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
 
 gg <- dt %>% ggplot(aes(value,variable, fill = variable)) +
@@ -54,7 +54,7 @@ gg
 ggsave('images/violin_unpenalized_plot.png', gg, width = 8.2 , height = 5.6)
 #==============================================================================#
 
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/penalized_estimate_beta.csv", dec = ".")
+dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/images/penalized_estimate_beta.csv", dec = ".")
 dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
 dt_beta <- dt_beta[dt_beta$value != 0,]
 
@@ -82,7 +82,7 @@ ggsave('images/beta_penalized.png', gg, width = 8.2 , height = 5.6)
 
 
 
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/estimate_beta.csv", dec = ".")
+dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/images/estimate_beta.csv", dec = ".")
 dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
 dt_beta <- dt_beta[dt_beta$value != 0,]
 
