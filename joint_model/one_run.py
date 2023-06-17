@@ -6,7 +6,7 @@ from sdg4varselect import jnp, jrd
 from model import jac_likelihood
 import sdg4varselect.plot as sdgplt
 
-DIM_COV = 100
+DIM_COV = 500
 N_IND = 100
 
 parametrization, params_star_weibull = get_parametrization(DIM_COV)
@@ -52,9 +52,9 @@ def estim(solver, verbatim=False):
         jac_likelihood=jac_likelihood,
         fisher_preconditionner=True,
         fisher_mask=fisher_mask,
-        smart_start=1000,
+        smart_start=1500,
         p=DIM_COV,
-        niter=2000,
+        niter=2500,
         **kwargs_run_GD,
     )
 
@@ -67,8 +67,8 @@ def sample_and_estim(params0, prng_key, verbatim=False):
         params_star_weibull,
         N_IND,
         DIM_COV,
-        plateau_start=1000,
-        plateau_stop=1000 + 100,
+        plateau_start=1500,
+        plateau_stop=1500 + 100,
         step_size=np.log(1e-4),
     )
 
