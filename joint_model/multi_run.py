@@ -22,7 +22,7 @@ from sdg4varselect import jrd, jnp
 import sdg4varselect.plot as sdgplt
 
 
-folder = "../images/estimate_1000"
+folder = "../images/estimate_100"
 
 
 def regularization_path(path, prng_key, nrep=1, verbatim=False):
