@@ -11,6 +11,7 @@ from one_run import (
     kwargs_run_GD,
     sample,
     estim,
+    estim_solver,
     sample_and_estim,
     params0,
     N_IND,
@@ -74,7 +75,7 @@ def multi_estim(n_run, prng_key, verbatim=True):
         solver_select.theta_reals1d = p
 
         kwargs_run_GD["proximal_operator"] = False
-        res_select_list[i] = estim(solver_select, verbatim=verbatim)
+        res_select_list[i] = estim_solver(solver_select, verbatim=verbatim)
 
     return solver_list, res_list, res_select_list
 
@@ -85,7 +86,7 @@ def multi_estim(n_run, prng_key, verbatim=True):
 lbd_set = 10 ** jnp.linspace(-1, 1, num=50)
 
 time_start = time()
-res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
+res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=True)
 print(time2string(time() - time_start))
 
 fig, ax, bic_res = sdgplt.plot_regularization_path(
@@ -109,6 +110,7 @@ print(f"regularization value selected = {lbd_selection}")
 kwargs_run_GD["prox_regul"] = lbd_selection
 
 n_run = 50
+
 time_start = time()
 solver_list, res_list, res_select_list = multi_estim(
     n_run, jrd.PRNGKey(0), verbatim=False

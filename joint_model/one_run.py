@@ -57,6 +57,19 @@ def sample(params0, prng_key):
     return data_set, key
 
 
+def estim_solver(solver, verbatim=False):
+    solver.verbatim = verbatim
+    return solver.stochastic_gradient(
+        jac_likelihood=jac_likelihood,
+        fisher_preconditionner=True,
+        fisher_mask=fisher_mask,
+        smart_start=plateau,
+        p=DIM_COV,
+        niter=plateau + 1000,
+        **kwargs_run_GD,
+    )
+
+
 def estim(data_set, prng_key, verbatim=False):
     solver, key = get_solver(
         parametrization,
@@ -69,17 +82,7 @@ def estim(data_set, prng_key, verbatim=False):
         step_size=np.log(lr),
     )
 
-    solver.verbatim = verbatim
-    res = solver.stochastic_gradient(
-        jac_likelihood=jac_likelihood,
-        fisher_preconditionner=True,
-        fisher_mask=fisher_mask,
-        smart_start=plateau,
-        p=DIM_COV,
-        niter=plateau + 1000,
-        **kwargs_run_GD,
-    )
-
+    res = estim_solver(solver, verbatim=verbatim)
     return res, solver, key
 
 
