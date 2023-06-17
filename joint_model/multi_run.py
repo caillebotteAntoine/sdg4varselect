@@ -105,7 +105,7 @@ print(bic_res)
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
-lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]] * 1.05
+lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]] * 1.1
 print(f"regularization value selected = {lbd_selection}")
 kwargs_run_GD["prox_regul"] = lbd_selection
 
