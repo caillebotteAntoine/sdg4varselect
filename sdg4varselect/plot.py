@@ -439,7 +439,7 @@ def plot_regularization_path(res_solver, lbd_set, p, N, se_percentage=None, figs
         )
 
     # minimum value of bic
-    id_min = np.argmin(bic_mean)
+    id_min = np.nanargmin(bic_mean)
     plot_axvline(id_min, color="b", msg="min")
     bic_res["min"] = bic_mean[id_min]
 

@@ -79,33 +79,33 @@ def multi_estim(n_run, prng_key, verbatim=True):
 # ====================================================== #
 # ================ REGULARIZATION PATH ================= #
 # ====================================================== #
-# lbd_set = 10 ** jnp.linspace(-3, 1, num=50)
+lbd_set = 10 ** jnp.linspace(-1, 1, num=50)
 
-# time_start = time()
-# res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
-# print(time2string(time() - time_start))
+time_start = time()
+res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
+print(time2string(time() - time_start))
 
-# fig, ax, bic_res = sdgplt.plot_regularization_path(
-#     res_solver,
-#     lbd_set,
-#     p=DIM_COV,
-#     N=N_IND,
-# )
+fig, ax, bic_res = sdgplt.plot_regularization_path(
+    res_solver,
+    lbd_set,
+    p=DIM_COV,
+    N=N_IND,
+)
 
-# ax[0].title.set_fontsize(28)
-# ax[0].xaxis.label.set_fontsize(28)
-# ax[0].yaxis.label.set_fontsize(28)
-# fig.savefig(folder + "/regularization_path.png")
+ax[0].title.set_fontsize(28)
+ax[0].xaxis.label.set_fontsize(28)
+ax[0].yaxis.label.set_fontsize(28)
+fig.savefig(folder + "/regularization_path.png")
 
-# print(bic_res)
+print(bic_res)
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
-lbd_selection = 10  # lbd_set[bic_res["bic"] == bic_res["min"]][0]
+lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]]
 print(f"regularization value selected = {lbd_selection}")
 kwargs_run_GD["prox_regul"] = lbd_selection
 
-n_run = 1
+n_run = 50
 time_start = time()
 solver_list, res_list, res_select_list = multi_estim(
     n_run, jrd.PRNGKey(0), verbatim=False
