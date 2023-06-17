@@ -22,6 +22,9 @@ from sdg4varselect import jrd, jnp
 import sdg4varselect.plot as sdgplt
 
 
+folder = "images/estimate_100"
+
+
 def regularization_path(path, prng_key, nrep=1, verbatim=False):
     res_solver = []
 
@@ -92,7 +95,7 @@ fig, ax, bic_res = sdgplt.plot_regularization_path(
 ax[0].title.set_fontsize(28)
 ax[0].xaxis.label.set_fontsize(28)
 ax[0].yaxis.label.set_fontsize(28)
-fig.savefig("images/regularization_path.png")
+fig.savefig(folder + "/regularization_path.png")
 
 print(bic_res)
 # ====================================================== #
@@ -138,7 +141,7 @@ ax[-1].legend(fontsize=18)
 for label in ax[-1].get_xticklabels() + ax[-1].get_yticklabels():
     label.set_fontsize(16)
 
-fig.savefig("images/theta_example_run.png")
+fig.savefig(folder + "/theta_example_run.png")
 # ====================================================== #
 
 
@@ -161,7 +164,7 @@ ax[-1].legend(fontsize=18)
 for label in ax[-1].get_xticklabels() + ax[-1].get_yticklabels():
     label.set_fontsize(16)
 
-fig.savefig("images/grad_example_run.png")
+fig.savefig(folder + "/grad_example_run.png")
 # ====================================================== #
 
 
@@ -169,7 +172,7 @@ fig, ax = sdgplt.plot_params_hd(res.theta, p=DIM_COV, location="right")
 ax.title.set_fontsize(28)
 ax.xaxis.label.set_fontsize(28)
 ax.yaxis.label.set_fontsize(28)
-fig.savefig("images/beta.png")
+fig.savefig(folder + "/beta.png")
 # ====================================================== #
 
 
@@ -188,6 +191,6 @@ def save_estimates(res, file_name):
 
 
 # ====================================================== #
-save_estimates(res_list, "penalized_estimate_")
-save_estimates(res_select_list, "estimate_")
+save_estimates(res_list, folder + "/penalized_estimate_")
+save_estimates(res_select_list, folder + "/estimate_")
 # ====================================================== #
