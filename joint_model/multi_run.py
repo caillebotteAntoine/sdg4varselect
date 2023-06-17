@@ -86,7 +86,7 @@ def multi_estim(n_run, prng_key, verbatim=True):
 lbd_set = 10 ** jnp.linspace(-1, 1, num=50)
 
 time_start = time()
-res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=True)
+res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
 print(time2string(time() - time_start))
 
 fig, ax, bic_res = sdgplt.plot_regularization_path(
