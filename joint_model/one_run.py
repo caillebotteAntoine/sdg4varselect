@@ -1,6 +1,6 @@
 from sample import get_solver
 
-from sample import get_parametrization, get_sample_and_solver
+from sample import get_parametrization, get_sample, get_solver, get_sample_and_solver
 import numpy as np
 from sdg4varselect import jnp, jrd
 from model import jac_likelihood
@@ -63,8 +63,21 @@ def estim(solver, verbatim=False):
     )
 
 
-def sample_and_estim(params0, prng_key, verbatim=False):
-    solver, _, key = get_sample_and_solver(
+def sample(params0, prng_key, data_set=None):
+    if sample is None:
+        data_set, _, key2 = get_sample(prng_key, params_star_weibull, N_IND, DIM_COV)
+
+    solver, key_out = get_solver(
+        parametrization,
+        key2,
+        params0,
+        data_set,
+        N_IND,
+        plateau_start,
+        plateau_stop,
+        step_size,
+    )
+    return get_sample_and_solver(
         parametrization,
         prng_key,
         params0,
@@ -76,6 +89,9 @@ def sample_and_estim(params0, prng_key, verbatim=False):
         step_size=np.log(lr),
     )
 
+
+def sample_and_estim(params0, prng_key, verbatim=False):
+    solver, _, key = sample(params0, prng_key)
     res = estim(solver, verbatim=verbatim)
 
     return res, solver, key

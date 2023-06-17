@@ -9,8 +9,9 @@ import pandas
 
 from one_run import (
     kwargs_run_GD,
-    sample_and_estim,
+    sample,
     estim,
+    sample_and_estim,
     params0,
     N_IND,
     DIM_COV,
@@ -22,7 +23,7 @@ from sdg4varselect import jrd, jnp
 import sdg4varselect.plot as sdgplt
 
 
-folder = "../images/estimate_100"
+folder = "images"
 
 
 def regularization_path(path, prng_key, nrep=1, verbatim=False):

@@ -5,9 +5,22 @@ from model import likelihood, likelihood_array, params, params_weibull
 
 from sdg4varselect import Algorithm, jrd, learning_rate
 
+
 # ===================================================== #
 # ==================== PARAMS STAR ==================== #
 # ===================================================== #
+def get_sample(key, params_star_weibull, N_IND, DIM_COV):
+    # ====== DATA GENERATION ====== #
+    return data_simulation(
+        params=params_star_weibull,
+        key=key,
+        N_IND=N_IND,
+        J=20,
+        p=DIM_COV,
+        t_min=60,
+        t_max=135,
+        cov_law="uniform",  # between -1 and 1
+    )
 
 
 def get_solver(
@@ -80,16 +93,7 @@ def get_sample_and_solver(
     step_size,
 ):
     # ====== DATA GENERATION ====== #
-    data_set, _, key2 = data_simulation(
-        params=params_star_weibull,
-        key=key,
-        N_IND=N_IND,
-        J=20,
-        p=DIM_COV,
-        t_min=60,
-        t_max=135,
-        cov_law="uniform",  # between -1 and 1
-    )
+    data_set, _, key2 = get_sample(key, params_star_weibull, N_IND, DIM_COV)
 
     # ====== SOLVER CREATION ====== #
     solver, key_out = get_solver(
