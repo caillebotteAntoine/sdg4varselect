@@ -6,11 +6,11 @@ from sdg4varselect import jnp, jrd
 from model import jac_likelihood
 import sdg4varselect.plot as sdgplt
 
-DIM_COV = 100
+DIM_COV = 500
 N_IND = 100
 
-plateau = 1000
-lr = 1e-4
+plateau = 2000
+lr = 1e-8
 
 
 parametrization, params_star_weibull = get_parametrization(DIM_COV)

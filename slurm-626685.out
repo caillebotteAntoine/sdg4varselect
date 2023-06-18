@@ -1,0 +1,4 @@
+No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+regularization value selected = 0.2
+0/1 [>                                                  ]{'mu1': 0.4557206630706787, 'mu2': 49.41118061542511, 'mu3': 2.451697289943695, 'gamma2_1': 0.00022865483164787292, 'gamma2_2': 1.9712378978729248, 'sigma2': 9.674562215805054e-05, 'alpha': 4.40418004989624, 'beta': array([-0.225,  0.692, -0.285, ..., -0.897,  0.916,  0.547])}
+137.926s
