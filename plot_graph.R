@@ -28,6 +28,7 @@ gg <- gg +
 
 gg
 ggsave('images/violin_penalized_plot.png', gg, width = 8.2 , height = 5.6)
+
 #==============================================================================#
 
 dt <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/images/estimate_theta.csv", dec = ".") %>%
@@ -50,7 +51,6 @@ gg <- gg +
              aes(xintercept = value))#shape = 8, col = variable) )
 
 gg
-
 ggsave('images/violin_unpenalized_plot.png', gg, width = 8.2 , height = 5.6)
 #==============================================================================#
 
@@ -207,7 +207,31 @@ ggsave('images/beta_unpenalized.png', gg, width = 8.2 , height = 5.6)
 
 
 
+mysize <- 7
+logistic <- function(t, phi1, phi2, phi3) return(phi1/(1+exp((phi2-t)/phi3)))
 
+dt <- rbind(data.frame(x = seq(0, 5, by = 0.1), type = 1) %>%
+              mutate(logistic =  x %>% sapply(logistic, 0.8, 5, 0.6)),
+            data.frame(x = seq(5, 10, by = 0.1), type = 2) %>%
+              mutate(logistic =  x %>% sapply(logistic, 0.8, 5, 0.6)) )
+
+
+
+gg <- dt %>% ggplot(aes(x, logistic)) + geom_line(aes( col = factor(type)), linewidth= 1) +
+  theme(legend.position = 'None') +
+  labs(y = '',x = '') +
+  xlim(0,10) + ylim(0,1) +
+
+  geom_segment(aes(x = 1,xend = 3, y = 0.25, yend = logistic(3)), 
+               linewidth = 1, arrow = arrow(length = unit(0.03, "npc")) +
+                 
+  annotate('text', x = 1, y = .28, label = "known information", size = mysize) +
+
+gg
+
+
+gg
+ggsave('images/logistic.png', gg, width = 8.2 , height = 5.6)
 
 
 

@@ -1,0 +1,8 @@
+
+49/50 [=================================================> ]
+PSGD started ! 
+
+3733/4000 [==============================================>    ]
+3734/4000 [==============================================>    ]
+posx and posy should be finite values
+/var/spool/slurmd/job626689/slurm_script : ligne 6 : 3746853 Processus arrêté      poetry run python3 joint_model/multi_run.py
