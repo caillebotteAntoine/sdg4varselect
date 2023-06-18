@@ -83,25 +83,25 @@ def multi_estim(n_run, prng_key, verbatim=True):
 # ====================================================== #
 # ================ REGULARIZATION PATH ================= #
 # ====================================================== #
-lbd_set = 10 ** jnp.linspace(-2, 1, num=50)
+# lbd_set = 10 ** jnp.linspace(-2, 1, num=50)
 
-time_start = time()
-res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=True)
-print(time2string(time() - time_start))
+# time_start = time()
+# res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=True)
+# print(time2string(time() - time_start))
 
-fig, ax, bic_res = sdgplt.plot_regularization_path(
-    res_solver,
-    lbd_set,
-    p=DIM_COV,
-    N=N_IND,
-)
+# fig, ax, bic_res = sdgplt.plot_regularization_path(
+#     res_solver,
+#     lbd_set,
+#     p=DIM_COV,
+#     N=N_IND,
+# )
 
-ax[0].title.set_fontsize(28)
-ax[0].xaxis.label.set_fontsize(28)
-ax[0].yaxis.label.set_fontsize(28)
-fig.savefig(folder + "/regularization_path.png")
+# ax[0].title.set_fontsize(28)
+# ax[0].xaxis.label.set_fontsize(28)
+# ax[0].yaxis.label.set_fontsize(28)
+# fig.savefig(folder + "/regularization_path.png")
 
-print(bic_res)
+# print(bic_res)
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
