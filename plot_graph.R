@@ -6,7 +6,13 @@ require(ggplot2)
 require(reshape2)
 #setwd("~/")
 
-dt <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/images/penalized_estimate_theta.csv", dec = ".") %>%
+
+root <- "//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/"
+
+folder <- paste0(root,"joint_model_100")
+
+
+dt <- read.csv2(paste0(folder, "/images/penalized_estimate_theta.csv"), dec = ".") %>%
   filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
 
 
@@ -27,11 +33,11 @@ gg <- gg +
              aes(xintercept = value))#shape = 8, col = variable) )
 
 gg
-ggsave('images/violin_penalized_plot.png', gg, width = 8.2 , height = 5.6)
+ggsave(paste0(folder,'images/violin_penalized_plot.png'), gg, width = 8.2 , height = 5.6)
 
 #==============================================================================#
 
-dt <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/images/estimate_theta.csv", dec = ".") %>%
+dt <- read.csv2(paste0(folder, "/images/estimate_theta.csv"), dec = ".") %>%
   filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
 
 gg <- dt %>% ggplot(aes(value,variable, fill = variable)) +
@@ -51,10 +57,10 @@ gg <- gg +
              aes(xintercept = value))#shape = 8, col = variable) )
 
 gg
-ggsave('images/violin_unpenalized_plot.png', gg, width = 8.2 , height = 5.6)
+ggsave(paste0(folder,'images/violin_unpenalized_plot.png'), gg, width = 8.2 , height = 5.6)
 #==============================================================================#
 
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/images/penalized_estimate_beta.csv", dec = ".")
+dt_beta <- read.csv2(paste0(folder, "/images/penalized_estimate_beta.csv"), dec = ".")
 dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
 dt_beta <- dt_beta[dt_beta$value != 0,]
 
@@ -76,13 +82,13 @@ gg <- gg +
 gg <- gg + theme(axis.text.x = element_text(size = 16))
 gg
 
-ggsave('images/beta_penalized.png', gg, width = 8.2 , height = 5.6)
+ggsave(paste0(folder,'images/beta_penalized.png'), gg, width = 8.2 , height = 5.6)
 
 #==============================================================================#
 
 
 
-dt_beta <- read.csv2("//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/images/estimate_beta.csv", dec = ".")
+dt_beta <- read.csv2(paste0(folder, "/images/estimate_beta.csv"), dec = ".")
 dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
 dt_beta <- dt_beta[dt_beta$value != 0,]
 
@@ -104,7 +110,7 @@ gg <- gg +
 gg <- gg + theme(axis.text.x = element_text(size = 16))
 
 gg
-ggsave('images/beta_unpenalized.png', gg, width = 8.2 , height = 5.6)
+ggsave(paste0(folder,'images/beta_unpenalized.png'), gg, width = 8.2 , height = 5.6)
 
 
 #==============================================================================#
@@ -142,7 +148,7 @@ ggsave('images/beta_unpenalized.png', gg, width = 8.2 , height = 5.6)
 # 
 # 
 # gg
-# ggsave('images/proximal_operator.png', gg, width = 8.2 , height = 5.6)
+# ggsave(paste0(folder,'images/proximal_operator.png'), gg, width = 8.2 , height = 5.6)
   
 
 # logistic <- function(t, phi1, phi2, phi3) return(phi1/(1+exp((phi2-t)/phi3)))
@@ -170,7 +176,7 @@ ggsave('images/beta_unpenalized.png', gg, width = 8.2 , height = 5.6)
 #   annotate('text', x = 6.8, y = 0.7, label = expression(phi[3]), size = mysize)  
 # 
 # gg
-# ggsave('images/logistic.png', gg, width = 8.2 , height = 5.6)
+# ggsave(paste0(folder,'images/logistic.png'), gg, width = 8.2 , height = 5.6)
 # 
 # 
 # 
@@ -180,7 +186,7 @@ ggsave('images/beta_unpenalized.png', gg, width = 8.2 , height = 5.6)
 # 
 # library(stringr)
 # 
-# dt <- read.csv2("prev_2021.csv", sep = ";", dec = ".")
+# dt <- read.csv2("prev_2021.csv"), sep = ";", dec = ".")
 # 
 # data <- dt %>% melt(id = c("module","genotype","Y","X" )) %>%mutate(date = as.Date(variable, format = 'W_%d.%m.%y')) 
 # #%>%  mutate(module = factor(module))
@@ -193,45 +199,45 @@ ggsave('images/beta_unpenalized.png', gg, width = 8.2 , height = 5.6)
 # 
 # 
 # 
-# ggsave('images/prevalence.png', gg, width = 8.2 , height = 5.6)
+# ggsave(paste0(folder,'images/prevalence.png'), gg, width = 8.2 , height = 5.6)
 
 
 
 
 
 
-
-
-
-
-
-
-
-mysize <- 7
-logistic <- function(t, phi1, phi2, phi3) return(phi1/(1+exp((phi2-t)/phi3)))
-
-dt <- rbind(data.frame(x = seq(0, 5, by = 0.1), type = 1) %>%
-              mutate(logistic =  x %>% sapply(logistic, 0.8, 5, 0.6)),
-            data.frame(x = seq(5, 10, by = 0.1), type = 2) %>%
-              mutate(logistic =  x %>% sapply(logistic, 0.8, 5, 0.6)) )
-
-
-
-gg <- dt %>% ggplot(aes(x, logistic)) + geom_line(aes( col = factor(type)), linewidth= 1) +
-  theme(legend.position = 'None') +
-  labs(y = '',x = '') +
-  xlim(0,10) + ylim(0,1) +
-
-  geom_segment(aes(x = 1,xend = 3, y = 0.25, yend = logistic(3)), 
-               linewidth = 1, arrow = arrow(length = unit(0.03, "npc")) +
-                 
-  annotate('text', x = 1, y = .28, label = "known information", size = mysize) +
-
-gg
-
-
-gg
-ggsave('images/logistic.png', gg, width = 8.2 , height = 5.6)
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# mysize <- 7
+# logistic <- function(t, phi1, phi2, phi3) return(phi1/(1+exp((phi2-t)/phi3)))
+# 
+# dt <- rbind(data.frame(x = seq(0, 5, by = 0.1), type = 1) %>%
+#               mutate(logistic =  x %>% sapply(logistic, 0.8, 5, 0.6)),
+#             data.frame(x = seq(5, 10, by = 0.1), type = 2) %>%
+#               mutate(logistic =  x %>% sapply(logistic, 0.8, 5, 0.6)) )
+# 
+# 
+# 
+# gg <- dt %>% ggplot(aes(x, logistic)) + geom_line(aes( col = factor(type)), linewidth= 1) +
+#   theme(legend.position = 'None') +
+#   labs(y = '',x = '') +
+#   xlim(0,10) + ylim(0,1) +
+# 
+#   geom_segment(aes(x = 1,xend = 3, y = 0.25, yend = logistic(3)), 
+#                linewidth = 1, arrow = arrow(length = unit(0.03, "npc")) +
+#                  
+#   annotate('text', x = 1, y = .28, label = "known information", size = mysize) +
+# 
+# gg
+# 
+# 
+# gg
+# ggsave(paste0(folder,'images/logistic.png'), gg, width = 8.2 , height = 5.6)
 
 
 
