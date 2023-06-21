@@ -107,7 +107,7 @@ print(bic_res)
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
-lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]]
+lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]] * 2
 print(f"regularization value selected = {lbd_selection}")
 
 time_start = time()
