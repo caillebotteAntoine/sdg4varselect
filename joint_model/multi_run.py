@@ -24,7 +24,7 @@ from sdg4varselect import jrd, jnp
 import sdg4varselect.plot as sdgplt
 
 
-folder = "images"
+folder = "images/regularization_path_1000"
 
 
 def regularization_path(path, prng_key, nrep=1, verbatim=False):
@@ -47,7 +47,9 @@ def regularization_path(path, prng_key, nrep=1, verbatim=False):
     return res_solver, prng_key
 
 
-def multi_estim(n_run, prng_key, verbatim=True):
+def multi_estim(n_run, prng_key, prox_regul, verbatim=True):
+    kwargs_run_GD["prox_regul"] = lbd_selection
+
     solver_list, res_list, res_select_list = (
         [None for _ in range(n_run)],
         [None for _ in range(n_run)],
@@ -83,39 +85,38 @@ def multi_estim(n_run, prng_key, verbatim=True):
 # ====================================================== #
 # ================ REGULARIZATION PATH ================= #
 # ====================================================== #
-# lbd_set = 10 ** jnp.linspace(-2, 1, num=50)
+lbd_set = 10 ** jnp.linspace(-2, 1, num=50)
 
-# time_start = time()
-# res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=True)
-# print(time2string(time() - time_start))
+time_start = time()
+res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
+print(time2string(time() - time_start))
 
-# fig, ax, bic_res = sdgplt.plot_regularization_path(
-#     res_solver,
-#     lbd_set,
-#     p=DIM_COV,
-#     N=N_IND,
-# )
+fig, ax, bic_res = sdgplt.plot_regularization_path(
+    res_solver,
+    lbd_set,
+    p=DIM_COV,
+    N=N_IND,
+)
 
-# ax[0].title.set_fontsize(28)
-# ax[0].xaxis.label.set_fontsize(28)
-# ax[0].yaxis.label.set_fontsize(28)
-# fig.savefig(folder + "/regularization_path.png")
+ax[0].title.set_fontsize(28)
+ax[0].xaxis.label.set_fontsize(28)
+ax[0].yaxis.label.set_fontsize(28)
+fig.savefig(folder + "/regularization_path.png")
 
-# print(bic_res)
+print(bic_res)
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
-lbd_selection = 0.21  # lbd_set[bic_res["bic"] == bic_res["min"]] * 2
+lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]] * 5
 print(f"regularization value selected = {lbd_selection}")
-kwargs_run_GD["prox_regul"] = lbd_selection
-
-n_run = 50
 
 time_start = time()
 solver_list, res_list, res_select_list = multi_estim(
-    n_run, jrd.PRNGKey(0), verbatim=False
+    n_run=50, prng_key=jrd.PRNGKey(0), prox_regul=lbd_selection, verbatim=False
 )
 print(time2string(time() - time_start))
+
+print("ended !!")
 
 solver = solver_list[0]
 res = res_list[0]

@@ -6,10 +6,10 @@ from sdg4varselect import jnp, jrd
 from model import jac_likelihood
 import sdg4varselect.plot as sdgplt
 
-DIM_COV = 1000
+DIM_COV = 500
 N_IND = 100
 
-plateau = 3000
+plateau = 2000
 lr = 1e-8
 
 
