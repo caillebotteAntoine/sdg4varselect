@@ -64,6 +64,8 @@ dt_beta <- read.csv2(paste0(folder, "/images/penalized_estimate_beta.csv"), dec 
 dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
 dt_beta <- dt_beta[dt_beta$value != 0,]
 
+dt_beta
+
 
 gg <- dt_beta %>%
 
