@@ -61,10 +61,14 @@ ggsave(paste0(folder,'images/violin_unpenalized_plot.png'), gg, width = 8.2 , he
 #==============================================================================#
 
 dt_beta <- read.csv2(paste0(folder, "/images/penalized_estimate_beta.csv"), dec = ".")
-dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
+
+n_run <- nrow(dt_beta)/length(unique(dt_beta$variable))
+p <- length(unique(dt_beta$variable))
+dt_beta$variable <- factor(rep(1:p, each = n_run))
+dt_beta$id_run <- factor(rep(1:n_run, times = p))
+
 dt_beta <- dt_beta[dt_beta$value != 0,]
 
-dt_beta
 
 
 gg <- dt_beta %>%
@@ -91,8 +95,14 @@ ggsave(paste0(folder,'images/beta_penalized.png'), gg, width = 8.2 , height = 5.
 
 
 dt_beta <- read.csv2(paste0(folder, "/images/estimate_beta.csv"), dec = ".")
-dt_beta$variable <- factor(rep(1:length(unique(dt_beta$variable)), each = nrow(dt_beta)/length(unique(dt_beta$variable))))
+
+n_run <- nrow(dt_beta)/length(unique(dt_beta$variable))
+p <- length(unique(dt_beta$variable))
+dt_beta$variable <- factor(rep(1:p, each = n_run))
+dt_beta$id_run <- factor(rep(1:n_run, times = p))
+
 dt_beta <- dt_beta[dt_beta$value != 0,]
+
 
 
 gg <- dt_beta %>%
