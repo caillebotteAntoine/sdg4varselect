@@ -128,9 +128,9 @@ for i in range(len(res_list)):
     fig.savefig(folder + f"/beta_{i}.png")
 
 
-# solver = solver_list[0]
-# res = res_list[0]
-# res_select = res_select_list[0]
+solver = solver_list[0]
+res = res_list[0]
+res_select = res_select_list[0]
 
 # # ====================================================== #
 # # ====================================================== #
