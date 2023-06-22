@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "/home/acaillebotte/sdg4varselect/joint_model_100/multi_run.py", line 10, in <module>
-    from one_run import (
-  File "/home/acaillebotte/sdg4varselect/joint_model_100/one_run.py", line 1
-    from sample import get_solver
-IndentationError: unexpected indent
