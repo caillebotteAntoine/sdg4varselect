@@ -9,7 +9,7 @@ import sdg4varselect.plot as sdgplt
 DIM_COV = 500
 N_IND = 100
 
-plateau = 2000
+plateau = 2500
 lr = 1e-8
 
 

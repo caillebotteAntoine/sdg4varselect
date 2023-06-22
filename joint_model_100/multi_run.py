@@ -64,6 +64,7 @@ def multi_estim(n_run, prng_key, prox_regul, verbatim=True):
             key_new, prng_key = jrd.split(prng_key, 2)
             p[key] *= float(jrd.uniform(key_new, minval=0.8))
 
+        p["beta"] = np.random.uniform(-1, 1, size=DIM_COV)
         print(p)
 
         kwargs_run_GD["proximal_operator"] = True
@@ -107,7 +108,7 @@ print(bic_res)
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
-lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]] * 3
+lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]] * 1.2
 print(f"regularization value selected = {lbd_selection}")
 
 time_start = time()
