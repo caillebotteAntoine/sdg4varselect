@@ -58,6 +58,22 @@ gg <- gg +
 
 gg
 ggsave(paste0(folder,'/images/violin_unpenalized_plot.png'), gg, width = 8.2 , height = 5.6)
+
+
+#==============================================================================#
+
+n_run <- nrow(dt)/length(unique(dt$variable))
+
+dt <- dt %>% mutate(star = rep(c(0.3,90.0,7.5, 0.0025, 20, 0.001, 11.11), each = n_run))
+
+
+dt %>% group_by(variable) %>% summarize(true_value = mean(star), mean = mean(value), rmse = sqrt(mean(( (value-star)/value)^2)))
+
+
+
+
+
+
 #==============================================================================#
 
 dt_beta <- read.csv2(paste0(folder, "/images/penalized_estimate_beta.csv"), dec = ".")
@@ -67,7 +83,7 @@ p <- length(unique(dt_beta$variable))
 dt_beta$variable <- factor(rep(1:p, each = n_run))
 dt_beta$id_run <- factor(rep(1:n_run, times = p))
 
-dt_beta <- dt_beta[dt_beta$value != 0,]
+dt_beta <- dt_beta[dt_beta$value != 0,] #%>% filter(abs(value) > 0.2)
 
 
 
@@ -101,7 +117,7 @@ p <- length(unique(dt_beta$variable))
 dt_beta$variable <- factor(rep(1:p, each = n_run))
 dt_beta$id_run <- factor(rep(1:n_run, times = p))
 
-dt_beta <- dt_beta[dt_beta$value != 0,]
+dt_beta <- dt_beta[dt_beta$value != 0,]%>% filter(abs(value) > 0.2)
 
 
 
