@@ -108,7 +108,7 @@ def multi_estim(n_run, prng_key, prox_regul, verbatim=True):
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
-lbd_selection = 0.15  # lbd_set[bic_res["bic"] == bic_res["min"]]
+lbd_selection = 0.18  # lbd_set[bic_res["bic"] == bic_res["min"]]
 print(f"regularization value selected = {lbd_selection}")
 
 time_start = time()
