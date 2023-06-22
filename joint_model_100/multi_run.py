@@ -108,7 +108,7 @@ def multi_estim(n_run, prng_key, prox_regul, verbatim=True):
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
-lbd_selection = 0.19  # lbd_set[bic_res["bic"] == bic_res["min"]]
+lbd_selection = 0.185  # lbd_set[bic_res["bic"] == bic_res["min"]]
 print(f"regularization value selected = {lbd_selection}")
 
 time_start = time()
@@ -192,21 +192,21 @@ for i in range(len(res_list)):
 # # ====================================================== #
 
 
-# def save_estimates(res, file_name):
-#     estimates = np.array([res[i].theta[-1] for i in range(len(res))])
+def save_estimates(res, file_name):
+    estimates = np.array([res[i].theta[-1] for i in range(len(res))])
 
-#     theta = pandas.DataFrame(
-#         estimates[:, :-DIM_COV], columns=solver.params_names[:-DIM_COV]
-#     ).melt()
-#     beta = pandas.DataFrame(
-#         estimates[:, -DIM_COV:], columns=[f"beta_{i}" for i in range(DIM_COV)]
-#     ).melt()
+    theta = pandas.DataFrame(
+        estimates[:, :-DIM_COV], columns=solver.params_names[:-DIM_COV]
+    ).melt()
+    beta = pandas.DataFrame(
+        estimates[:, -DIM_COV:], columns=[f"beta_{i}" for i in range(DIM_COV)]
+    ).melt()
 
-#     theta.to_csv(file_name + "theta.csv", sep=";")
-#     beta.to_csv(file_name + "beta.csv", sep=";")
+    theta.to_csv(file_name + "theta.csv", sep=";")
+    beta.to_csv(file_name + "beta.csv", sep=";")
 
 
-# # ====================================================== #
-# save_estimates(res_list, folder + "/penalized_estimate_")
-# save_estimates(res_select_list, folder + "/estimate_")
-# # ====================================================== #
+# ====================================================== #
+save_estimates(res_list, folder + "/penalized_estimate_")
+save_estimates(res_select_list, folder + "/estimate_")
+# ====================================================== #
