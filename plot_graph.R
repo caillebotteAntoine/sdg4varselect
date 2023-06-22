@@ -11,6 +11,8 @@ root <- "//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/"
 
 folder <- paste0(root,"joint_model_100")
 
+folder <- 'C:/Users/acaillebotte/Documents/plot_BEAMER_23_05/save_100'
+
 
 dt <- read.csv2(paste0(folder, "/images/penalized_estimate_theta.csv"), dec = ".") %>%
   filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
