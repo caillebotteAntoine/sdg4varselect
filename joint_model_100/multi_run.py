@@ -86,29 +86,29 @@ def multi_estim(n_run, prng_key, prox_regul, verbatim=True):
 # ====================================================== #
 # ================ REGULARIZATION PATH ================= #
 # ====================================================== #
-lbd_set = 10 ** jnp.linspace(-2, 1, num=50)
+# lbd_set = 10 ** jnp.linspace(-2, 1, num=50)
 
-time_start = time()
-res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
-print(time2string(time() - time_start))
+# time_start = time()
+# res_solver, prng_key = regularization_path(lbd_set, jrd.PRNGKey(0), verbatim=False)
+# print(time2string(time() - time_start))
 
-fig, ax, bic_res = sdgplt.plot_regularization_path(
-    res_solver,
-    lbd_set,
-    p=DIM_COV,
-    N=N_IND,
-)
+# fig, ax, bic_res = sdgplt.plot_regularization_path(
+#     res_solver,
+#     lbd_set,
+#     p=DIM_COV,
+#     N=N_IND,
+# )
 
-ax[0].title.set_fontsize(28)
-ax[0].xaxis.label.set_fontsize(28)
-ax[0].yaxis.label.set_fontsize(28)
-fig.savefig(folder + "/regularization_path.png")
+# ax[0].title.set_fontsize(28)
+# ax[0].xaxis.label.set_fontsize(28)
+# ax[0].yaxis.label.set_fontsize(28)
+# fig.savefig(folder + "/regularization_path.png")
 
-print(bic_res)
+# print(bic_res)
 # ====================================================== #
 # ====================== INFERENCE ===================== #
 # ====================================================== #
-lbd_selection = lbd_set[bic_res["bic"] == bic_res["min"]] * 1.2
+lbd_selection = 0.15  # lbd_set[bic_res["bic"] == bic_res["min"]]
 print(f"regularization value selected = {lbd_selection}")
 
 time_start = time()
@@ -119,85 +119,94 @@ print(time2string(time() - time_start))
 
 print("ended !!")
 
-solver = solver_list[0]
-res = res_list[0]
-res_select = res_select_list[0]
 
-# ====================================================== #
-# ====================================================== #
-# ====================================================== #
-id = [0, 3, 5, 6]
-fig, ax = sdgplt.plot_params(
-    x=res.theta[:, id],
-    x_star=np.array(params_star_stack)[id],
-    p=0,
-    names=solver.params_names[id],
-    logscale=False,
-)
-
-for i in range(len(ax) - 1):
-    ax[i].xaxis.set_tick_params(labelbottom=False)
-    ax[i].title.set_fontsize(28)
-    ax[i].legend(fontsize=18)
-
-    for label in ax[i].get_yticklabels():
-        label.set_fontsize(16)
-
-ax[-1].xaxis.label.set_fontsize(28)
-ax[-1].legend(fontsize=18)
-for label in ax[-1].get_xticklabels() + ax[-1].get_yticklabels():
-    label.set_fontsize(16)
-
-fig.savefig(folder + "/theta_example_run.png")
-# ====================================================== #
+for i in range(len(res_list)):
+    fig, ax = sdgplt.plot_params_hd(res_list[i].theta, p=DIM_COV, location="right")
+    ax.title.set_fontsize(28)
+    ax.xaxis.label.set_fontsize(28)
+    ax.yaxis.label.set_fontsize(28)
+    fig.savefig(folder + f"/beta_{i}.png")
 
 
-fig, ax = sdgplt.plot_grad(
-    x=res.grad[:, id],
-    p=0,
-    names=solver.params_names[id],
-)
+# solver = solver_list[0]
+# res = res_list[0]
+# res_select = res_select_list[0]
 
-for i in range(len(ax) - 1):
-    ax[i].xaxis.set_tick_params(labelbottom=False)
-    ax[i].title.set_fontsize(28)
-    ax[i].legend(fontsize=18)
+# # ====================================================== #
+# # ====================================================== #
+# # ====================================================== #
+# id = [0, 3, 5, 6]
+# fig, ax = sdgplt.plot_params(
+#     x=res.theta[:, id],
+#     x_star=np.array(params_star_stack)[id],
+#     p=0,
+#     names=solver.params_names[id],
+#     logscale=False,
+# )
 
-    for label in ax[i].get_yticklabels():
-        label.set_fontsize(16)
+# for i in range(len(ax) - 1):
+#     ax[i].xaxis.set_tick_params(labelbottom=False)
+#     ax[i].title.set_fontsize(28)
+#     ax[i].legend(fontsize=18)
 
-ax[-1].xaxis.label.set_fontsize(28)
-ax[-1].legend(fontsize=18)
-for label in ax[-1].get_xticklabels() + ax[-1].get_yticklabels():
-    label.set_fontsize(16)
+#     for label in ax[i].get_yticklabels():
+#         label.set_fontsize(16)
 
-fig.savefig(folder + "/grad_example_run.png")
-# ====================================================== #
+# ax[-1].xaxis.label.set_fontsize(28)
+# ax[-1].legend(fontsize=18)
+# for label in ax[-1].get_xticklabels() + ax[-1].get_yticklabels():
+#     label.set_fontsize(16)
 
-
-fig, ax = sdgplt.plot_params_hd(res.theta, p=DIM_COV, location="right")
-ax.title.set_fontsize(28)
-ax.xaxis.label.set_fontsize(28)
-ax.yaxis.label.set_fontsize(28)
-fig.savefig(folder + "/beta.png")
-# ====================================================== #
-
-
-def save_estimates(res, file_name):
-    estimates = np.array([res[i].theta[-1] for i in range(len(res))])
-
-    theta = pandas.DataFrame(
-        estimates[:, :-DIM_COV], columns=solver.params_names[:-DIM_COV]
-    ).melt()
-    beta = pandas.DataFrame(
-        estimates[:, -DIM_COV:], columns=[f"beta_{i}" for i in range(DIM_COV)]
-    ).melt()
-
-    theta.to_csv(file_name + "theta.csv", sep=";")
-    beta.to_csv(file_name + "beta.csv", sep=";")
+# fig.savefig(folder + "/theta_example_run.png")
+# # ====================================================== #
 
 
-# ====================================================== #
-save_estimates(res_list, folder + "/penalized_estimate_")
-save_estimates(res_select_list, folder + "/estimate_")
-# ====================================================== #
+# fig, ax = sdgplt.plot_grad(
+#     x=res.grad[:, id],
+#     p=0,
+#     names=solver.params_names[id],
+# )
+
+# for i in range(len(ax) - 1):
+#     ax[i].xaxis.set_tick_params(labelbottom=False)
+#     ax[i].title.set_fontsize(28)
+#     ax[i].legend(fontsize=18)
+
+#     for label in ax[i].get_yticklabels():
+#         label.set_fontsize(16)
+
+# ax[-1].xaxis.label.set_fontsize(28)
+# ax[-1].legend(fontsize=18)
+# for label in ax[-1].get_xticklabels() + ax[-1].get_yticklabels():
+#     label.set_fontsize(16)
+
+# fig.savefig(folder + "/grad_example_run.png")
+# # ====================================================== #
+
+
+# fig, ax = sdgplt.plot_params_hd(res.theta, p=DIM_COV, location="right")
+# ax.title.set_fontsize(28)
+# ax.xaxis.label.set_fontsize(28)
+# ax.yaxis.label.set_fontsize(28)
+# fig.savefig(folder + "/beta.png")
+# # ====================================================== #
+
+
+# def save_estimates(res, file_name):
+#     estimates = np.array([res[i].theta[-1] for i in range(len(res))])
+
+#     theta = pandas.DataFrame(
+#         estimates[:, :-DIM_COV], columns=solver.params_names[:-DIM_COV]
+#     ).melt()
+#     beta = pandas.DataFrame(
+#         estimates[:, -DIM_COV:], columns=[f"beta_{i}" for i in range(DIM_COV)]
+#     ).melt()
+
+#     theta.to_csv(file_name + "theta.csv", sep=";")
+#     beta.to_csv(file_name + "beta.csv", sep=";")
+
+
+# # ====================================================== #
+# save_estimates(res_list, folder + "/penalized_estimate_")
+# save_estimates(res_select_list, folder + "/estimate_")
+# # ====================================================== #
