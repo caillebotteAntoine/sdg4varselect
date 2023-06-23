@@ -9,12 +9,14 @@ require(reshape2)
 
 root <- "//wsl.localhost/Ubuntu/home/acaillebotte/projects/sdg4varselect/"
 
-folder <- paste0(root,"joint_model_500")
+folder <- paste0(root,"joint_model_100")
 
 #folder <- 'C:/Users/acaillebotte/Documents/plot_BEAMER_23_05/save_100'
 
+folder <- "Z:/sdg4varselect/joint_model_100/295"
 
-dt <- read.csv2(paste0(folder, "/images/penalized_estimate_theta.csv"), dec = ".")# %>%  filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
+
+dt <- read.csv2(paste0(folder, "/penalized_estimate_theta.csv"), dec = ".")# %>%  filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
 
 
 gg <- dt %>% ggplot(aes(value,variable, fill = variable)) +
@@ -34,11 +36,11 @@ gg <- gg +
              aes(xintercept = value))#shape = 8, col = variable) )
 
 gg
-ggsave(paste0(folder,'/images/violin_penalized_plot.png'), gg, width = 8.2 , height = 5.6)
+ggsave(paste0(folder,'/violin_penalized_plot.png'), gg, width = 8.2 , height = 5.6)
 
 #==============================================================================#
 
-dt <- read.csv2(paste0(folder, "/images/estimate_theta.csv"), dec = ".")# %>%filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
+dt <- read.csv2(paste0(folder, "/estimate_theta.csv"), dec = ".")# %>%filter(variable %in% c('mu1','sigma2', 'gamma2_2','alpha'))
 
 gg <- dt %>% ggplot(aes(value,variable, fill = variable)) +
   geom_violin() +
@@ -57,7 +59,7 @@ gg <- gg +
              aes(xintercept = value))#shape = 8, col = variable) )
 
 gg
-ggsave(paste0(folder,'/images/violin_unpenalized_plot.png'), gg, width = 8.2 , height = 5.6)
+ggsave(paste0(folder,'/violin_unpenalized_plot.png'), gg, width = 8.2 , height = 5.6)
 
 
 #==============================================================================#
@@ -76,7 +78,7 @@ dt %>% group_by(variable) %>% summarize(true_value = mean(star), mean = mean(val
 
 #==============================================================================#
 
-dt_beta <- read.csv2(paste0(folder, "/images/penalized_estimate_beta.csv"), dec = ".")
+dt_beta <- read.csv2(paste0(folder, "/penalized_estimate_beta.csv"), dec = ".")
 
 n_run <- nrow(dt_beta)/length(unique(dt_beta$variable))
 p <- length(unique(dt_beta$variable))
@@ -104,20 +106,20 @@ gg <- gg +
 gg <- gg + theme(axis.text.x = element_text(size = 16))
 gg
 
-ggsave(paste0(folder,'/images/beta_penalized.png'), gg, width = 8.2 , height = 5.6)
+ggsave(paste0(folder,'/beta_penalized.png'), gg, width = 8.2 , height = 5.6)
 
 #==============================================================================#
 
 
 
-dt_beta <- read.csv2(paste0(folder, "/images/estimate_beta.csv"), dec = ".")
+dt_beta <- read.csv2(paste0(folder, "/estimate_beta.csv"), dec = ".")
 
 n_run <- nrow(dt_beta)/length(unique(dt_beta$variable))
 p <- length(unique(dt_beta$variable))
 dt_beta$variable <- factor(rep(1:p, each = n_run))
 dt_beta$id_run <- factor(rep(1:n_run, times = p))
 
-dt_beta <- dt_beta[dt_beta$value != 0,]%>% filter(abs(value) > 0.2)
+dt_beta <- dt_beta[dt_beta$value != 0,] #%>% filter(abs(value) > 0.2)
 
 
 
@@ -138,7 +140,7 @@ gg <- gg +
 gg <- gg + theme(axis.text.x = element_text(size = 16))
 
 gg
-ggsave(paste0(folder,'/images/beta_unpenalized.png'), gg, width = 8.2 , height = 5.6)
+ggsave(paste0(folder,'/beta_unpenalized.png'), gg, width = 8.2 , height = 5.6)
 
 
 #==============================================================================#
@@ -176,7 +178,7 @@ ggsave(paste0(folder,'/images/beta_unpenalized.png'), gg, width = 8.2 , height =
 # 
 # 
 # gg
-# ggsave(paste0(folder,'/images/proximal_operator.png'), gg, width = 8.2 , height = 5.6)
+# ggsave(paste0(folder,'/proximal_operator.png'), gg, width = 8.2 , height = 5.6)
   
 
 # logistic <- function(t, phi1, phi2, phi3) return(phi1/(1+exp((phi2-t)/phi3)))
@@ -204,7 +206,7 @@ ggsave(paste0(folder,'/images/beta_unpenalized.png'), gg, width = 8.2 , height =
 #   annotate('text', x = 6.8, y = 0.7, label = expression(phi[3]), size = mysize)  
 # 
 # gg
-# ggsave(paste0(folder,'/images/logistic.png'), gg, width = 8.2 , height = 5.6)
+# ggsave(paste0(folder,'/logistic.png'), gg, width = 8.2 , height = 5.6)
 # 
 # 
 # 
@@ -227,7 +229,7 @@ ggsave(paste0(folder,'/images/beta_unpenalized.png'), gg, width = 8.2 , height =
 # 
 # 
 # 
-# ggsave(paste0(folder,'/images/prevalence.png'), gg, width = 8.2 , height = 5.6)
+# ggsave(paste0(folder,'/prevalence.png'), gg, width = 8.2 , height = 5.6)
 
 
 
@@ -265,7 +267,7 @@ ggsave(paste0(folder,'/images/beta_unpenalized.png'), gg, width = 8.2 , height =
 # 
 # 
 # gg
-# ggsave(paste0(folder,'/images/logistic.png'), gg, width = 8.2 , height = 5.6)
+# ggsave(paste0(folder,'/logistic.png'), gg, width = 8.2 , height = 5.6)
 
 
 
