@@ -48,6 +48,12 @@ class chain:
         print(msg)
         return msg
 
+    def reset(self):
+        x0 = self.__chain[0][0]
+        self._data = np.array([float(x0) for i in range(self._size)])
+        self.__chain = []
+        self.update_chain()
+
     def init(self, x0):
         for i in range(self._size):
             self._data[i] = x0
@@ -81,7 +87,6 @@ class chain:
 
 
 if __name__ == "__main__":
-
     x = chain(0, 3)
     print(x)
 

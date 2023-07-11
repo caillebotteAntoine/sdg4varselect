@@ -60,6 +60,12 @@ class MCMC_chain(chain):
         self.__lambda = 0.01
         self.__likelihood = likelihood
 
+    def reset(self):
+        super().reset()
+        self.__acceptance = [0]
+        self.__sd = [self.__sd[0]]
+        self.__lambda = 0.01
+
     def __repr__(self) -> str:
         out = super().__repr__()
         out += " [mean = " + str(self._data.mean())

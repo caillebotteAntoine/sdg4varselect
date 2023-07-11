@@ -120,6 +120,15 @@ def get_parametrization(DIM_COV):
     if DIM_COV > 3:
         beta[3] = 2
 
+    # if DIM_COV > 4:
+    #     beta[4] = -2
+    # if DIM_COV > 5:
+    #     beta[5] = -1
+    # if DIM_COV > 6:
+    #     beta[6] = 1
+    # if DIM_COV > 7:
+    #     beta[7] = 2
+
     parametrization = pc.NamedTuple(
         mu1=pc.RealPositive(scale=0.5),
         mu2=pc.Real(scale=100),

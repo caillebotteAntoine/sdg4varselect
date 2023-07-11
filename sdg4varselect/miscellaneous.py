@@ -6,6 +6,10 @@ import jax.numpy as jnp
 np.set_printoptions(precision=3, threshold=10)
 
 
+def get_BIC_value(res_solver, p, N):
+    return np.array([[x.BIC(N, p, size=1000) for x in y] for y in res_solver])
+
+
 def default_arg(dec):
     def new_dec(func=None, *args, **kwargs):
         if func is None:
@@ -131,7 +135,6 @@ def step_message(iter: int, max_iter: int) -> str:
 
 
 if __name__ == "__main__":
-
     import numpy as np
 
     x = np.arange(0, 1e6)

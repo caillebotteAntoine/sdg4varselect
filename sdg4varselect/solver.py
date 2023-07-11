@@ -195,6 +195,10 @@ class Solver:
         HD_mask = jnp.arange(len(theta)) >= d
         return jnp.hstack([LD_mask, theta[HD_mask] != 0])
 
+    def get_number_of_nonzero(self, p):
+        d = len(self.theta_reals1d) - p
+        return self.theta_nonzero_support(p=p).sum() - d
+
     def shrink_theta(self, index):
         self._theta_reals1d = self._theta_reals1d[index]
 

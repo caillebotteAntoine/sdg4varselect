@@ -1,6 +1,6 @@
 from sample import get_solver
 
-from sample import get_parametrization, get_sample, get_solver
+from sample import get_parametrization, get_sample
 import numpy as np
 from sdg4varselect import jnp, jrd
 from model import jac_likelihood

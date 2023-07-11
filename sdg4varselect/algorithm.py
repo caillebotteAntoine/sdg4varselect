@@ -244,6 +244,8 @@ class Algorithm(Solver):
         """resets the resolution time and the number of iterations made for the solver"""
         self.__elapsed_time = 0
         self.__iter = 0
+        for var_lat in self.latent_variables.values():
+            var_lat.reset()
 
     def start_solver(self, name: str) -> None:
         """starts the resolution timer"""

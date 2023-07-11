@@ -5,6 +5,8 @@ import jax.numpy as jnp
 
 from functools import wraps
 
+from sdg4varselect.miscellaneous import get_BIC_value
+
 
 def dec_figsize(func):
     argcount = func.__code__.co_argcount - 1
@@ -362,21 +364,9 @@ def plot_all_params_grad(
     return [fig0, fig1], [ax0, ax1]
 
 
-def get_theta_HD_and_BIC_value(res_solver, p, N=None):
-    theta_regularization = [
-        np.array([x.theta_reals1d for x in y]).mean(axis=0)[-p:] for y in res_solver
-    ]
-
-    if N is not None:
-        bic = np.array([[x.BIC(N, p, size=1000) for x in y] for y in res_solver])
-        return theta_regularization, bic
-    else:
-        return theta_regularization, None
-
-
 @dec_figsize
 def plot_selected_component(res_solver, lbd_set, p, colormap="bwr", figsize=10):
-    theta_regularization, _ = get_theta_HD_and_BIC_value(res_solver, p=p)
+    theta_regularization = [x.theta_reals1d[-p:] for x in res_solver]
 
     fig, ax = ax_plot_list_of_vector(
         plt.figure(),
@@ -400,22 +390,36 @@ def plot_selected_component(res_solver, lbd_set, p, colormap="bwr", figsize=10):
 
 @dec_figsize
 def plot_regularization_path(res_solver, lbd_set, p, N, se_percentage=None, figsize=10):
-    theta_regularization, bic = get_theta_HD_and_BIC_value(res_solver, p, N)
+    beta = [res_solver[i].theta_nonzero_support(p=p) for i in range(len(res_solver))]
+
+    id_out = [0]
+    chosen_model = [0]
+    for i in range(len(beta) - 1):
+        if (beta[i + 1] == beta[i]).all():
+            id_out.append(id_out[i])
+        else:
+            id_out.append(id_out[i] + 1)
+            chosen_model.append(i + 1)
+
+    print(id_out)
+    theta_regularization = [x.theta_reals1d[-p:] for x in res_solver]
+
+    chosen_bic = np.array([res_solver[i].BIC(N, p, size=1000) for i in chosen_model])
+    bic = np.array([chosen_bic[i] for i in id_out])
 
     fig, ax = plt.subplots()
     ax.set_title("Regularization path")
-    ax.set_xlabel(r"Regularization penalty (\lambda)")
-    ax.set_ylabel(r"HD Parameter (\beta)")
+    ax.set_xlabel(r"Regularization penalty ($\lambda$)")
+    ax.set_ylabel(r"HD Parameter ($\beta$)")
     ax.set_xscale("log")
     ax.plot(lbd_set, theta_regularization)
 
     # BIC PLOT
     ax_bic = ax.twinx()
-    bic_mean = bic.mean(axis=1)
-    ax_bic.plot(lbd_set, bic_mean, color="k", linewidth=2, linestyle="--", label="BIC")
+    ax_bic.plot(lbd_set, bic, color="k", linewidth=2, linestyle="--", label="BIC")
 
     bic_res = {
-        "bic": bic_mean,
+        "bic": bic,
     }
 
     def plot_axvline(id, color, msg=""):
@@ -426,12 +430,12 @@ def plot_regularization_path(res_solver, lbd_set, p, N, se_percentage=None, figs
             color=color,
             linewidth=2,
             linestyle="--",
-            label="$\lambda$" + msg,
+            label=r"$\lambda$" + msg,
         )
         ax_bic.text(
             lbd,
-            0.8 * bic_mean.max() + 0.2 * bic_mean.min(),
-            f"$\lambda$ = {lbd_set[id]:.3e}",
+            0.8 * bic.max() + 0.2 * bic.min(),
+            rf"$\lambda$ = {lbd_set[id]:.3e}",
             ha="center",
             va="center",
             rotation="vertical",
@@ -439,9 +443,9 @@ def plot_regularization_path(res_solver, lbd_set, p, N, se_percentage=None, figs
         )
 
     # minimum value of bic
-    id_min = np.nanargmin(bic_mean)
+    id_min = np.nanargmin(bic)
     plot_axvline(id_min, color="b", msg="min")
-    bic_res["min"] = bic_mean[id_min]
+    bic_res["min"] = bic[id_min]
 
     # bic_sub = bic_mean[1:] - bic_mean[:-1]
     # id_coude = np.argmax(bic_sub > 0)
@@ -452,9 +456,9 @@ def plot_regularization_path(res_solver, lbd_set, p, N, se_percentage=None, figs
     id_1se = (
         None
         if se_percentage is None
-        else np.argmax((bic_mean - id_min) < se_percentage * id_min)
+        else np.argmax((bic - id_min) < se_percentage * id_min)
     )
-    bic_1se = None if id_1se is None else bic_mean[id_1se]
+    bic_1se = None if id_1se is None else bic[id_1se]
     if bic_1se is not None:
         plot_axvline(id_1se, color="r", msg=" 1 s.e.")
         bic_res["1se"] = bic_1se
