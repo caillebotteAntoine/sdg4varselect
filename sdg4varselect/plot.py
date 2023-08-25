@@ -5,20 +5,16 @@ import jax.numpy as jnp
 
 from functools import wraps
 
-from sdg4varselect.miscellaneous import get_BIC_value
+from sdg4varselect.miscellaneous import list_bic
+
+
+def figure():
+    return plt.figure()
 
 
 def dec_figsize(func):
-    argcount = func.__code__.co_argcount - 1
-    if func.__code__.co_varnames[argcount] != "figsize":
-        raise ValueError("the last argument must be figsize")
-
-    if len(func.__defaults__) == 0:
-        raise ValueError("figsize must have a default value")
-    figsize = func.__defaults__[-1]
-
     @wraps(func)
-    def new_func(*args, **kwargs):
+    def new_func(*args, figsize=15, **kwargs):
         out = func(*args, **kwargs)
         if out is not None and len(out) > 0:
             out[0].set_figheight(figsize)
@@ -29,17 +25,54 @@ def dec_figsize(func):
     return new_func
 
 
+def dec_log_yscale(func):
+    @wraps(func)
+    def new_func(*args, logscale=False, **kwargs):
+        out = func(*args, **kwargs)
+        if out is not None and len(out) > 0:
+            if logscale:
+                out[1].set_yscale("log")
+
+        return out
+
+    return new_func
+
+
 def remove_nan(x):
     return x[~jnp.isnan(x).any(axis=1)]
+
+
+@dec_log_yscale
+@dec_figsize
+def plot_multi_line(
+    x,
+    i_start=0,
+    i_end=None,
+    j_start=0,
+    j_end=None,
+    title=None,
+    logscale=False,
+):
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+
+    res = x[i_start:i_end, j_start:j_end]
+    id = [i for i in range(i_start, i_start + res.shape[0] if i_end is None else i_end)]
+    ax.plot(id, res)
+
+    if title is not None:
+        ax.set_title(title)
+
+    return fig, ax
 
 
 def plot_mcmc(x):
     """plot an MCMC_chain"""
     import matplotlib.pyplot as plt
     from sdg4varselect.MCMC import MCMC_chain
-    from sdg4varselect.solver import solver
+    from sdg4varselect.solver import Solver
 
-    if isinstance(x, solver):
+    if isinstance(x, Solver):
         return [plot_mcmc(mcmc) for mcmc in x.latent_variables.values()]
 
     if isinstance(x, MCMC_chain):
@@ -65,8 +98,16 @@ def plot_mcmc(x):
         return fig, axs
 
 
+@dec_log_yscale
 def ax_plot_line_with_doted_hline(
-    fig, nrow, ncol, i, x, x_star=None, color=None, label=None, logscale=True
+    fig,
+    nrow,
+    ncol,
+    i,
+    x,
+    x_star=None,
+    color=None,
+    label=None,
 ):
     ax = fig.add_subplot(nrow, ncol, i)
 
@@ -98,9 +139,6 @@ def ax_plot_line_with_doted_hline(
         else:
             ax.plot(x, color=color, label=label)
         ax.legend(loc="center left")
-
-    if logscale:
-        ax.set_yscale("log")
 
     return fig, ax
 
@@ -151,7 +189,13 @@ def ax_plot_multi_line_with_doted_hline(
 
 
 @dec_figsize
-def plot_params(x, x_star=None, p=None, names=None, logscale=True, figsize=15):
+def plot_params(
+    x,
+    x_star=None,
+    p=None,
+    names=None,
+    logscale=True,
+):
     fig, ax = ax_plot_multi_line_with_doted_hline(
         plt.figure(),
         x.shape[1] - p,
@@ -170,7 +214,11 @@ def plot_params(x, x_star=None, p=None, names=None, logscale=True, figsize=15):
 
 
 @dec_figsize
-def plot_grad(x, p=None, names=None, figsize=15):
+def plot_grad(
+    x,
+    p=None,
+    names=None,
+):
     fig, ax = ax_plot_multi_line_with_doted_hline(
         plt.figure(),
         x.shape[1] - p,
@@ -190,7 +238,12 @@ def plot_grad(x, p=None, names=None, figsize=15):
 
 @dec_figsize
 def plot_params_grad(
-    params, grad, params_star=None, p=None, names=None, logscale=True, figsize=15
+    params,
+    grad,
+    params_star=None,
+    p=None,
+    names=None,
+    logscale=True,
 ):
     dim = params.shape[1] - p
     fig, ax0 = ax_plot_multi_line_with_doted_hline(
@@ -224,12 +277,12 @@ def plot_params_grad(
 
 
 def ax_plot_list_of_vector(
-    fig,
-    nrow,
-    ncol,
-    i,
     x,
-    p,
+    fig=None,
+    nrow=1,
+    ncol=1,
+    i=1,
+    p=None,
     x_axs=None,
     colormap="RdBu_r",
     logscale=False,
@@ -237,7 +290,13 @@ def ax_plot_list_of_vector(
     colorbar=True,
     location="bottom",
 ):
+    if fig is None:
+        fig = figure()
+
     x = remove_nan(x)
+    if p is None:
+        p = x.shape[1]
+
     x_hd = x[:, -p:].T
 
     x_abs = x_axs if x_axs is not None else 0.5 + np.arange(0, x_hd.shape[1] + 1, 1)
@@ -269,14 +328,15 @@ def ax_plot_list_of_vector(
 
 
 @dec_figsize
-def plot_params_hd(x, p, colormap="RdBu_r", location="bottom", figsize=15):
+def plot_params_hd(
+    x,
+    p,
+    colormap="RdBu_r",
+    location="bottom",
+):
     return ax_plot_list_of_vector(
-        plt.figure(),
-        1,
-        1,
-        1,
         x,
-        p,
+        p=p,
         x_axs=None,
         colormap=colormap,
         logscale=False,
@@ -286,12 +346,12 @@ def plot_params_hd(x, p, colormap="RdBu_r", location="bottom", figsize=15):
 
 
 @dec_figsize
-def plot_grad_hd(x, p, colormap="RdBu_r", figsize=15):
+def plot_grad_hd(
+    x,
+    p,
+    colormap="RdBu_r",
+):
     return ax_plot_list_of_vector(
-        plt.figure(),
-        1,
-        1,
-        1,
         x,
         p,
         x_axs=None,
@@ -302,15 +362,21 @@ def plot_grad_hd(x, p, colormap="RdBu_r", figsize=15):
 
 
 @dec_figsize
-def plot_params_grad_hd(params, grad, p, mask=None, colormap="RdBu_r", figsize=15):
+def plot_params_grad_hd(
+    params,
+    grad,
+    p,
+    mask=None,
+    colormap="RdBu_r",
+):
     fig = plt.figure()
 
     fig, ax0 = ax_plot_list_of_vector(
+        params,
         fig,
         1,
         16,
         (1, 7 if mask is None else 6),
-        x=params,
         p=p,
         x_axs=None,
         colormap=colormap,
@@ -369,10 +435,6 @@ def plot_selected_component(res_solver, lbd_set, p, colormap="bwr", figsize=10):
     theta_regularization = [x.theta_reals1d[-p:] for x in res_solver]
 
     fig, ax = ax_plot_list_of_vector(
-        plt.figure(),
-        1,
-        1,
-        1,
         x=np.array(theta_regularization),
         p=p,
         x_axs=lbd_set,
@@ -389,24 +451,9 @@ def plot_selected_component(res_solver, lbd_set, p, colormap="bwr", figsize=10):
 
 
 @dec_figsize
-def plot_regularization_path(res_solver, lbd_set, p, N, se_percentage=None, figsize=10):
-    beta = [res_solver[i].theta_nonzero_support(p=p) for i in range(len(res_solver))]
-
-    id_out = [0]
-    chosen_model = [0]
-    for i in range(len(beta) - 1):
-        if (beta[i + 1] == beta[i]).all():
-            id_out.append(id_out[i])
-        else:
-            id_out.append(id_out[i] + 1)
-            chosen_model.append(i + 1)
-
-    print(id_out)
-    theta_regularization = [x.theta_reals1d[-p:] for x in res_solver]
-
-    chosen_bic = np.array([res_solver[i].BIC(N, p, size=1000) for i in chosen_model])
-    bic = np.array([chosen_bic[i] for i in id_out])
-
+def plot_regularization_path(
+    theta_regularization, lbd_set, bic, p, se_percentage=None, figsize=10
+):
     fig, ax = plt.subplots()
     ax.set_title("Regularization path")
     ax.set_xlabel(r"Regularization penalty ($\lambda$)")
@@ -464,7 +511,7 @@ def plot_regularization_path(res_solver, lbd_set, p, N, se_percentage=None, figs
         bic_res["1se"] = bic_1se
 
     ax_bic.legend(loc="lower right")
-    return (fig, [ax, ax_bic], bic_res)
+    return (fig, [ax, ax_bic])  # , bic_res)
 
 
 def get_rmse(res_solver, params_star, exclude):

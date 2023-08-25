@@ -6,11 +6,11 @@ class learning_rate:
         self,
         step_heat: int = 0,
         coef_heat: float = 1,
-        step_burnin: int = 0,
+        step_burnin: int = None,
         coef_burnin: float = 1,
         scale: float = 1,
+        step_flat: int = 0,
     ):
-
         if not isinstance(step_heat, int):
             raise TypeError("step_heat must be int")
         self._step_heat = step_heat
@@ -19,9 +19,12 @@ class learning_rate:
             raise TypeError("coef_heat must be int or float")
         self._coef_heat = coef_heat
 
-        if not isinstance(step_burnin, int):
-            raise TypeError("step_burnin must be int")
-        self._step_burnin = step_burnin - 1
+        if step_burnin is None:
+            self._step_burnin = None
+        else:
+            if not isinstance(step_burnin, int):
+                raise TypeError("step_burnin must be int")
+            self._step_burnin = step_burnin - 1
 
         if not isinstance(coef_burnin, (int, float)):
             raise TypeError("coef_burnin must be int or float")
@@ -30,6 +33,10 @@ class learning_rate:
         if not isinstance(scale, (int, float)):
             raise TypeError("scale must be int or float")
         self._scale = scale
+
+        if not isinstance(step_flat, (int, float)):
+            raise TypeError("step_flat must be int or float")
+        self._step_flat = step_flat
 
     @property
     def step_heat(self):
@@ -56,6 +63,11 @@ class learning_rate:
         """return scale"""
         return self._scale
 
+    @property
+    def step_flat(self):
+        """return step_flat"""
+        return self._step_flat
+
     @staticmethod
     def from_0_to_1(heat, coef_heat):
         return learning_rate(heat, coef_heat, 10**10, 1)
@@ -65,14 +77,17 @@ class learning_rate:
         return learning_rate(0, 1, burnin, coef_burnin)
 
     def __call__(self, iter: int) -> float:
+        if iter < self._step_flat:  # ensures zero value before growth
+            return 0
 
         if iter < self._step_heat:  # before exp(coeff *(1-iter/step_heat))
             return self._scale * np.exp(
                 self._coef_heat * (1 - float(iter) / self._step_heat)
             )
 
-        if iter >= 1 + self._step_burnin:  # after (iter - step_burnin)^-coef
-            return self._scale * pow(iter - self._step_burnin, -self._coef_burnin)
+        if self._step_burnin is not None:
+            if iter >= 1 + self._step_burnin:  # after (iter - step_burnin)^-coef
+                return self._scale * pow(iter - self._step_burnin, -self._coef_burnin)
 
         return self._scale
 
@@ -106,20 +121,24 @@ class learning_rate:
 
         return out
 
-    def plot(self):
+    def plot(self, label=None):
         import matplotlib.pyplot as plt
 
-        x = np.linspace(0, 2 * self.step_burnin, num=4 * self.step_burnin)
+        if self.step_burnin is None:
+            x = np.linspace(0, 2 * self.step_heat, num=4 * self.step_heat)
+        else:
+            x = np.linspace(0, 2 * self.step_burnin, num=4 * self.step_burnin)
+
         y = [self.__call__(i) for i in x]
 
-        print(x)
-        print(y)
-
-        return plt.plot(x, y)
+        # print(x)
+        # print(y)
+        if label is None:
+            return plt.plot(x, y)
+        return plt.plot(x, y, label=label)
 
 
 if __name__ == "__main__":
-
     f = learning_rate(10, -2, 20, 0.75)
     print(f)
     x = np.arange(40, dtype=float)
@@ -143,5 +162,9 @@ if __name__ == "__main__":
     print(type(f))
     print(isinstance(f, learning_rate))
 
-    f = learning_rate(10, -2, 20, 0.75)
+    f = learning_rate(10, -2, 20, 0.75, step_flat=5)
+    f.plot()
+
+    plt.figure()
+    f = learning_rate(10, -2)
     f.plot()

@@ -1,6 +1,6 @@
 from .learning_rate import learning_rate
 from .MCMC import MCMC_chain
-from .algorithm import Algorithm
+from .gradient import Gradient
 
 import jax
 import jax.random as jrd

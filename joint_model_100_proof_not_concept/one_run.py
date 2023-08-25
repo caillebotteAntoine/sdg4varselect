@@ -1,19 +1,19 @@
 from sample import get_solver
 
-from sample import get_parametrization, get_sample, get_solver
+from sample import get_parametrization, get_sample, total_step
 import numpy as np
 from sdg4varselect import jnp, jrd
 from model import jac_likelihood
 import sdg4varselect.plot as sdgplt
 
-DIM_COV = 500
-N_IND = 100
+DIM_COV = 50
+N_IND = 90
 
-plateau = 2500
-lr = 1e-8
+cov_law = "uniform"
 
+beta_type = {"clever_uniform": "clever", "NIRS": "NIRS", "uniform": "normal"}
 
-parametrization, params_star_weibull = get_parametrization(DIM_COV)
+parametrization, params_star_weibull = get_parametrization(DIM_COV, beta_type[cov_law])
 
 params_star_stack = jnp.hstack(
     [
@@ -39,8 +39,20 @@ params0 = {
     "beta": np.random.uniform(-1, 1, size=DIM_COV),
 }
 
+
+def get_random_params0(prng_key, error=0.2):
+    p = params0.copy()
+    for key in p:
+        key_new, prng_key = jrd.split(prng_key, 2)
+        p[key] *= float(jrd.uniform(key_new, minval=1.0 - error))
+
+    p["beta"] = jrd.uniform(jrd.PRNGKey(0), shape=p["beta"].shape, minval=-1, maxval=1)
+
+    return p, key_new
+
+
 fisher_mask = (
-    jnp.arange(0, len(params0) + DIM_COV - 1) < len(params0) - 2
+    jnp.arange(0, len(params0) + DIM_COV - 1) < 1000 + len(params0) - 2
 )  # -2 car on veut pas de 2 paramètre beta and alpha
 # fisher_mask = jnp.array([True for i in range(len(fisher_mask))])
 
@@ -50,10 +62,10 @@ kwargs_run_GD = {
 }
 
 
-def sample(params0, prng_key):
+def sample(params0_weibull, prng_key):
     """return solver, data_set, key"""
     # ====== DATA GENERATION ====== #
-    data_set, _, key = get_sample(prng_key, params_star_weibull, N_IND, DIM_COV)
+    data_set, _, key = get_sample(prng_key, params0_weibull, N_IND, DIM_COV, cov_law)
     return data_set, key
 
 
@@ -61,40 +73,25 @@ def estim_solver(solver, verbatim=False):
     solver.verbatim = verbatim
     return solver.stochastic_gradient(
         jac_likelihood=jac_likelihood,
-        fisher_preconditionner=True,
         fisher_mask=fisher_mask,
-        smart_start=plateau,
+        smart_start=solver.step_size_fisher.step_burnin,
         p=DIM_COV,
-        niter=plateau + 1000,
+        niter=total_step,
         **kwargs_run_GD,
     )
 
 
-def estim(data_set, prng_key, verbatim=False):
-    solver, key = get_solver(
-        parametrization,
-        prng_key,
-        params0,
-        data_set,
-        N_IND,
-        plateau_start=plateau,
-        plateau_stop=plateau + 100,
-        step_size=np.log(lr),
-    )
+def estim(data_set, params0, prng_key, verbatim=False):
+    solver, key = get_solver(parametrization, prng_key, params0, data_set, N_IND)
 
     res = estim_solver(solver, verbatim=verbatim)
     return res, solver, key
 
 
-def sample_and_estim(params0, prng_key, verbatim=False):
-    data_set, key = sample(params0, prng_key)
-    res, solver, key = estim(data_set, key, verbatim=verbatim)
-
-    return res, solver, key
-
-
 if __name__ == "__main__":
-    res, solver, _ = sample_and_estim(params0, jrd.PRNGKey(0), verbatim=True)
+    cov_law = "uniform"
+    data_set, prng_key = sample(params_star_weibull, jrd.PRNGKey(0))
+    res, solver, _ = estim(data_set, params0, prng_key, verbatim=True)
 
     sdgplt.plot_params(
         x=res.theta,

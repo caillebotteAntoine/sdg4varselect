@@ -6,8 +6,36 @@ import jax.numpy as jnp
 np.set_printoptions(precision=3, threshold=10)
 
 
-def get_BIC_value(res_solver, p, N):
-    return np.array([[x.BIC(N, p, size=1000) for x in y] for y in res_solver])
+def list_bic(list_solver, N, p):
+    beta = [list_solver[i].theta_nonzero_support(p=p) for i in range(len(list_solver))]
+
+    id_out = [0]
+    chosen_model = [0]
+    for i in range(len(beta) - 1):
+        if (beta[i + 1] == beta[i]).all():
+            id_out.append(id_out[i])
+        else:
+            id_out.append(id_out[i] + 1)
+            chosen_model.append(i + 1)
+
+    # print(id_out)
+
+    chosen_bic = np.array([list_solver[i].BIC(N, p, size=1000) for i in chosen_model])
+    return np.array([chosen_bic[i] for i in id_out])
+
+
+def bic_final_estim_from_list(ls, N, p):
+    theta_regularization = np.array([x.theta_reals1d[-p:] for x in ls[0]])
+    bic = list_bic(ls[0], N, p)
+
+    for i in range(1, len(ls)):
+        theta_regularization += [x.theta_reals1d[-p:] for x in ls[i]]
+        bic += list_bic(ls[i], N, p)
+
+    bic = bic / len(ls)
+    theta_regularization /= len(ls)
+
+    return bic, theta_regularization
 
 
 def default_arg(dec):

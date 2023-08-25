@@ -1,15 +1,21 @@
 import numpy as np
 import parametrization_cookbook.jax as pc
-from data_generation import data_simulation
-from model import likelihood, likelihood_array, params, params_weibull
+from sdg4varselect.data_generation import data_simulation
+from model import likelihood, likelihood_array, params_weibull
 
-from sdg4varselect import Algorithm, jrd, learning_rate
+from sdg4varselect import Gradient, jrd, learning_rate
+
+plateau_jac = 300
+plateau_jac_size = 0
+plateau_fim = 750
+total_step = plateau_fim + 300
+lr = 1e-4
 
 
 # ===================================================== #
 # ==================== PARAMS STAR ==================== #
 # ===================================================== #
-def get_sample(key, params_star_weibull, N_IND, DIM_COV):
+def get_sample(key, params_star_weibull, N_IND, DIM_COV, cov_law="uniform"):
     # ====== DATA GENERATION ====== #
     return data_simulation(
         params=params_star_weibull,
@@ -19,23 +25,14 @@ def get_sample(key, params_star_weibull, N_IND, DIM_COV):
         p=DIM_COV,
         t_min=60,
         t_max=135,
-        cov_law="uniform",  # between -1 and 1
+        cov_law=cov_law,
     )
 
 
-def get_solver(
-    parametrization,
-    key,
-    params0,
-    data_set,
-    N_IND,
-    plateau_start,
-    plateau_stop,
-    step_size,
-):
+def get_solver(parametrization, key, params0, data_set, N_IND):
     key1, key_out = jrd.split(key, num=2)
     # ====== SOLVER CREATION ====== #
-    solver = Algorithm(key1)
+    solver = Gradient(key1)
     solver.parametrization = parametrization
     solver.theta_reals1d = params0
 
@@ -76,58 +73,45 @@ def get_solver(
     solver.add_data(parametrization=solver.parametrization)
     solver.add_likelihood_kwargs("parametrization")
 
-    solver.step_size = learning_rate(plateau_start, step_size, plateau_stop, 0.65)
+    solver.step_size = learning_rate(
+        plateau_jac, np.log(lr), plateau_jac + plateau_jac_size, 0.65, scale=0.5
+    )
+    solver.step_size_fisher = learning_rate(
+        plateau_fim, np.log(lr), step_flat=plateau_jac + 50, scale=0.99
+    )
+    solver.step_size_grad = learning_rate(
+        plateau_jac + 100, np.log(lr), plateau_fim + 100, 0.65, step_flat=100
+    )
+
+    # learning_rate.from_1_to_0(plateau_fim + 100, 0.65)
+
     # p < 200 = np.log(1e-4)
     return solver, key_out
 
 
-def get_sample_and_solver(
-    parametrization,
-    key,
-    params0,
-    params_star_weibull,
-    N_IND,
-    DIM_COV,
-    plateau_start,
-    plateau_stop,
-    step_size,
-):
-    # ====== DATA GENERATION ====== #
-    data_set, _, key2 = get_sample(key, params_star_weibull, N_IND, DIM_COV)
-
-    # ====== SOLVER CREATION ====== #
-    solver, key_out = get_solver(
-        parametrization,
-        key2,
-        params0,
-        data_set,
-        N_IND,
-        plateau_start,
-        plateau_stop,
-        step_size,
-    )
-
-    return solver, data_set, key_out
-
-
-def get_parametrization(DIM_COV):
+def get_parametrization(DIM_COV, beta_type="normal"):
     beta = np.zeros(shape=(DIM_COV,))
-    beta[0] = -2
-    if DIM_COV > 1:
-        beta[1] = -1
-    if DIM_COV > 2:
-        beta[2] = 1
-    if DIM_COV > 3:
+
+    if beta_type == "normal":
+        beta[0] = -2
+        if DIM_COV > 1:
+            beta[1] = -3
+        if DIM_COV > 2:
+            beta[2] = 3
+        if DIM_COV > 3:
+            beta[3] = 2
+
+    elif beta_type == "clever":
+        beta[0] = -4
+        beta[1] = -2
+        beta[2] = 4
         beta[3] = 2
 
-    # if DIM_COV > 4:
-    #     beta[4] = -2
-    # if DIM_COV > 5:
-    #     beta[5] = -1
-    # if DIM_COV > 6:
-    #     beta[6] = 1
-    # if DIM_COV > 7:
-    #     beta[7] = 2
+    elif beta_type == "NIRS":
+        beta[2] = -2
+        beta[30] = -10
+        beta[53] = 4
+        beta[77] = 2
 
     parametrization = pc.NamedTuple(
         mu1=pc.RealPositive(scale=0.5),

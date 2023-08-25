@@ -52,7 +52,7 @@ def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=Fal
 # ====================================================== #
 # ================ REGULARIZATION PATH ================= #
 # ====================================================== #
-params0, prng_key = get_random_params0(jrd.PRNGKey(int(time())), error=0.2)
+params0, prng_key = get_random_params0(jrd.PRNGKey(123), error=0.2)
 # params0["mu1"] = params_star_weibull.mu1
 # params0["mu2"] = params_star_weibull.mu2
 # params0["mu3"] = params_star_weibull.mu3
@@ -63,7 +63,7 @@ params0, prng_key = get_random_params0(jrd.PRNGKey(int(time())), error=0.2)
 
 print(f"params0 = {params0}")
 
-lbd_set = 10 ** jnp.linspace(-1, -0.5, num=50)  # 10 ** jnp.linspace(-3, -1, num=20)
+lbd_set = 10 ** jnp.linspace(-1, -0.5, num=50)  # [10**-0.75]  #
 
 nrun = 2
 ls, lr = [], []
@@ -95,8 +95,8 @@ bic_argmin = np.argmin(bic)
 res_selection = lr[0][bic_argmin]
 vp_fim = np.array(
     [
-        jnp.linalg.eigvalsh(res_selection.fisher_info_shrink[i])
-        for i in range(len(res_selection.fisher_info_shrink))
+        jnp.linalg.eigvalsh(res_selection.fisher_info[i])
+        for i in range(len(res_selection.fisher_info))
     ]
 )
 
@@ -106,8 +106,9 @@ res = {
     "grad_precond": res_selection.grad_precond,
     "likelihood": res_selection.likelihood,
     "theta_diff": res_selection.theta_diff,
+    "jac_min": [res_selection.jac[i].min() for i in range(len(res_selection.jac))],
     "jac_max": [res_selection.jac[i].max() for i in range(len(res_selection.jac))],
-    "fim_det": [jnp.linalg.det(x) for x in res_selection.fisher_info_shrink],
+    "fim_det": [jnp.linalg.det(x) for x in res_selection.fisher_info],
     "fim_vp": vp_fim,
 }
 

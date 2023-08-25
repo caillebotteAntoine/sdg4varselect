@@ -221,16 +221,16 @@ class Solver:
 
 
 def shrink_support(solver, name, p):
-    from copy import copy
+    from copy import deepcopy
 
-    solver_shrink = copy(solver)
-    solver_shrink.parametrization = copy(solver.parametrization)
+    solver_shrink = deepcopy(solver)
+    solver_shrink.parametrization = deepcopy(solver.parametrization)
     d = len(solver.theta_reals1d) - p
 
     # COV shrinkage
     mask_select = solver_shrink.theta_nonzero_support(p=p)
     # id_select = np.where(mask_select)[0]
-    cov = copy(solver_shrink.likelihood_kwargs["cov"])
+    cov = deepcopy(solver_shrink.likelihood_kwargs["cov"])
     cov_shrink = jnp.where(mask_select[d:], cov, 0)
     # cov[:, id_select[d:]]
     # On met des zeros plutot que de reparametriser

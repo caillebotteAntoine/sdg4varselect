@@ -1,0 +1,286 @@
+import jax.numpy as jnp
+from jax import jit
+import jax
+
+import itertools
+
+from sdg4varselect.algorithm import (
+    algorithm_func,
+    Algorithm,
+    learning_rate,
+    res_grad_tupletype,
+    list_res_to_res_list,
+)
+
+
+@jit
+def prox(
+    theta: jnp.ndarray, stepsize: float, lbd: float, alpha: float = 1  # shape = (p,)
+) -> jnp.ndarray:
+    """apply the proximal operator on params for the elastic net panlty
+    prox{stepsize, pen(lambda, alpha)} = argmin_theta (pen(theta') + 1/(2stepsize) ||theta-theta'||^2)
+
+    gamma step size
+    alpha choice between ridge and lasso
+    lambda tuning parameter of elastic net
+    """
+    id_shrink_too_big = theta >= stepsize * lbd * alpha
+    id_shrink_too_litte = theta <= -stepsize * lbd * alpha
+
+    return (
+        id_shrink_too_big * (theta - stepsize * lbd * alpha)
+        + id_shrink_too_litte * (theta + stepsize * lbd * alpha)
+    ) / (
+        1 + stepsize * lbd * (1 - alpha)  # alpha = 1 => res = 1
+    )
+
+
+@jit
+def gradient_descent_fisher_preconditionner(
+    jac: jnp.ndarray,
+    jac_current: jnp.ndarray,
+    step_size_jac: float,
+    step_size_fisher: float,
+):
+    """Compute one step of a gradient with perconditionner"""
+    # Jacobian approximate
+    jac = (1 - step_size_jac) * jac + step_size_jac * jac_current
+
+    # Gradient
+    grad = jac.mean(axis=0)
+
+    fim = jac.T @ jac / jac.shape[0]
+    fim = step_size_fisher * fim + (1 - step_size_fisher) * jnp.eye(fim.shape[0])
+
+    grad_precond = jnp.linalg.solve(fim, grad)
+
+    return jac, fim, grad, grad_precond
+
+
+@jit
+def gradient_descent_fisher_preconditionner_with_mask(
+    jac: jnp.ndarray,
+    jac_current: jnp.ndarray,
+    # fisher_identity_mixture: bool,
+    step_size_jac: float,
+    step_size_fisher: float,
+    fisher_mask: jnp.ndarray,
+):
+    """Compute one step of a gradient with perconditionner
+
+    J_S = [0, J]
+                  | 0     0   |
+    J_S.T @ J_S = | 0   J.T@J |
+
+    FIM = J_S.T @ J_S + diag(mask)
+
+    """
+    # Jacobian approximate
+    jac = (1 - step_size_jac) * jac + step_size_jac * jac_current
+    jac_shrink = jnp.where(fisher_mask, jac, 0)
+
+    # Gradient
+    grad = jac.mean(axis=0)
+    grad_shrink = jnp.where(fisher_mask, grad, 0)
+
+    # ' jnp.where(jnp.array([True, False]), jnp.array([[1,2],[3,4]]),0)
+    # '  = Array([[1, 0], [3, 0]])
+    # '
+    fim = jac_shrink.T @ jac_shrink / jac_shrink.shape[0] + jnp.diag(
+        jnp.where(fisher_mask, 0, 1)
+    )
+    fim_shrink = step_size_fisher * fim + (1 - step_size_fisher) * jnp.eye(fim.shape[0])
+    # jax.lax.cond(
+    #     fisher_identity_mixture,
+    #     lambda fim: step_size_fisher * fim
+    #     + (1 - step_size_fisher) * jnp.eye(fim.shape[0]),
+    #     lambda fim: fim,
+    #     fim,
+    # )
+
+    pred_grad_shrink = jnp.linalg.solve(fim_shrink, grad_shrink)
+
+    grad_precond = jnp.where(fisher_mask, pred_grad_shrink, grad)
+
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
+    # for i in range(5):
+    #     theta_step = theta_step.at[i].set(0)
+    #     grad = grad.at[i].set(0)
+
+    # theta_step = theta_step.at[6].set(0)
+    # grad = grad.at[6].set(0)
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
+
+    return jac_shrink, fim, fim_shrink, grad, grad_precond
+
+
+class Gradient(Algorithm):
+    def __init__(self, key):
+        """Constructor of Gradient algorithm."""
+        super().__init__(key)
+
+        self.__step_size_fisher = learning_rate()
+        self.__step_size_grad = learning_rate()
+
+    @property
+    def step_size_fisher(self):
+        """return the step_size for fisher approximation"""
+        return self.__step_size_fisher
+
+    @step_size_fisher.setter
+    def step_size_fisher(self, fct: learning_rate):
+        if not isinstance(fct, learning_rate):
+            raise TypeError("fct must be a burnin fct")
+        self.__step_size_fisher = fct
+
+    @property
+    def step_size_grad(self):
+        """return the size_grad for the step_size"""
+        return self.__step_size_grad
+
+    @step_size_grad.setter
+    def step_size_grad(self, fct: learning_rate):
+        if not isinstance(fct, learning_rate):
+            raise TypeError("fct must be a burnin fct")
+        self.__step_size_grad = fct
+
+    # ===== step regardless of algo ===== #
+    def proximal_operator(
+        self, stepsize: float, lbd: float, alpha: float = 1, HD_mask=None, p=None
+    ):
+        if HD_mask is None:
+            assert p is not None
+            HD_mask = jnp.arange(len(self.theta_reals1d)) >= len(self.theta_reals1d) - p
+
+        # theta = (mu_remap, gamma_remap, beta_grand_dim_remap) in R^d
+        # theta[3:] -> appliqué prox
+        return jnp.where(
+            HD_mask,
+            prox(self.theta_reals1d, stepsize, lbd, alpha),
+            self.theta_reals1d,
+        )
+
+    #########################
+    # ===== algorithm ===== #
+    #########################
+
+    # = = = = = = = = = = = = = = = = = = = = = = = = = #
+    @algorithm_func(algorithm_name="PSGD")
+    def stochastic_gradient(
+        self,
+        niter: int,
+        jac_likelihood,
+        fisher_mask: jnp.ndarray,
+        smart_start: int,
+        proximal_operator: bool,
+        prox_regul: float = 1.0,
+        p: int = 0,
+        gibbs_step: int = 1,
+        *args,
+        **kwargs,
+    ):
+        """Stochastic gradient"""
+
+        N, theta_size = jac_likelihood(
+            self._theta_reals1d, **self._likelihood_kwargs
+        ).shape
+
+        jac = jnp.zeros((N, theta_size))
+        grad = jnp.zeros(theta_size)
+        fisher_info = jnp.eye(theta_size)
+        fisher_info_shrink = jnp.eye(theta_size)
+
+        HD_mask = jnp.arange(len(self.theta_reals1d)) >= len(self.theta_reals1d) - p
+
+        # c'est pas un iterator
+        def GD(jac, grad, fisher_info, fisher_info_shrink):
+            yield res_grad_tupletype(
+                self._theta_reals1d,
+                jac,
+                jac.T @ jac,
+                jac.T @ jac,
+                grad,
+                grad,
+                self.likelihood(self._theta_reals1d, **self._likelihood_kwargs),
+                self._theta_reals1d,
+            )
+
+            for _ in itertools.count():
+                self.step_message(niter)
+
+                # Simulation
+                self.gibbs_sampler_step(gibbs_step)
+                # Gradient descent
+                if jnp.any(jnp.isnan(grad)):
+                    break
+
+                jac_current = jac_likelihood(
+                    self._theta_reals1d, **self._likelihood_kwargs
+                )
+
+                old_theta = self._theta_reals1d
+
+                (
+                    jac,
+                    fisher_info,
+                    # fisher_info_shrink,
+                    grad,
+                    grad_precond,
+                ) = gradient_descent_fisher_preconditionner(  # _with_mask(
+                    jac,
+                    jac_current,
+                    # fisher_identity_mixture=self.iter < smart_start,
+                    # fisher_mask=fisher_mask,
+                    step_size_jac=self.step_size(self.iter),
+                    step_size_fisher=self.step_size_fisher(self.iter),
+                )
+
+                self._theta_reals1d += self.step_size_grad(self.iter) * grad_precond
+
+                if proximal_operator:
+                    self._theta_reals1d = self.proximal_operator(
+                        1,  # self.step_size_grad(self.iter),
+                        prox_regul,
+                        alpha=1,
+                        HD_mask=HD_mask,
+                    )
+
+                # grad_diff = old_grad - grad
+                # theta_diff = old_theta - self._theta_reals1d
+                # end_heating = self.iter > self.step_size.step_heat
+                # print(
+                #     f"{abs(grad_diff.sum()) > 10e-7} {abs(theta_diff.sum()) > 10e-7} {end_heating}"
+                # )
+                # print(
+                #     f"{(not end_heating) or (abs(grad_diff.sum()) > 10e-7 and abs(theta_diff.sum()) > 10e-7)}\n"
+                # )
+
+                yield res_grad_tupletype(
+                    self._theta_reals1d,
+                    jac,
+                    fisher_info,
+                    fisher_info_shrink,
+                    grad,
+                    grad_precond,
+                    self.likelihood(self._theta_reals1d, **self._likelihood_kwargs),
+                    old_theta - self._theta_reals1d,
+                )
+
+        res = list(
+            itertools.islice(
+                # itertools.takewhile(
+                #     lambda x: not x.end_heating
+                #     or (
+                #         abs(x.grad_diff.sum()) > 10e-7
+                #         and abs(x.theta_diff.sum()) > 10e-7
+                #     ),
+                GD(jac, grad, fisher_info, fisher_info_shrink),
+                # ),
+                niter,
+            )
+        )
+        return list_res_to_res_list(res, self.parametrization)
+
+
+if __name__ == "__main__":
+    pass

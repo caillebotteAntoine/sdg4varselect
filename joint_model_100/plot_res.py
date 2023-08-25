@@ -29,44 +29,61 @@ folder = "images"
 with open("res_selection.pkl", "rb") as f:
     data = pickle.load(f)
 
-list_res = data["list_res"]
-bic = data["bic"]
+res_selection = data["res_selection"]
+bic = np.array(data["bic"])
 theta_reg = data["theta_reg"]
 lbd_set = data["lbd_set"]
 params_names = data["params_names"]
 latent_variables = data["latent_variables"]
 step_size = data["step_size"]
 
-with open("res_selection.pkl", "wb") as f:  # open a text file
-    pickle.dump(data, f)
 
 # # ====================================================== #
+fig, ax = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic, p=DIM_COV)
 
-_, _ = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic, p=DIM_COV)
+z = np.poly1d(np.polyfit(lbd_set, bic, deg=4))
 
+lbd_set_ext = np.linspace(min(lbd_set), max(lbd_set), num=1000)
+bic_approx = z(lbd_set_ext)
+ax[1].plot(lbd_set_ext, bic_approx, linewidth=4, color="k")
+
+id = bic_approx.argmin()
+ax[1].axvline(
+    x=lbd_set_ext[id],
+    color="k",
+    linewidth=2,
+    linestyle="--",
+    label=r"$\lambda$ approx",
+)
+ax[1].text(
+    lbd_set_ext[id],
+    0.8 * bic.max() + 0.2 * bic.min(),
+    rf"$\lambda$ = {lbd_set_ext[id]:.3e}",
+    ha="center",
+    va="center",
+    rotation="vertical",
+    backgroundcolor="white",
+)
 # # ====================================================== #
 # # ====================================================== #
 
 bic_argmin = np.argmin(bic)
 print(f"regularization value selected = {lbd_set[bic_argmin]}")
 
-res_selection = list_res[0][bic_argmin]
-
-
 # # ====================================================== #
 
 fig, ax = sdgplt.plot_params(
-    x=res_selection.theta,
+    x=res_selection["theta"],
     x_star=np.array(params_star_stack),
     p=DIM_COV,
     names=params_names,
     logscale=False,
 )
 
-_, _ = sdgplt.plot_grad(x=res_selection.grad_precond, p=DIM_COV, names=params_names)
+_, _ = sdgplt.plot_grad(x=res_selection["grad_precond"], p=DIM_COV, names=params_names)
 
 
-_, ax = sdgplt.plot_params_hd(res_selection.theta, p=DIM_COV, location="right")
+_, ax = sdgplt.plot_params_hd(res_selection["theta"], p=DIM_COV, location="right")
 
 for var in latent_variables.values():
     sdgplt.plot_mcmc(var)
@@ -76,67 +93,41 @@ for var in latent_variables.values():
 
 
 sdgplt.plot_multi_line(
-    np.array([[res_selection.jac[i].max() for i in range(len(res_selection.jac))]]).T,
-    0,
+    np.array([res_selection["jac_max"]]).T,
     title="maximum de la jacobienne",
 )
 
+# ====================================================== #
 sdgplt.plot_multi_line(
-    np.array([res_selection.likelihood]).T,
-    0,
+    np.array([res_selection["likelihood"]]).T,
     title="valeur de la vraisemblance",
 )
 
-det_fim = np.array([[jnp.linalg.det(x) for x in res_selection.fisher_info_shrink]]).T
+# ====================================================== #
+
 sdgplt.plot_multi_line(
-    det_fim,
-    0,
+    np.array([res_selection["fim_det"]]).T,
     title="déterminant de la fim",
     logscale=True,
 )
 
+# ====================================================== #
 
-vp_fim = np.array(
-    [
-        jnp.linalg.eigvalsh(res_selection.fisher_info_shrink[i])
-        for i in range(len(res_selection.fisher_info_shrink))
-    ]
-)
+vp_fim = res_selection["fim_vp"]
 
 sdgplt.ax_plot_list_of_vector(
-    sdgplt.figure(),
-    1,
-    1,
-    1,
     vp_fim,
     title="valeur propre de la fim",
     location="right",
 )
 
+# ====================================================== #
 sdgplt.plot_multi_line(
     np.array([vp_fim.min(axis=1)]).T,
-    0,
     title="valeur propre minimal de la fim",
 )
 
-
-# from sdg4varselect.gradient import prox
-
-# beta = solver_selection.theta_reals1d[-DIM_COV:]
-
-# lbd_set_prox = 10 ** jnp.linspace(-2, 2, num=200)
-# beta_prox = np.array([prox(beta, 0.001, lbd=lbd) for lbd in lbd_set_prox])
-
-
-# sdgplt.ax_plot_list_of_vector(
-#     sdgplt.figure(),
-#     1,
-#     1,
-#     1,
-#     beta_prox,
-#     title="opérateur proximal",
-#     location="right",
-# )
+# ====================================================== #
 
 sdgplt.figure()
 step_size["jac"].plot(label="Jac step size")

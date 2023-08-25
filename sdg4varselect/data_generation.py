@@ -1,6 +1,7 @@
 # Create by antoine.caillebotte@inrae.fr
 
 from scipy.optimize import brenth
+import numpy as np
 
 from sdg4varselect import jnp, jrd
 from sdg4varselect.logistic_model import (
@@ -80,16 +81,52 @@ def data_simulation(
     DIM_COV = params.beta.shape[0]
 
     if cov_law == "normal":
-        cov = jrd.normal(key1, shape=(N_IND, DIM_COV))
-    if cov_law == "bernoulli":
-        cov = jnp.array(jrd.bernoulli(key1, shape=(N_IND, DIM_COV)), dtype=jnp.float32)
-    if cov_law == "uniform":
+        cov = jrd.normal(key1, shape=(N_IND, DIM_COV))  # N(0,1)
+        cov = cov / (cov.mean(axis=0)[None, :])
+        cov = cov / (cov.var(axis=0)[None, :] ** 0.5)
+        # print(f"mean = {cov.mean(axis = 0)} var = {cov.var(axis = 0)}")
+
+    elif cov_law == "bernoulli":
+        cov = jrd.bernoulli(key1, shape=(N_IND, DIM_COV))
         cov = jnp.array(
-            jrd.uniform(key1, minval=-1, maxval=1, shape=(N_IND, DIM_COV)),
+            cov / max(cov.max(), -cov.min()),
             dtype=jnp.float32,
         )
+    elif cov_law == "uniform":
+        cov = jrd.uniform(key1, minval=-1, maxval=1, shape=(N_IND, DIM_COV))
+
+    elif cov_law == "clever_uniform":
+        k1, k2, k3, k4, k5 = jrd.split(key1, num=5)
+
+        cov1 = jrd.uniform(k1, minval=0.4, maxval=0.6, shape=(N_IND,))
+        cov2 = jrd.uniform(k2, minval=-0.6, maxval=-0.4, shape=(N_IND,))
+        cov3 = jrd.uniform(k3, minval=0.4, maxval=0.6, shape=(N_IND,))
+        cov4 = jrd.uniform(k4, minval=-0.6, maxval=-0.4, shape=(N_IND,))
+
+        cov5 = jrd.uniform(k5, minval=-0.5, maxval=0.5, shape=(DIM_COV - 4, N_IND))
+
+        cov = jnp.row_stack((cov1, cov2, cov3, cov4, cov5)).T
+
+    elif cov_law == "NIRS":
+        import pandas as pd
+
+        dt = pd.read_csv("../simulated_nirs.csv", sep=";", header=1, decimal=",")
+        cov = np.array(dt.values)[:, 0:N_IND]
+
+        p_max = cov.shape[0]
+        p_step = int(np.round(p_max / DIM_COV))
+
+        cov = cov[[i * p_step for i in range(DIM_COV)]].T
+        cov = cov - cov.mean(axis=0)[None, :]
+
+    cov = jnp.array(
+        cov,
+        dtype=jnp.float32,
+    )
 
     beta_prod_cov_obs = cov @ params.beta
+
+    print(f"beta^T cov = {beta_prod_cov_obs}")
 
     tmp = [0 for i in range(N_IND)]
     uni = jrd.uniform(key2, shape=(N_IND,))

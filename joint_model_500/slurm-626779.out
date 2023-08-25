@@ -1,3 +1,0 @@
-No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
-posx and posy should be finite values
-/var/spool/slurmd/job626779/slurm_script : ligne 6 : 3781800 Processus arrêté      poetry run python3 multi_run.py

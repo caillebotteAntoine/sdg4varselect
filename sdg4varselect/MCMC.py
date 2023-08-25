@@ -58,7 +58,7 @@ class MCMC_chain(chain):
         self.__sd = [sd]
         self.__adaptative_sd = False
         self.__lambda = 0.01
-        self.__likelihood = likelihood
+        self._likelihood = likelihood
 
     def reset(self):
         super().reset()
@@ -72,6 +72,16 @@ class MCMC_chain(chain):
         out += ", var = " + str(self._data.var()) + "]"
 
         return out
+
+    @property
+    def likelihood(self):
+        """returns theta likelihood"""
+        return self._likelihood
+
+    @likelihood.setter
+    def likelihood(self, likelihood):
+        """Define the likelihood"""
+        self._likelihood = likelihood
 
     @property
     def adaptative_sd(self) -> bool:
@@ -105,12 +115,7 @@ class MCMC_chain(chain):
         out = []
         for _ in range(size):
             key, data, nacceptance = gibbs_sampler(
-                key,
-                self.name,
-                self.__sd[-1],
-                self.__likelihood,
-                theta_reals1d,
-                **kwargs
+                key, self.name, self.__sd[-1], self._likelihood, theta_reals1d, **kwargs
             )
 
             out.append(data)
@@ -118,7 +123,7 @@ class MCMC_chain(chain):
 
     def gibbs_sampler_step(self, key, theta_reals1d, **kwargs):
         key_out, data, nacceptance = gibbs_sampler(
-            key, self.name, self.__sd[-1], self.__likelihood, theta_reals1d, **kwargs
+            key, self.name, self.__sd[-1], self._likelihood, theta_reals1d, **kwargs
         )
 
         self._data[:] = data
@@ -142,7 +147,6 @@ class MCMC_chain(chain):
         sd_prop = self.__sd[-1]
         rate = self.acceptance_rate(-1)
 
-        # if 0.5 > rate or rate > 0.7:
         if rate < 0.6:
             sd_prop /= 1 + self.__lambda
 
