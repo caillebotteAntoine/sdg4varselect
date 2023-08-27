@@ -239,7 +239,7 @@ class Gradient(Algorithm):
 
                 if proximal_operator:
                     self._theta_reals1d = self.proximal_operator(
-                        1,  # self.step_size_grad(self.iter),
+                        self.step_size_grad(self.iter),
                         prox_regul,
                         alpha=1,
                         HD_mask=HD_mask,
