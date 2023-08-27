@@ -67,13 +67,17 @@ fig, ax = sdgplt.plot_params(
     logscale=False,
 )
 
+fig.savefig(folder + "/theta.png")
+
 fig, _ = sdgplt.plot_grad(
     x=res_selection["grad_precond"], p=DIM_COV, names=params_names
 )
 
 fig.savefig(folder + "/grad_precond.png")
 
-_, ax = sdgplt.plot_params_hd(res_selection["theta"], p=DIM_COV, location="right")
+fig, ax = sdgplt.plot_params_hd(res_selection["theta"], p=DIM_COV, location="right")
+
+fig.savefig(folder + "/beta.png")
 
 for var in latent_variables.values():
     sdgplt.plot_mcmc(var)
