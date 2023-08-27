@@ -65,7 +65,7 @@ print(f"params0 = {params0}")
 
 lbd_set = 10 ** jnp.linspace(-1, -0.5, num=50)  # [10**-0.75]  #
 
-nrun = 2
+nrun = 10
 ls, lr = [], []
 for k in range(nrun):
     time_start = time()
