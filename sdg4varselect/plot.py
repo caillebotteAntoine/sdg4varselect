@@ -12,6 +12,10 @@ def figure():
     return plt.figure()
 
 
+def plot(*args, **kwargs):
+    return plt.plot(*args, **kwargs)
+
+
 def dec_figsize(func):
     @wraps(func)
     def new_func(*args, figsize=15, **kwargs):

@@ -6,8 +6,8 @@ from sdg4varselect import jnp, jrd
 from model import jac_likelihood
 import sdg4varselect.plot as sdgplt
 
-DIM_COV = 50
-N_IND = 90
+DIM_COV = 200
+N_IND = 50
 
 cov_law = "uniform"
 

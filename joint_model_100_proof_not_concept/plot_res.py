@@ -3,11 +3,6 @@
 import numpy as np
 import pickle
 
-from one_run import (
-    DIM_COV,
-    params_star_stack,
-)
-
 import sdg4varselect.plot as sdgplt
 
 folder = "images"
@@ -24,40 +19,42 @@ params_names = data["params_names"]
 latent_variables = data["latent_variables"]
 step_size = data["step_size"]
 
+DIM_COV = data["DIM_COV"]
+params_star_stack = data["params_star_stack"]
 
-# # ====================================================== #
-# fig, ax = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic, p=DIM_COV)
+# ====================================================== #
+fig, ax = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic, p=DIM_COV)
 
-# z = np.poly1d(np.polyfit(lbd_set, bic, deg=4))
+z = np.poly1d(np.polyfit(lbd_set, bic, deg=4))
 
-# lbd_set_ext = np.linspace(min(lbd_set), max(lbd_set), num=1000)
-# bic_approx = z(lbd_set_ext)
-# ax[1].plot(lbd_set_ext, bic_approx, linewidth=4, color="k")
+lbd_set_ext = np.linspace(min(lbd_set), max(lbd_set), num=1000)
+bic_approx = z(lbd_set_ext)
+ax[1].plot(lbd_set_ext, bic_approx, linewidth=4, color="k")
 
-# id = bic_approx.argmin()
-# ax[1].axvline(
-#     x=lbd_set_ext[id],
-#     color="k",
-#     linewidth=2,
-#     linestyle="--",
-#     label=r"$\lambda$ approx",
-# )
-# ax[1].text(
-#     lbd_set_ext[id],
-#     0.8 * bic.max() + 0.2 * bic.min(),
-#     rf"$\lambda$ = {lbd_set_ext[id]:.3e}",
-#     ha="center",
-#     va="center",
-#     rotation="vertical",
-#     backgroundcolor="white",
-# )
-# # ====================================================== #
-# # ====================================================== #
+id = bic_approx.argmin()
+ax[1].axvline(
+    x=lbd_set_ext[id],
+    color="k",
+    linewidth=2,
+    linestyle="--",
+    label=r"$\lambda$ approx",
+)
+ax[1].text(
+    lbd_set_ext[id],
+    0.8 * bic.max() + 0.2 * bic.min(),
+    rf"$\lambda$ = {lbd_set_ext[id]:.3e}",
+    ha="center",
+    va="center",
+    rotation="vertical",
+    backgroundcolor="white",
+)
+# ====================================================== #
+# ====================================================== #
 
-# bic_argmin = np.argmin(bic)
-# print("regularization value selected = {lbd_set[bic_argmin]}")
+bic_argmin = np.argmin(bic)
+print("regularization value selected = {lbd_set[bic_argmin]}")
 
-# # ====================================================== #
+# ====================================================== #
 
 fig, ax = sdgplt.plot_params(
     x=res_selection["theta"],
@@ -106,6 +103,7 @@ sdgplt.plot_multi_line(
 )
 
 # ====================================================== #
+det_fim = res_selection["fim_det"]
 
 sdgplt.plot_multi_line(
     np.array([res_selection["fim_det"]]).T,

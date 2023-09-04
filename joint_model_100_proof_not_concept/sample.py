@@ -6,10 +6,13 @@ from model import likelihood, likelihood_array, params_weibull
 from sdg4varselect import Gradient, jrd, learning_rate
 
 plateau_jac = 300
-plateau_jac_size = 0
+plateau_jac_size = 50
 plateau_fim = 750
-total_step = plateau_fim + 300
+total_step = 500  # plateau_fim + 300
+# pour DIM_COV <= 100
 lr = 1e-4
+# pour DIM_COV = 1000
+lr = 1e-8
 
 
 # ===================================================== #
@@ -76,9 +79,10 @@ def get_solver(parametrization, key, params0, data_set, N_IND):
     solver.step_size = learning_rate(
         plateau_jac, np.log(lr), plateau_jac + plateau_jac_size, 0.65, scale=0.5
     )
-    solver.step_size_fisher = learning_rate(
-        plateau_fim, np.log(lr), step_flat=plateau_jac + 50, scale=0.95
-    )
+    solver.step_size_fisher = learning_rate.zero()
+    # learning_rate(
+    #     plateau_fim, np.log(lr), step_flat=plateau_jac + 50, scale=0.95
+    # )
     solver.step_size_grad = learning_rate(
         plateau_jac + 100, np.log(lr), plateau_fim + 100, 0.65, step_flat=100
     )

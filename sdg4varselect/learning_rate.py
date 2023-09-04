@@ -69,6 +69,10 @@ class learning_rate:
         return self._step_flat
 
     @staticmethod
+    def zero():
+        return learning_rate(step_heat=1000, scale=0)
+
+    @staticmethod
     def from_0_to_1(heat, coef_heat):
         return learning_rate(heat, coef_heat, 10**10, 1)
 

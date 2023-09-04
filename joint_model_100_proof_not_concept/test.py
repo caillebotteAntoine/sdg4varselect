@@ -11,6 +11,7 @@ from one_run import (
     estim,
     get_random_params0,
     params_star_weibull,
+    params_star_stack,
     N_IND,
     DIM_COV,
 )
@@ -63,7 +64,11 @@ params0, prng_key = get_random_params0(jrd.PRNGKey(123), error=0.2)
 
 print(f"params0 = {params0}")
 
+# pour DIM_COV < 100
 lbd_set = 10 ** jnp.linspace(-1, -0.5, num=50)  # [10**-0.75]  #
+# pour DIM_COV = 1000
+lbd_set = 10 ** jnp.linspace(-2, -0.5, num=50)  #
+
 
 nrun = 10
 ls, lr = [], []
@@ -85,20 +90,15 @@ step_size = {
     "gradient": ls[0][0].step_size_grad,
 }
 
-latent_variables = ls[0][np.argmin(bic)].latent_variables
+bic_argmin = np.argmin(bic)
+latent_variables = ls[0][bic_argmin].latent_variables
 for var in latent_variables.values():
     var.likelihood = None
 
-bic_argmin = np.argmin(bic)
-
-
 res_selection = lr[0][bic_argmin]
-vp_fim = np.array(
-    [
-        jnp.linalg.eigvalsh(res_selection.fisher_info[i])
-        for i in range(len(res_selection.fisher_info))
-    ]
-)
+
+det_fim = [jnp.linalg.det(x) for x in res_selection.fisher_info]
+vp_fim = np.array([jnp.linalg.eigvalsh(x) for x in res_selection.fisher_info])
 
 
 res = {
@@ -108,7 +108,7 @@ res = {
     "theta_diff": res_selection.theta_diff,
     "jac_min": [res_selection.jac[i].min() for i in range(len(res_selection.jac))],
     "jac_max": [res_selection.jac[i].max() for i in range(len(res_selection.jac))],
-    "fim_det": [jnp.linalg.det(x) for x in res_selection.fisher_info],
+    "fim_det": det_fim,
     "fim_vp": vp_fim,
 }
 
@@ -120,7 +120,12 @@ data = {
     "params_names": ls[0][0].params_names,
     "latent_variables": ls[0][bic_argmin].latent_variables,
     "step_size": step_size,
+    "DIM_COV": DIM_COV,
+    "N_IND": N_IND,
+    "params_star_stack": params_star_stack,
 }
 
 with open("res_selection.pkl", "wb") as f:
     pickle.dump(data, f)
+
+print("RESULT SAVED !")
