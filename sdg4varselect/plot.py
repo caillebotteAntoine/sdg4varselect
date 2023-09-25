@@ -8,8 +8,11 @@ from functools import wraps
 from sdg4varselect.miscellaneous import list_bic
 
 
-def figure():
-    return plt.figure()
+def figure(figsize=15):
+    fig = plt.figure()
+    fig.set_figheight(figsize)
+    fig.set_figwidth(figsize)
+    return fig
 
 
 def plot(*args, **kwargs):
@@ -70,7 +73,7 @@ def plot_multi_line(
     return fig, ax
 
 
-def plot_mcmc(x):
+def plot_mcmc(x, id_max=None):
     """plot an MCMC_chain"""
     import matplotlib.pyplot as plt
     from sdg4varselect.MCMC import MCMC_chain
@@ -80,6 +83,8 @@ def plot_mcmc(x):
         return [plot_mcmc(mcmc) for mcmc in x.latent_variables.values()]
 
     if isinstance(x, MCMC_chain):
+        if id_max is None:
+            id_max = len(x.chain)
         if len(x.sd) == 1:
             fig, axs = plt.subplots(2, 1, sharex=True)
         else:
@@ -87,14 +92,14 @@ def plot_mcmc(x):
 
         axs[0].set_title(label="chaine de " + x.name)
 
-        axs[0].plot(x.chain)
+        axs[0].plot(x.chain[:id_max])
         axs[0].set_ylabel("chain")
 
-        axs[1].plot(x.acceptance_rate())
+        axs[1].plot(x.acceptance_rate()[:id_max])
         axs[1].set_ylabel("acceptance_rate")
 
         if len(x.sd) != 1:
-            axs[2].plot(x.sd)
+            axs[2].plot(x.sd[:id_max])
             axs[2].set_ylabel("proposal sd")
 
         axs[-1].set_xlabel("Iteration")

@@ -3,16 +3,7 @@ import parametrization_cookbook.jax as pc
 from sdg4varselect.data_generation import data_simulation
 from model import likelihood, likelihood_array, params_weibull
 
-from sdg4varselect import Gradient, jrd, learning_rate
-
-plateau_jac = 300
-plateau_jac_size = 50
-plateau_fim = 750
-total_step = 500  # plateau_fim + 300
-# pour DIM_COV <= 100
-lr = 1e-4
-# pour DIM_COV = 1000
-lr = 1e-8
+from sdg4varselect import Gradient, jrd
 
 
 # ===================================================== #
@@ -76,22 +67,6 @@ def get_solver(parametrization, key, params0, data_set, N_IND):
     solver.add_data(parametrization=solver.parametrization)
     solver.add_likelihood_kwargs("parametrization")
 
-    solver.step_size = learning_rate(
-        plateau_jac, np.log(lr), plateau_jac + plateau_jac_size, 0.65, scale=0.5
-    )
-    solver.step_size_fisher = learning_rate.zero()
-    # learning_rate(
-    #     plateau_fim, np.log(lr), step_flat=plateau_jac + 50, scale=0.95
-    # )
-    solver.step_size_grad = learning_rate(
-        plateau_jac + 100, np.log(lr), plateau_fim + 100, 0.65, step_flat=100
-    )
-
-    # solver.step_size = solver.step_size_fisher
-    # solver.step_size_grad = solver.step_size_fisher
-    # learning_rate.from_1_to_0(plateau_fim + 100, 0.65)
-
-    # p < 200 = np.log(1e-4)
     return solver, key_out
 
 
@@ -129,6 +104,17 @@ def get_parametrization(DIM_COV, beta_type="normal"):
         alpha=pc.Real(scale=10),
         beta=pc.Real(scale=1, shape=(DIM_COV,)),
     )
+
+    # parametrization = pc.NamedTuple(
+    #     mu1=pc.Real(scale=1),
+    #     mu2=pc.Real(scale=1),
+    #     mu3=pc.RealPositive(scale=1),
+    #     gamma2_1=pc.RealPositive(scale=1),
+    #     gamma2_2=pc.RealPositive(scale=1),
+    #     sigma2=pc.RealPositive(scale=1),
+    #     alpha=pc.Real(scale=1),
+    #     beta=pc.Real(scale=1, shape=(DIM_COV,)),
+    # )
 
     params_star_weibull = params_weibull(
         mu1=0.3,

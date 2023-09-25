@@ -7,16 +7,14 @@ import sdg4varselect.plot as sdgplt
 
 folder = "images"
 
-
+# 200_50_simple_grad_10_rep
 with open("res_selection.pkl", "rb") as f:
     data = pickle.load(f)
 
-res_selection = data["res_selection"]
 bic = np.array(data["bic"])
 theta_reg = data["theta_reg"]
 lbd_set = data["lbd_set"]
 params_names = data["params_names"]
-latent_variables = data["latent_variables"]
 step_size = data["step_size"]
 
 DIM_COV = data["DIM_COV"]
@@ -48,6 +46,8 @@ ax[1].text(
     rotation="vertical",
     backgroundcolor="white",
 )
+
+fig.savefig(folder + "/reg_path.png")
 # ====================================================== #
 # ====================================================== #
 
@@ -56,81 +56,81 @@ print("regularization value selected = {lbd_set[bic_argmin]}")
 
 # ====================================================== #
 
-fig, ax = sdgplt.plot_params(
-    x=res_selection["theta"],
-    x_star=np.array(params_star_stack),
-    p=DIM_COV,
-    names=params_names,
-    logscale=False,
-)
 
-fig.savefig(folder + "/theta.png")
+def plot_all(res):
+    fig, ax = sdgplt.plot_params(
+        x=res["theta"],
+        x_star=np.array(params_star_stack),
+        p=DIM_COV,
+        names=params_names,
+        logscale=False,
+    )
 
-fig, _ = sdgplt.plot_grad(
-    x=res_selection["grad_precond"], p=DIM_COV, names=params_names
-)
+    fig.savefig(folder + "/theta.png")
 
-fig.savefig(folder + "/grad_precond.png")
+    fig, _ = sdgplt.plot_grad(x=res["grad_precond"], p=DIM_COV, names=params_names)
 
-fig, ax = sdgplt.plot_params_hd(res_selection["theta"], p=DIM_COV, location="right")
+    fig.savefig(folder + "/grad_precond.png")
 
-fig.savefig(folder + "/beta.png")
+    fig, ax = sdgplt.plot_params_hd(res["theta"], p=DIM_COV, location="right")
 
-for var in latent_variables.values():
-    sdgplt.plot_mcmc(var)
+    fig.savefig(folder + "/beta.png")
+
+    for var in res["latent_variables"].values():
+        sdgplt.plot_mcmc(var)
+
+    # ====================================================== #
+
+    fig, ax = sdgplt.plot_multi_line(
+        np.array([res["jac_max"]]).T, title="maximum de la jacobienne", figsize=5
+    )
+
+    fig.savefig(folder + "/maximum_jacobiene.png")
+
+    fig, ax = sdgplt.plot_multi_line(
+        np.array([res["jac_min"]]).T, title="minimum de la jacobienne", figsize=5
+    )
+
+    fig.savefig(folder + "/minimum_jacobiene.png")
+
+    # ====================================================== #
+    sdgplt.plot_multi_line(
+        np.array([res["likelihood"]]).T,
+        title="valeur de la vraisemblance",
+    )
+
+    # ====================================================== #
+    det_fim = res["fim_det"]
+
+    sdgplt.plot_multi_line(
+        np.array([det_fim]).T,
+        title="déterminant de la fim",
+        logscale=True,
+    )
+
+    # ====================================================== #
+
+    vp_fim = res["fim_vp"]
+
+    fig, ax = sdgplt.ax_plot_list_of_vector(
+        vp_fim,
+        title="valeur propre de la fim",
+        location="right",
+    )
+    fig.savefig(folder + "/valeur_propre_fim.png")
+
+    # ====================================================== #
+    fig, ax = sdgplt.plot_multi_line(
+        np.array([vp_fim.min(axis=1)]).T,
+        title="valeur propre minimal de la fim",
+    )
+
+    fig.savefig(folder + "/valeur_propre_minimal_fim.png")
+    # ====================================================== #
 
 
-# ====================================================== #
-
-
-fig, ax = sdgplt.plot_multi_line(
-    np.array([res_selection["jac_max"]]).T, title="maximum de la jacobienne", figsize=5
-)
-
-fig.savefig(folder + "/maximum_jacobiene.png")
-
-fig, ax = sdgplt.plot_multi_line(
-    np.array([res_selection["jac_min"]]).T, title="minimum de la jacobienne", figsize=5
-)
-
-fig.savefig(folder + "/minimum_jacobiene.png")
-
-
-# ====================================================== #
-sdgplt.plot_multi_line(
-    np.array([res_selection["likelihood"]]).T,
-    title="valeur de la vraisemblance",
-)
-
-# ====================================================== #
-det_fim = res_selection["fim_det"]
-
-sdgplt.plot_multi_line(
-    np.array([res_selection["fim_det"]]).T,
-    title="déterminant de la fim",
-    logscale=True,
-)
-
-# ====================================================== #
-
-vp_fim = res_selection["fim_vp"]
-
-fig, ax = sdgplt.ax_plot_list_of_vector(
-    vp_fim,
-    title="valeur propre de la fim",
-    location="right",
-)
-fig.savefig(folder + "/valeur_propre_fim.png")
-
-
-# ====================================================== #
-fig, ax = sdgplt.plot_multi_line(
-    np.array([vp_fim.min(axis=1)]).T,
-    title="valeur propre minimal de la fim",
-)
-
-fig.savefig(folder + "/valeur_propre_minimal_fim.png")
-# ====================================================== #
+plot_all(data["res_selection"])
+plot_all(data["res_final"])
 
 fig = sdgplt.figure()
 step_size["jac"].plot(label="Jac step size")

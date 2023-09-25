@@ -68,11 +68,11 @@ def gradient_descent_fisher_preconditionner_with_mask(
 ):
     """Compute one step of a gradient with perconditionner
 
-    J_S = [0, J]
-                  | 0     0   |
-    J_S.T @ J_S = | 0   J.T@J |
-
-    FIM = J_S.T @ J_S + diag(mask)
+    J_S = [J, O]
+                  | J.T@J  0 |
+    J_S.T @ J_S = | 0      0 |
+                                          | J.T@J/N  0   |
+    FIM = J_S.T @ J_S/N + diag(not mask) =| 0        I_p |
 
     """
     # Jacobian approximate
@@ -80,7 +80,13 @@ def gradient_descent_fisher_preconditionner_with_mask(
     jac_shrink = jnp.where(fisher_mask, jac, 0)
 
     # Gradient
-    grad = jac.mean(axis=0)
+    grad = jac_current.mean(axis=0)
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
+    # for i in range(3, 5):
+    #     grad = grad.at[i].set(0)
+
+    # grad = grad.at[6].set(0)
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
     grad_shrink = jnp.where(fisher_mask, grad, 0)
 
     # ' jnp.where(jnp.array([True, False]), jnp.array([[1,2],[3,4]]),0)
@@ -89,29 +95,12 @@ def gradient_descent_fisher_preconditionner_with_mask(
     fim = jac_shrink.T @ jac_shrink / jac_shrink.shape[0] + jnp.diag(
         jnp.where(fisher_mask, 0, 1)
     )
-    fim_shrink = step_size_fisher * fim + (1 - step_size_fisher) * jnp.eye(fim.shape[0])
-    # jax.lax.cond(
-    #     fisher_identity_mixture,
-    #     lambda fim: step_size_fisher * fim
-    #     + (1 - step_size_fisher) * jnp.eye(fim.shape[0]),
-    #     lambda fim: fim,
-    #     fim,
-    # )
-
-    pred_grad_shrink = jnp.linalg.solve(fim_shrink, grad_shrink)
+    fim = step_size_fisher * fim + (1 - step_size_fisher) * jnp.eye(fim.shape[0])
+    pred_grad_shrink = jnp.linalg.solve(fim, grad_shrink)
 
     grad_precond = jnp.where(fisher_mask, pred_grad_shrink, grad)
 
-    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
-    # for i in range(5):
-    #     theta_step = theta_step.at[i].set(0)
-    #     grad = grad.at[i].set(0)
-
-    # theta_step = theta_step.at[6].set(0)
-    # grad = grad.at[6].set(0)
-    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
-
-    return jac_shrink, fim, fim_shrink, grad, grad_precond
+    return jac_shrink, fim, grad, grad_precond
 
 
 class Gradient(Algorithm):
@@ -187,17 +176,14 @@ class Gradient(Algorithm):
 
         jac = jnp.zeros((N, theta_size))
         grad = jnp.zeros(theta_size)
-        fisher_info = jnp.eye(theta_size)
-        fisher_info_shrink = jnp.eye(theta_size)
 
         HD_mask = jnp.arange(len(self.theta_reals1d)) >= len(self.theta_reals1d) - p
 
         # c'est pas un iterator
-        def GD(jac, grad, fisher_info, fisher_info_shrink):
+        def GD(jac, grad):
             yield res_grad_tupletype(
                 self._theta_reals1d,
                 jac,
-                jac.T @ jac,
                 jac.T @ jac,
                 grad,
                 grad,
@@ -223,14 +209,12 @@ class Gradient(Algorithm):
                 (
                     jac,
                     fisher_info,
-                    # fisher_info_shrink,
                     grad,
                     grad_precond,
-                ) = gradient_descent_fisher_preconditionner(  # _with_mask(
+                ) = gradient_descent_fisher_preconditionner_with_mask(
                     jac,
                     jac_current,
-                    # fisher_identity_mixture=self.iter < smart_start,
-                    # fisher_mask=fisher_mask,
+                    fisher_mask=fisher_mask,
                     step_size_jac=self.step_size(self.iter),
                     step_size_fisher=self.step_size_fisher(self.iter),
                 )
@@ -259,7 +243,6 @@ class Gradient(Algorithm):
                     self._theta_reals1d,
                     jac,
                     fisher_info,
-                    fisher_info_shrink,
                     grad,
                     grad_precond,
                     self.likelihood(self._theta_reals1d, **self._likelihood_kwargs),
@@ -274,7 +257,7 @@ class Gradient(Algorithm):
                 #         abs(x.grad_diff.sum()) > 10e-7
                 #         and abs(x.theta_diff.sum()) > 10e-7
                 #     ),
-                GD(jac, grad, fisher_info, fisher_info_shrink),
+                GD(jac, grad),
                 # ),
                 niter,
             )

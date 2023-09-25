@@ -14,7 +14,6 @@ res_grad_tupletype = namedtuple(
         "theta",
         "jac",
         "fisher_info",
-        "fisher_info_shrink",
         "grad",
         "grad_precond",
         "likelihood",
@@ -36,17 +35,15 @@ def list_res_to_res_list(res, parametrization):
 
     jac = res[1]
     fisher_info = res[2]
-    fisher_info_shrink = res[3]
-    grad = jnp.array(res[4])
-    grad_precond = jnp.array(res[5])
-    likelihood = jnp.array(res[6])
-    theta_diff = jnp.array(res[7])
+    grad = jnp.array(res[3])
+    grad_precond = jnp.array(res[4])
+    likelihood = jnp.array(res[5])
+    theta_diff = jnp.array(res[6])
 
     return res_grad_tupletype(
         theta_jnp,
         jac,
         fisher_info,
-        fisher_info_shrink,
         grad,
         grad_precond,
         likelihood,

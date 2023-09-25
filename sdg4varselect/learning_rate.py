@@ -73,6 +73,10 @@ class learning_rate:
         return learning_rate(step_heat=1000, scale=0)
 
     @staticmethod
+    def one():
+        return learning_rate(step_heat=0, scale=1)
+
+    @staticmethod
     def from_0_to_1(heat, coef_heat):
         return learning_rate(heat, coef_heat, 10**10, 1)
 
@@ -129,7 +133,10 @@ class learning_rate:
         import matplotlib.pyplot as plt
 
         if self.step_burnin is None:
-            x = np.linspace(0, 2 * self.step_heat, num=4 * self.step_heat)
+            if self.step_heat == 0:
+                x = np.linspace(0, 200)
+            else:
+                x = np.linspace(0, 2 * self.step_heat, num=4 * self.step_heat)
         else:
             x = np.linspace(0, 2 * self.step_burnin, num=4 * self.step_burnin)
 
@@ -171,4 +178,8 @@ if __name__ == "__main__":
 
     plt.figure()
     f = learning_rate(10, -2)
+    f.plot()
+
+    plt.figure()
+    f = learning_rate.one()
     f.plot()
