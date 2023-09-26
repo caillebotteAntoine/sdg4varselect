@@ -461,7 +461,7 @@ def plot_selected_component(res_solver, lbd_set, p, colormap="bwr", figsize=10):
 
 @dec_figsize
 def plot_regularization_path(
-    theta_regularization, lbd_set, bic, p, se_percentage=None, figsize=10
+    theta_regularization, lbd_set, bic, se_percentage=None, figsize=10
 ):
     fig, ax = plt.subplots()
     ax.set_title("Regularization path")
@@ -472,54 +472,55 @@ def plot_regularization_path(
 
     # BIC PLOT
     ax_bic = ax.twinx()
-    ax_bic.plot(lbd_set, bic, color="k", linewidth=2, linestyle="--", label="BIC")
+    if not jnp.isnan(bic).any():
+        ax_bic.plot(lbd_set, bic, color="k", linewidth=2, linestyle="--", label="BIC")
 
-    bic_res = {
-        "bic": bic,
-    }
+        bic_res = {
+            "bic": bic,
+        }
 
-    def plot_axvline(id, color, msg=""):
-        lbd = lbd_set[id]
+        def plot_axvline(id, color, msg=""):
+            lbd = lbd_set[id]
 
-        ax_bic.axvline(
-            x=lbd,
-            color=color,
-            linewidth=2,
-            linestyle="--",
-            label=r"$\lambda$" + msg,
+            ax_bic.axvline(
+                x=lbd,
+                color=color,
+                linewidth=2,
+                linestyle="--",
+                label=r"$\lambda$" + msg,
+            )
+            ax_bic.text(
+                lbd,
+                0.8 * bic.max() + 0.2 * bic.min(),
+                rf"$\lambda$ = {lbd_set[id]:.3e}",
+                ha="center",
+                va="center",
+                rotation="vertical",
+                backgroundcolor="white",
+            )
+
+        # minimum value of bic
+        id_min = np.nanargmin(bic)
+        plot_axvline(id_min, color="b", msg="min")
+        bic_res["min"] = bic[id_min]
+
+        # bic_sub = bic_mean[1:] - bic_mean[:-1]
+        # id_coude = np.argmax(bic_sub > 0)
+        # plot_axvline(id_coude, color="g", msg=" coude")
+        # bic_res["coude"] = bic_mean[id_coude]
+
+        # One standard error max(min)
+        id_1se = (
+            None
+            if se_percentage is None
+            else np.argmax((bic - id_min) < se_percentage * id_min)
         )
-        ax_bic.text(
-            lbd,
-            0.8 * bic.max() + 0.2 * bic.min(),
-            rf"$\lambda$ = {lbd_set[id]:.3e}",
-            ha="center",
-            va="center",
-            rotation="vertical",
-            backgroundcolor="white",
-        )
+        bic_1se = None if id_1se is None else bic[id_1se]
+        if bic_1se is not None:
+            plot_axvline(id_1se, color="r", msg=" 1 s.e.")
+            bic_res["1se"] = bic_1se
 
-    # minimum value of bic
-    id_min = np.nanargmin(bic)
-    plot_axvline(id_min, color="b", msg="min")
-    bic_res["min"] = bic[id_min]
-
-    # bic_sub = bic_mean[1:] - bic_mean[:-1]
-    # id_coude = np.argmax(bic_sub > 0)
-    # plot_axvline(id_coude, color="g", msg=" coude")
-    # bic_res["coude"] = bic_mean[id_coude]
-
-    # One standard error max(min)
-    id_1se = (
-        None
-        if se_percentage is None
-        else np.argmax((bic - id_min) < se_percentage * id_min)
-    )
-    bic_1se = None if id_1se is None else bic[id_1se]
-    if bic_1se is not None:
-        plot_axvline(id_1se, color="r", msg=" 1 s.e.")
-        bic_res["1se"] = bic_1se
-
-    ax_bic.legend(loc="lower right")
+        ax_bic.legend(loc="lower right")
     return (fig, [ax, ax_bic])  # , bic_res)
 
 

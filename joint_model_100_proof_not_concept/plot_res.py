@@ -21,7 +21,7 @@ DIM_COV = data["DIM_COV"]
 params_star_stack = data["params_star_stack"]
 
 # ====================================================== #
-fig, ax = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic, p=DIM_COV)
+fig, ax = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
 
 z = np.poly1d(np.polyfit(lbd_set, bic, deg=4))
 

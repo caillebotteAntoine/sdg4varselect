@@ -163,23 +163,26 @@ class Solver:
 
         return msg
 
-    def likelihood_marginal(self, size):
+    def likelihood_marginal(self, size, theta=None):
+        if theta is None:
+            theta = self.theta_reals1d
+
         var_lat_sample = {}
 
         for var in self.latent_variables:
             var_lat_sample[var] = self.latent_variables[var].sample(
                 jrd.PRNGKey(int(time())),
-                self.theta_reals1d,
+                theta,
                 size=size - 1,
                 **self.likelihood_kwargs,
             )
 
-        out = self.likelihood(self.theta_reals1d, **self.likelihood_kwargs)
+        out = self.likelihood(theta, **self.likelihood_kwargs)
         for k in range(size - 1):
             for var in self.latent_variables:
                 self.likelihood_kwargs[var] = var_lat_sample[var][k]
 
-            out += self.likelihood(self.theta_reals1d, **self.likelihood_kwargs)
+            out += self.likelihood(theta, **self.likelihood_kwargs)
 
         for var in self.latent_variables:
             self.likelihood_kwargs[var] = self.latent_variables[var].data
@@ -214,8 +217,8 @@ class Solver:
         if theta is None:
             theta = self.theta_reals1d
 
-        k = jnp.count_nonzero(self.theta_nonzero_support(p, theta))
-        log_L = self.likelihood_marginal(size=size)
+        k = jnp.count_nonzero(self.theta_nonzero_support(p, theta=theta))
+        log_L = self.likelihood_marginal(size=size, theta=theta)
 
         return -2 * log_L + k * jnp.log(n)
 

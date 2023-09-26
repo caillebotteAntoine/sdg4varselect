@@ -8,7 +8,6 @@ import numpy as np
 
 from sdg4varselect.solver import shrink_support
 from one_run import (
-    kwargs_run_GD,
     sample,
     estim,
     get_random_params0,
@@ -21,6 +20,12 @@ from one_run import (
 from sdg4varselect.miscellaneous import step_message, bic_final_estim_from_list
 
 from sdg4varselect import jrd, jnp
+
+
+kwargs_run_GD = {
+    "prox_regul": 1.29e-3,
+    "proximal_operator": False,
+}
 
 
 def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=False):
@@ -37,14 +42,31 @@ def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=Fal
             data_set,
             parameters0,
             key,
-            niter=500,
+            niter=800,
+            kwargs_run_GD=kwargs_run_GD,
             verbatim=verbatim,
             activate_fim=False,
             activate_jac_approx=False,
+            lr=1e-12,
             # Grad
+            plateau_grad=600,
+            plateau_grad_size=100,
             scale_grad=0.5,
-            plateau_grad=400,
+            # Jac
+            plateau_jac=600,
+            plateau_jac_size=100,
+            scale_jac=1,
+            # Fim
+            plateau_fim=600,
+            plateau_fim_size=1000,
+            scale_fim=0.9,
         )
+        #         activate_fim=False,
+        #         activate_jac_approx=False,
+        #         # Grad
+        #         scale_grad=0.5,
+        #         plateau_grad=400,
+        #     )
         list_solver.append(solver)
         list_res.append(res)
 
@@ -76,23 +98,24 @@ def final_estim(solver, parameters0, prox_regul, verbatim=False):
 
     res, solver_select = estim_solver(
         solver_select,
-        niter=2000,
+        niter=800,
+        kwargs_run_GD=kwargs_run_GD,
         verbatim=verbatim,
         activate_fim=True,
         activate_jac_approx=True,
-        lr=1e-8,
+        lr=1e-4,
         # Grad
-        plateau_grad=1200,
+        plateau_grad=600,
         plateau_grad_size=100,
         scale_grad=1,
         # Jac
-        plateau_jac=1200,
-        plateau_jac_size=1000,
+        plateau_jac=600,
+        plateau_jac_size=100,
         scale_jac=1,
         # Fim
-        plateau_fim=1200,
+        plateau_fim=600,
         plateau_fim_size=1000,
-        scale_fim=1,
+        scale_fim=0.9,
     )
     return res, solver_select
 
@@ -102,7 +125,7 @@ def final_estim(solver, parameters0, prox_regul, verbatim=False):
 # ====================================================== #
 params0, prng_key = get_random_params0(jrd.PRNGKey(int(time())), error=0.2)
 
-params0["mu1"] = params_star_weibull.mu1 + 0.1
+# params0["mu1"] = params_star_weibull.mu1 + 0.1
 # params0["mu2"] = params_star_weibull.mu2
 # params0["mu3"] = params_star_weibull.mu3
 # params0["gamma2_1"] = params_star_weibull.gamma2_1
@@ -116,7 +139,8 @@ print(f"params0 = {params0}")
 # pour DIM_COV < 100
 # lbd_set = 10 ** jnp.linspace(-1, -0.5, num=50)  # [10**-0.75]  #
 # pour DIM_COV = 1000
-lbd_set = [0.3]  # , 10**-1.5]  # 10 ** jnp.linspace(-2, -0.5, num=50)  #
+lbd_set = 10 ** jnp.linspace(-2, -0.5, num=5)
+# [0.1, 0.15]  # , 10**-1.5]  # 10 ** jnp.linspace(-2, -0.5, num=50)  #
 
 
 nrun = 1
@@ -130,7 +154,9 @@ for k in range(nrun):
     lr.append(r)
 
 
-bic, theta_reg = bic_final_estim_from_list(ls, N_IND, DIM_COV)
+# final_res, final_solver = lr[0][0], ls[0][0]
+
+bic, theta_reg = bic_final_estim_from_list(ls, lr, N_IND, DIM_COV)
 # ============================================ #
 # ================ INFERENCE ================= #
 # ============================================ #
@@ -142,7 +168,7 @@ final_res, final_solver = final_estim(
     solver_selection, params0, lbd_set[bic_argmin], verbatim=True
 )
 
-# _, _ = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic, p=DIM_COV)
+# _, _ = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
 
 
 # ====================================================== #
@@ -169,9 +195,9 @@ data_selection = extract_data(res_selection, ls[0][bic_argmin])
 data_final = extract_data(final_res, final_solver)
 
 step_size = {
-    "jac": ls[0][0].step_size,
-    "fisher": ls[0][0].step_size_fisher,
-    "gradient": ls[0][0].step_size_grad,
+    "jac": final_solver.step_size,
+    "fisher": final_solver.step_size_fisher,
+    "gradient": final_solver.step_size_grad,
 }
 
 data = {
@@ -193,7 +219,7 @@ with open("res_selection.pkl", "wb") as f:
 print("RESULT SAVED !")
 
 
-params_names = solver_selection.params_names
+# params_names = solver_selection.params_names
 
 
 # fig = sdgplt.figure()
@@ -202,35 +228,36 @@ params_names = solver_selection.params_names
 # solver_selection.step_size_grad.plot(label="gradient step size")
 # sdgplt.plt.legend()
 
-# _, _ = sdgplt.plot_params(
-#     x=res_selection.theta,
-#     x_star=np.array(params_star_stack),
+# _, _ = sdgplt.plot_params_grad(
+#     res_selection.theta,
+#     res_selection.grad_precond,
+#     np.array(params_star_stack),
 #     p=DIM_COV,
 #     names=params_names,
 #     logscale=False,
 # )
 
-# _, _ = sdgplt.plot_grad(x=res_selection.grad_precond, p=DIM_COV, names=params_names)
+# _, _ = sdgplt.plot_params_hd(res_selection.theta, p=DIM_COV, location="right")
 
-# __doc__, _ = sdgplt.plot_params_hd(res_selection.theta, p=DIM_COV, location="right")
+# print(res_selection.theta[-1][:DIM_COV])
 
 
-# =========================#
-fig = sdgplt.figure()
-final_solver.step_size.plot(label="Jac step size")
-final_solver.step_size_fisher.plot(label="FIM step size")
-final_solver.step_size_grad.plot(label="gradient step size")
-sdgplt.plt.legend()
+# # =========================#
+# fig = sdgplt.figure()
+# final_solver.step_size.plot(label="Jac step size")
+# final_solver.step_size_fisher.plot(label="FIM step size")
+# final_solver.step_size_grad.plot(label="gradient step size")
+# sdgplt.plt.legend()
 
-_, _ = sdgplt.plot_params_grad(
-    final_res.theta,
-    final_res.grad_precond,
-    np.array(params_star_stack),
-    p=DIM_COV,
-    names=params_names,
-    logscale=True,
-)
+# _, _ = sdgplt.plot_params_grad(
+#     final_res.theta,
+#     final_res.grad_precond,
+#     np.array(params_star_stack),
+#     p=DIM_COV,
+#     names=params_names,
+#     logscale=False,
+# )
 
-_, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
+# _, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
 
-print(final_res.theta[-1][:DIM_COV])
+# print(final_res.theta[-1][:DIM_COV])

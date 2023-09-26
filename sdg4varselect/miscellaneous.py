@@ -6,7 +6,7 @@ import jax.numpy as jnp
 np.set_printoptions(precision=3, threshold=10)
 
 
-def list_bic(list_solver, N, p):
+def list_bic(list_solver, list_res, N, p):
     beta = [list_solver[i].theta_nonzero_support(p=p) for i in range(len(list_solver))]
 
     id_out = [0]
@@ -19,18 +19,28 @@ def list_bic(list_solver, N, p):
             chosen_model.append(i + 1)
 
     # print(id_out)
+    def get_last_theta_estim(res):
+        res_nan = [jnp.isnan(r).any() for r in res.theta]
+        if True in res_nan:
+            return res.theta[res_nan.index(True) - 1]
+        return res.theta[-1]
 
-    chosen_bic = np.array([list_solver[i].BIC(N, p, size=1000) for i in chosen_model])
+    chosen_bic = np.array(
+        [
+            list_solver[i].BIC(N, p, size=1000, theta=get_last_theta_estim(list_res[i]))
+            for i in chosen_model
+        ]
+    )
     return np.array([chosen_bic[i] for i in id_out])
 
 
-def bic_final_estim_from_list(ls, N, p):
+def bic_final_estim_from_list(ls, lr, N, p):
     theta_regularization = np.array([x.theta_reals1d[-p:] for x in ls[0]])
-    bic = list_bic(ls[0], N, p)
+    bic = list_bic(ls[0], lr[0], N, p)
 
     for i in range(1, len(ls)):
         theta_regularization += [x.theta_reals1d[-p:] for x in ls[i]]
-        bic += list_bic(ls[i], N, p)
+        bic += list_bic(ls[i], lr[i], N, p)
 
     bic = bic / len(ls)
     theta_regularization /= len(ls)

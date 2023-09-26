@@ -7,7 +7,7 @@ from model import jac_likelihood
 import sdg4varselect.plot as sdgplt
 
 DIM_COV = 100
-N_IND = 200
+N_IND = 100
 
 cov_law = "uniform"
 
@@ -56,11 +56,6 @@ fisher_mask = (
     jnp.arange(0, len(params0) + DIM_COV - 1) < len(params0) - 2
 )  # -2 car on veut pas de 2 paramètre beta and alpha
 # fisher_mask = jnp.array([True for i in range(len(fisher_mask))])
-
-kwargs_run_GD = {
-    "prox_regul": 1.29e-3,
-    "proximal_operator": True,
-}
 
 
 def sample(params0_weibull, prng_key):
@@ -126,7 +121,7 @@ def set_solver_run_parameters(
     return solver
 
 
-def estim_solver(solver, niter, verbatim=False, **run_parameters):
+def estim_solver(solver, niter, kwargs_run_GD, verbatim=False, **run_parameters):
     solver.verbatim = verbatim
 
     solver = set_solver_run_parameters(solver, **run_parameters)
@@ -143,10 +138,14 @@ def estim_solver(solver, niter, verbatim=False, **run_parameters):
     return res, solver
 
 
-def estim(data_set, params0, prng_key, niter, verbatim=False, **run_parameters):
+def estim(
+    data_set, params0, prng_key, niter, kwargs_run_GD, verbatim=False, **run_parameters
+):
     solver, key = get_solver(parametrization, prng_key, params0, data_set, N_IND)
 
-    res, solver = estim_solver(solver, niter, verbatim=verbatim, **run_parameters)
+    res, solver = estim_solver(
+        solver, niter, kwargs_run_GD=kwargs_run_GD, verbatim=verbatim, **run_parameters
+    )
     return res, solver, key
 
 

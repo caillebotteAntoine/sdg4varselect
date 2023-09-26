@@ -58,6 +58,43 @@ def gradient_descent_fisher_preconditionner(
 
 
 @jit
+def gradient_descent_fisher_preconditionner_with_mask_old(
+    jac: jnp.ndarray,
+    jac_current: jnp.ndarray,
+    fisher_identity_mixture: bool,
+    step_size: float,
+    fisher_mask: jnp.ndarray,
+):
+    """compute one step of a gradient with perconditionner"""
+    grad = jac_current.mean(axis=0)
+
+    # Jacobian approximate
+    jac = (1 - step_size) * jac + step_size * jac_current
+
+    # id_mask = jnp.nonzero(fisher_mask)[0]
+    # id_rest = jnp.nonzero(1 - fisher_mask)[0]
+
+    # jac_shrink = jac[:, id_mask]
+    jac_shrink = jnp.where(fisher_mask, jac, 0)
+    fisher_info_shrink = jax.lax.cond(
+        fisher_identity_mixture,
+        lambda fim: step_size * fim + (1 - step_size) * jnp.eye(fim.shape[0]),
+        lambda fim: fim,
+        jac_shrink.T @ jac_shrink / jac_shrink.shape[0],
+    ) + jnp.diag(jnp.where(fisher_mask, 0, 1))
+
+    grad_shrink = jnp.linalg.solve(
+        fisher_info_shrink, jnp.where(fisher_mask, grad, 0)
+    )  # grad[id_mask])
+
+    theta_step = jnp.where(
+        fisher_mask, grad_shrink, grad
+    )  # jnp.hstack([grad_shrink, grad[id_rest]])
+
+    return jac, fisher_info_shrink, grad, theta_step
+
+
+@jit
 def gradient_descent_fisher_preconditionner_with_mask(
     jac: jnp.ndarray,
     jac_current: jnp.ndarray,
@@ -80,7 +117,7 @@ def gradient_descent_fisher_preconditionner_with_mask(
     jac_shrink = jnp.where(fisher_mask, jac, 0)
 
     # Gradient
-    grad = jac_current.mean(axis=0)
+    grad = jac.mean(axis=0)
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
     # for i in range(3, 5):
     #     grad = grad.at[i].set(0)
@@ -206,6 +243,19 @@ class Gradient(Algorithm):
 
                 old_theta = self._theta_reals1d
 
+                # print(self.step_size_grad(self.iter))
+                # (
+                #     jac,
+                #     fisher_info,
+                #     grad,
+                #     grad_precond,
+                # ) = gradient_descent_fisher_preconditionner_with_mask_old(
+                #     jac,
+                #     jac_current,
+                #     fisher_identity_mixture=self.iter < 600,
+                #     step_size=self.step_size_grad(self.iter),
+                #     fisher_mask=fisher_mask,
+                # )
                 (
                     jac,
                     fisher_info,

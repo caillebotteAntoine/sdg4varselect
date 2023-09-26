@@ -12,7 +12,8 @@ from one_run import (
     sample,
     estim,
     estim_solver,
-    sample_and_estim,
+    estim,
+    params_star_weibull,
     params0,
     N_IND,
     DIM_COV,
@@ -67,9 +68,20 @@ def multi_estim(n_run, prng_key, prox_regul, verbatim=True):
         p["beta"] = np.random.uniform(-1, 1, size=DIM_COV)
         print(p)
 
+        data_set, key = sample(params_star_weibull, prng_key)
+
         kwargs_run_GD["proximal_operator"] = True
-        res_list[i], solver_list[i], prng_key = sample_and_estim(
-            p, prng_key, verbatim=verbatim
+        res_list[i], solver_list[i], prng_key = estim(
+            data_set,
+            parameters0,
+            key,
+            niter=500,
+            verbatim=verbatim,
+            activate_fim=False,
+            activate_jac_approx=False,
+            # Grad
+            scale_grad=0.5,
+            plateau_grad=400,
         )
 
         solver_select, mask_select = shrink_support(solver_list[i], "beta", DIM_COV)
@@ -113,7 +125,7 @@ print(f"regularization value selected = {lbd_selection}")
 
 time_start = time()
 solver_list, res_list, res_select_list = multi_estim(
-    n_run=50, prng_key=jrd.PRNGKey(0), prox_regul=lbd_selection, verbatim=False
+    n_run=5, prng_key=jrd.PRNGKey(0), prox_regul=lbd_selection, verbatim=False
 )
 print(time2string(time() - time_start))
 
