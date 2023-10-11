@@ -42,22 +42,22 @@ def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=Fal
             data_set,
             parameters0,
             key,
-            niter=800,
+            niter=2000,
             kwargs_run_GD=kwargs_run_GD,
             verbatim=verbatim,
             activate_fim=True,
             activate_jac_approx=True,
             lr=1e-8,
             # Grad
-            plateau_grad=600,
+            plateau_grad=1000,
             plateau_grad_size=100,
             scale_grad=1,
             # Jac
-            plateau_jac=600,
+            plateau_jac=1000,
             plateau_jac_size=1000,
             scale_jac=1,
             # Fim
-            plateau_fim=600,
+            plateau_fim=1000,
             plateau_fim_size=2000,
             scale_fim=1,
         )
@@ -93,22 +93,22 @@ def final_estim(solver, parameters0, prox_regul, verbatim=False):
 
     res, solver_select = estim_solver(
         solver_select,
-        niter=800,
+        niter=2000,
         kwargs_run_GD=kwargs_run_GD,
         verbatim=verbatim,
         activate_fim=True,
         activate_jac_approx=True,
         lr=1e-8,
         # Grad
-        plateau_grad=600,
+        plateau_grad=1000,
         plateau_grad_size=100,
         scale_grad=1,
         # Jac
-        plateau_jac=600,
+        plateau_jac=1000,
         plateau_jac_size=2000,
         scale_jac=1,
         # Fim
-        plateau_fim=600,
+        plateau_fim=1000,
         plateau_fim_size=1000,
         scale_fim=0.9,
     )
