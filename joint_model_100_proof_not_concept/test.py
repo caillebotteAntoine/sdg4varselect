@@ -134,7 +134,7 @@ print(f"params0 = {params0}")
 # pour DIM_COV < 100
 # lbd_set = 10 ** jnp.linspace(-1, -0.5, num=50)  # [10**-0.75]  #
 # pour DIM_COV = 1000
-lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
+lbd_set = 10 ** jnp.linspace(-1, 0, num=8)
 # lbd_set = [0.3]
 # [0.1, 0.15]  # , 10**-1.5]  # 10 ** jnp.linspace(-2, -0.5, num=50)  #
 
@@ -152,14 +152,14 @@ for k in range(nrun):
 
 # final_res, final_solver = lr[0][0], ls[0][0]
 
-bic, theta_reg = bic_final_estim_from_list(ls, lr, N_IND, DIM_COV, verbatim=True)
-bic_nJ, theta_reg = bic_final_estim_from_list(
-    ls, lr, N_IND * 20, DIM_COV, verbatim=True
-)
+bic, ebic, theta_reg = bic_final_estim_from_list(ls, lr, N_IND, DIM_COV, verbatim=True)
+# bic_nJ, theta_reg = bic_final_estim_from_list(
+#     ls, lr, N_IND * 20, DIM_COV, verbatim=True
+# )
 # ============================================ #
 # ================ INFERENCE ================= #
 # ============================================ #
-bic_argmin = np.argmin(bic)
+bic_argmin = np.argmin(ebic)
 res_selection = lr[0][bic_argmin]
 solver_selection = ls[0][bic_argmin]
 
@@ -169,6 +169,11 @@ final_res, final_solver = final_estim(
 
 fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
 ax, ax_bic = axs
+
+ax_bic.plot(lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC")
+id_min = np.nanargmin(ebic)
+sdgplt.plot_axvline(ax_bic, lbd_set, ebic, id_min, color="g", msg="min(eBIC)")
+ax_bic.legend(loc="lower right")
 
 
 # for res in lr[0]:
@@ -214,6 +219,7 @@ data = {
     "res_selection": data_selection,
     "res_final": data_final,
     "bic": bic,
+    "ebic": ebic,
     "theta_reg": theta_reg,
     "lbd_set": lbd_set,
     "params_names": ls[0][0].params_names,

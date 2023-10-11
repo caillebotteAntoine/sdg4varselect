@@ -2,6 +2,7 @@
 
 import jax.numpy as jnp
 import numpy as np
+import scipy.special
 import parametrization_cookbook.jax as pc
 
 from sdg4varselect.MCMC import MCMC_chain
@@ -221,6 +222,21 @@ class Solver:
         log_L = self.likelihood_marginal(size=size, theta=theta)
 
         return -2 * log_L + k * jnp.log(n)
+
+    def eBIC(self, n, p, theta=None, size=100):
+        """
+        eBIC = k*ln(n) - 2*ln(L) + 2*ln(C^p_k)
+
+        where :
+            - k is the number of parameter estimated (ie non zero parameter in HD parameter)
+            - n is the sample size
+            - L the maximzed value of the likelihood function
+        """
+
+        k = self.get_number_of_nonzero(p=p)
+        ebic_pen = scipy.special.binom(p, k)
+
+        return self.BIC(n, p, theta=theta, size=size) + ebic_pen
 
 
 def shrink_support(solver, name, p):

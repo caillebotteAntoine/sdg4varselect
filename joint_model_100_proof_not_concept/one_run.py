@@ -153,16 +153,4 @@ def estim(
 
 
 if __name__ == "__main__":
-    cov_law = "uniform"
-    data_set, prng_key = sample(params_star_weibull, jrd.PRNGKey(0))
-    res, solver, _ = estim(data_set, params0, prng_key, verbatim=True)
-
-    sdgplt.plot_params(
-        x=res.theta,
-        x_star=np.array(params_star_stack),
-        p=DIM_COV,
-        names=solver.params_names,
-        logscale=False,
-    )
-
-    sdgplt.plot_params_hd(res.theta, p=DIM_COV, location="right")
+    pass

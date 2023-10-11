@@ -459,6 +459,29 @@ def plot_selected_component(res_solver, lbd_set, p, colormap="bwr", figsize=10):
     return fig, ax
 
 
+def plot_axvline(ax_bic, lbd_set, bic, id, color, msg=""):
+    lbd = lbd_set[id]
+
+    ax_bic.axvline(
+        x=lbd,
+        color=color,
+        linewidth=2,
+        linestyle="--",
+        label=r"$\lambda$" + msg,
+    )
+    ax_bic.text(
+        lbd,
+        0.8 * bic.max() + 0.2 * bic.min(),
+        rf"$\lambda$ = {lbd_set[id]:.3e}",
+        ha="center",
+        va="center",
+        rotation="vertical",
+        backgroundcolor="white",
+    )
+
+    return ax_bic
+
+
 @dec_figsize
 def plot_regularization_path(
     theta_regularization, lbd_set, bic, se_percentage=None, figsize=10
@@ -479,29 +502,9 @@ def plot_regularization_path(
             "bic": bic,
         }
 
-        def plot_axvline(id, color, msg=""):
-            lbd = lbd_set[id]
-
-            ax_bic.axvline(
-                x=lbd,
-                color=color,
-                linewidth=2,
-                linestyle="--",
-                label=r"$\lambda$" + msg,
-            )
-            ax_bic.text(
-                lbd,
-                0.8 * bic.max() + 0.2 * bic.min(),
-                rf"$\lambda$ = {lbd_set[id]:.3e}",
-                ha="center",
-                va="center",
-                rotation="vertical",
-                backgroundcolor="white",
-            )
-
         # minimum value of bic
         id_min = np.nanargmin(bic)
-        plot_axvline(id_min, color="b", msg="min")
+        plot_axvline(ax_bic, lbd_set, bic, id_min, color="b", msg="min(BIC)")
         bic_res["min"] = bic[id_min]
 
         # bic_sub = bic_mean[1:] - bic_mean[:-1]

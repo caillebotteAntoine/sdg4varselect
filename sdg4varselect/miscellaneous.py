@@ -31,25 +31,37 @@ def list_bic(list_solver, list_res, N, p, verbatim=False):
             for i in chosen_model
         ]
     )
+    chosen_ebic = np.array(
+        [
+            list_solver[i].eBIC(
+                N, p, size=1000, theta=get_last_theta_estim(list_res[i])
+            )
+            for i in chosen_model
+        ]
+    )
 
     if verbatim:
         print(chosen_model)
 
-    return np.array([chosen_bic[i] for i in id_out])
+    return np.array([chosen_bic[i] for i in id_out]), np.array(
+        [chosen_ebic[i] for i in id_out]
+    )
 
 
 def bic_final_estim_from_list(ls, lr, N, p, verbatim=False):
     theta_regularization = np.array([x.theta_reals1d[-p:] for x in ls[0]])
-    bic = list_bic(ls[0], lr[0], N, p, verbatim=verbatim)
+    bic, ebic = list_bic(ls[0], lr[0], N, p, verbatim=verbatim)
 
     for i in range(1, len(ls)):
         theta_regularization += [x.theta_reals1d[-p:] for x in ls[i]]
-        bic += list_bic(ls[i], lr[i], N, p, verbatim=verbatim)
+        bic_tmp, ebic_tmp = list_bic(ls[i], lr[i], N, p, verbatim=verbatim)
+        bic += bic_tmp
+        ebic += ebic_tmp
 
     bic = bic / len(ls)
     theta_regularization /= len(ls)
 
-    return bic, theta_regularization
+    return bic, ebic, theta_regularization
 
 
 def default_arg(dec):
