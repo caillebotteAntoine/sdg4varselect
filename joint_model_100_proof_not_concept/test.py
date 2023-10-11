@@ -45,28 +45,23 @@ def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=Fal
             niter=800,
             kwargs_run_GD=kwargs_run_GD,
             verbatim=verbatim,
-            activate_fim=False,
-            activate_jac_approx=False,
-            lr=1e-12,
+            activate_fim=True,
+            activate_jac_approx=True,
+            lr=1e-4,
             # Grad
             plateau_grad=600,
             plateau_grad_size=100,
-            scale_grad=0.5,
+            scale_grad=1,
             # Jac
             plateau_jac=600,
-            plateau_jac_size=100,
+            plateau_jac_size=1000,
             scale_jac=1,
             # Fim
             plateau_fim=600,
-            plateau_fim_size=1000,
-            scale_fim=0.9,
+            plateau_fim_size=2000,
+            scale_fim=1,
         )
-        #         activate_fim=False,
-        #         activate_jac_approx=False,
-        #         # Grad
-        #         scale_grad=0.5,
-        #         plateau_grad=400,
-        #     )
+
         list_solver.append(solver)
         list_res.append(res)
 
@@ -110,7 +105,7 @@ def final_estim(solver, parameters0, prox_regul, verbatim=False):
         scale_grad=1,
         # Jac
         plateau_jac=600,
-        plateau_jac_size=100,
+        plateau_jac_size=2000,
         scale_jac=1,
         # Fim
         plateau_fim=600,
@@ -139,7 +134,8 @@ print(f"params0 = {params0}")
 # pour DIM_COV < 100
 # lbd_set = 10 ** jnp.linspace(-1, -0.5, num=50)  # [10**-0.75]  #
 # pour DIM_COV = 1000
-lbd_set = 10 ** jnp.linspace(-2, -0.5, num=5)
+lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
+# lbd_set = [0.3]
 # [0.1, 0.15]  # , 10**-1.5]  # 10 ** jnp.linspace(-2, -0.5, num=50)  #
 
 
@@ -156,7 +152,10 @@ for k in range(nrun):
 
 # final_res, final_solver = lr[0][0], ls[0][0]
 
-bic, theta_reg = bic_final_estim_from_list(ls, lr, N_IND, DIM_COV)
+bic, theta_reg = bic_final_estim_from_list(ls, lr, N_IND, DIM_COV, verbatim=True)
+bic_nJ, theta_reg = bic_final_estim_from_list(
+    ls, lr, N_IND * 20, DIM_COV, verbatim=True
+)
 # ============================================ #
 # ================ INFERENCE ================= #
 # ============================================ #
@@ -168,7 +167,18 @@ final_res, final_solver = final_estim(
     solver_selection, params0, lbd_set[bic_argmin], verbatim=True
 )
 
-# _, _ = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
+fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
+ax, ax_bic = axs
+
+
+# for res in lr[0]:
+#     _, _ = sdgplt.plot_params(
+#         x=res.theta,
+#         x_star=np.array(params_star_stack),
+#         p=DIM_COV,
+#         names=final_solver.params_names,
+#         logscale=False,
+#     )
 
 
 # ====================================================== #

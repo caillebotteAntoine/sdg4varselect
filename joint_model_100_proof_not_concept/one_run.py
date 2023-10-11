@@ -6,8 +6,9 @@ from sdg4varselect import jnp, jrd, learning_rate
 from model import jac_likelihood
 import sdg4varselect.plot as sdgplt
 
-DIM_COV = 100
+DIM_COV = 500
 N_IND = 100
+J_OBS = 20
 
 cov_law = "uniform"
 
@@ -61,7 +62,9 @@ fisher_mask = (
 def sample(params0_weibull, prng_key):
     """return solver, data_set, key"""
     # ====== DATA GENERATION ====== #
-    data_set, _, key = get_sample(prng_key, params0_weibull, N_IND, DIM_COV, cov_law)
+    data_set, _, key = get_sample(
+        prng_key, params0_weibull, N_IND, DIM_COV, J_OBS, cov_law
+    )
     return data_set, key
 
 

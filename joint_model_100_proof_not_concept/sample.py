@@ -9,13 +9,13 @@ from sdg4varselect import Gradient, jrd
 # ===================================================== #
 # ==================== PARAMS STAR ==================== #
 # ===================================================== #
-def get_sample(key, params_star_weibull, N_IND, DIM_COV, cov_law="uniform"):
+def get_sample(key, params_star_weibull, N_IND, DIM_COV, J_OBS, cov_law="uniform"):
     # ====== DATA GENERATION ====== #
     return data_simulation(
         params=params_star_weibull,
         key=key,
         N_IND=N_IND,
-        J=20,
+        J=J_OBS,
         p=DIM_COV,
         t_min=60,
         t_max=135,

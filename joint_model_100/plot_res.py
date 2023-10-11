@@ -1,45 +1,27 @@
 # Create by antoine.caillebotte@inrae.fr
-from time import time
-from sdg4varselect.miscellaneous import time2string
 
-from sdg4varselect.solver import shrink_support
 import numpy as np
-import pandas
 import pickle
 
-from one_run import (
-    kwargs_run_GD,
-    sample,
-    estim,
-    estim_solver,
-    get_random_params0,
-    params_star_weibull,
-    N_IND,
-    DIM_COV,
-    params_star_stack,
-)
-from sdg4varselect.miscellaneous import step_message, bic_final_estim_from_list
-
-from sdg4varselect import jrd, jnp
 import sdg4varselect.plot as sdgplt
 
 folder = "images"
 
-
+# 200_50_simple_grad_10_rep
 with open("res_selection.pkl", "rb") as f:
     data = pickle.load(f)
 
-res_selection = data["res_selection"]
 bic = np.array(data["bic"])
 theta_reg = data["theta_reg"]
 lbd_set = data["lbd_set"]
 params_names = data["params_names"]
-latent_variables = data["latent_variables"]
 step_size = data["step_size"]
 
+DIM_COV = data["DIM_COV"]
+params_star_stack = data["params_star_stack"]
 
-# # ====================================================== #
-fig, ax = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic, p=DIM_COV)
+# ====================================================== #
+fig, ax = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
 
 z = np.poly1d(np.polyfit(lbd_set, bic, deg=4))
 
@@ -64,103 +46,96 @@ ax[1].text(
     rotation="vertical",
     backgroundcolor="white",
 )
-# # ====================================================== #
-# # ====================================================== #
+
+fig.savefig(folder + "/reg_path.png")
+# ====================================================== #
+# ====================================================== #
 
 bic_argmin = np.argmin(bic)
-print(f"regularization value selected = {lbd_set[bic_argmin]}")
-
-# # ====================================================== #
-
-fig, ax = sdgplt.plot_params(
-    x=res_selection["theta"],
-    x_star=np.array(params_star_stack),
-    p=DIM_COV,
-    names=params_names,
-    logscale=False,
-)
-
-_, _ = sdgplt.plot_grad(x=res_selection["grad_precond"], p=DIM_COV, names=params_names)
-
-
-_, ax = sdgplt.plot_params_hd(res_selection["theta"], p=DIM_COV, location="right")
-
-for var in latent_variables.values():
-    sdgplt.plot_mcmc(var)
-
+print("regularization value selected = {lbd_set[bic_argmin]}")
 
 # ====================================================== #
 
 
-sdgplt.plot_multi_line(
-    np.array([res_selection["jac_max"]]).T,
-    title="maximum de la jacobienne",
-)
+def plot_all(res):
+    fig, ax = sdgplt.plot_params(
+        x=res["theta"],
+        x_star=np.array(params_star_stack),
+        p=DIM_COV,
+        names=params_names,
+        logscale=False,
+    )
 
-# ====================================================== #
-sdgplt.plot_multi_line(
-    np.array([res_selection["likelihood"]]).T,
-    title="valeur de la vraisemblance",
-)
+    fig.savefig(folder + "/theta.png")
 
-# ====================================================== #
+    fig, _ = sdgplt.plot_grad(x=res["grad_precond"], p=DIM_COV, names=params_names)
 
-sdgplt.plot_multi_line(
-    np.array([res_selection["fim_det"]]).T,
-    title="déterminant de la fim",
-    logscale=True,
-)
+    fig.savefig(folder + "/grad_precond.png")
 
-# ====================================================== #
+    fig, ax = sdgplt.plot_params_hd(res["theta"], p=DIM_COV, location="right")
 
-vp_fim = res_selection["fim_vp"]
+    fig.savefig(folder + "/beta.png")
 
-sdgplt.ax_plot_list_of_vector(
-    vp_fim,
-    title="valeur propre de la fim",
-    location="right",
-)
+    for var in res["latent_variables"].values():
+        sdgplt.plot_mcmc(var)
 
-# ====================================================== #
-sdgplt.plot_multi_line(
-    np.array([vp_fim.min(axis=1)]).T,
-    title="valeur propre minimal de la fim",
-)
+    # ====================================================== #
 
-# ====================================================== #
+    fig, ax = sdgplt.plot_multi_line(
+        np.array([res["jac_max"]]).T, title="maximum de la jacobienne", figsize=5
+    )
 
-sdgplt.figure()
+    fig.savefig(folder + "/maximum_jacobiene.png")
+
+    fig, ax = sdgplt.plot_multi_line(
+        np.array([res["jac_min"]]).T, title="minimum de la jacobienne", figsize=5
+    )
+
+    fig.savefig(folder + "/minimum_jacobiene.png")
+
+    # ====================================================== #
+    sdgplt.plot_multi_line(
+        np.array([res["likelihood"]]).T,
+        title="valeur de la vraisemblance",
+    )
+
+    # ====================================================== #
+    det_fim = res["fim_det"]
+
+    sdgplt.plot_multi_line(
+        np.array([det_fim]).T,
+        title="déterminant de la fim",
+        logscale=True,
+    )
+
+    # ====================================================== #
+
+    vp_fim = res["fim_vp"]
+
+    fig, ax = sdgplt.ax_plot_list_of_vector(
+        vp_fim,
+        title="valeur propre de la fim",
+        location="right",
+    )
+    fig.savefig(folder + "/valeur_propre_fim.png")
+
+    # ====================================================== #
+    fig, ax = sdgplt.plot_multi_line(
+        np.array([vp_fim.min(axis=1)]).T,
+        title="valeur propre minimal de la fim",
+    )
+
+    fig.savefig(folder + "/valeur_propre_minimal_fim.png")
+    # ====================================================== #
+
+
+plot_all(data["res_selection"])
+plot_all(data["res_final"])
+
+fig = sdgplt.figure()
 step_size["jac"].plot(label="Jac step size")
 step_size["fisher"].plot(label="FIM step size")
 step_size["gradient"].plot(label="gradient step size")
 sdgplt.plt.legend()
 
-# # ====================================================== #
-# # ====================== INFERENCE ===================== #
-# # ====================================================== #
-
-
-# solver_inference, mask_select = shrink_support(solver_selection, "beta", DIM_COV)
-# params0["beta"][not mask_select[-DIM_COV:].all()] = 0
-# solver_inference.reset_solver()
-# solver_inference.theta_reals1d = params0
-
-# kwargs_run_GD["proximal_operator"] = False
-
-# time_start = time()
-# res_inference = estim_solver(solver_inference, verbatim=False)
-# print(f"INFERENCE TIME: {time2string(time() - time_start)}")
-
-# # # ====================================================== #
-# # # ====================================================== #
-
-
-# fig, ax = sdgplt.plot_params(
-#     x=res_inference.theta,
-#     x_star=np.array(params_star_stack),
-#     p=DIM_COV,
-#     names=solver_inference.params_names,
-#     logscale=False,
-# )
-
-# fig, ax = sdgplt.plot_params_hd(res_inference.theta, p=DIM_COV, location="right")
+fig.savefig(folder + "/step_size.png")
