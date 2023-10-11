@@ -47,7 +47,7 @@ def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=Fal
             verbatim=verbatim,
             activate_fim=True,
             activate_jac_approx=True,
-            lr=1e-4,
+            lr=1e-8,
             # Grad
             plateau_grad=600,
             plateau_grad_size=100,
@@ -98,7 +98,7 @@ def final_estim(solver, parameters0, prox_regul, verbatim=False):
         verbatim=verbatim,
         activate_fim=True,
         activate_jac_approx=True,
-        lr=1e-4,
+        lr=1e-8,
         # Grad
         plateau_grad=600,
         plateau_grad_size=100,
