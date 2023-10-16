@@ -95,6 +95,8 @@ def data_simulation(
     elif cov_law == "uniform":
         cov = jrd.uniform(key1, minval=-1, maxval=1, shape=(N_IND, DIM_COV))
 
+        cov = cov - cov.mean(axis=0)[None, :]
+
     elif cov_law == "clever_uniform":
         k1, k2, k3, k4, k5 = jrd.split(key1, num=5)
 
@@ -126,7 +128,7 @@ def data_simulation(
 
     beta_prod_cov_obs = cov @ params.beta
 
-    print(f"beta^T cov = {beta_prod_cov_obs}")
+    # print(f"beta^T cov = {beta_prod_cov_obs}")
 
     tmp = [0 for i in range(N_IND)]
     uni = jrd.uniform(key2, shape=(N_IND,))
