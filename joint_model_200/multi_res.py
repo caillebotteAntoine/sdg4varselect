@@ -54,13 +54,16 @@ def method(nrun=1, verbatim=True):
     return final_res, bic, ebic, theta_reg, lbd_set[bic_argmin], solver_selection
 
 
-lr = llbd = []
-lbic = lebic = ltheta_reg = []
+lr = []
+llbd = []
+lbic = []
+lebic = []
+ltheta_reg = []
 
 
 print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-for i in range(5):
+for i in range(10):
     print(step_message(i, 1))
 
     res, bic, ebic, theta_reg, lbd_select, solver = method(verbatim=False)
@@ -85,5 +88,5 @@ data = {
     "lbd_set": lbd_set,
 }
 
-# with open("res_multi_run.pkl", "wb") as f:
-#     pickle.dump(data, f)
+with open("res_multi_run.pkl", "wb") as f:
+    pickle.dump(data, f)
