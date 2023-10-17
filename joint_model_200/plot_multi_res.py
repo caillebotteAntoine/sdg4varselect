@@ -24,8 +24,6 @@ params_names = data["params_names"]
 theta = np.array(data["theta"])
 
 
-params_names = ["mu1", "mu2", "mu3", "gamma2_1", "gamma2_2", "sigma2", "alpha", "beta"]
-
 theta = np.array(data["theta"])
 fig = sdgplt.figure()
 
