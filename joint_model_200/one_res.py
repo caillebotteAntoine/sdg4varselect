@@ -225,43 +225,43 @@ if __name__ == "__main__":
 
     print("RESULT SAVED !")
 
-    # params_names = solver_selection.params_names
+    params_names = solver_selection.params_names
 
-    # fig = sdgplt.figure()
-    # solver_selection.step_size.plot(label="Jac step size")
-    # solver_selection.step_size_fisher.plot(label="FIM step size")
-    # solver_selection.step_size_grad.plot(label="gradient step size")
-    # sdgplt.plt.legend()
+    fig = sdgplt.figure()
+    solver_selection.step_size.plot(label="Jac step size")
+    solver_selection.step_size_fisher.plot(label="FIM step size")
+    solver_selection.step_size_grad.plot(label="gradient step size")
+    sdgplt.plt.legend()
 
-    # _, _ = sdgplt.plot_params_grad(
-    #     res_selection.theta,
-    #     res_selection.grad_precond,
-    #     np.array(params_star_stack),
-    #     p=DIM_COV,
-    #     names=params_names,
-    #     logscale=False,
-    # )
+    _, _ = sdgplt.plot_params_grad(
+        res_selection.theta,
+        res_selection.grad_precond,
+        np.array(params_star_stack),
+        p=DIM_COV,
+        names=params_names,
+        logscale=False,
+    )
 
-    # _, _ = sdgplt.plot_params_hd(res_selection.theta, p=DIM_COV, location="right")
+    _, _ = sdgplt.plot_params_hd(res_selection.theta, p=DIM_COV, location="right")
 
-    # print(res_selection.theta[-1][:DIM_COV])
+    print(res_selection.theta[-1][:DIM_COV])
 
-    # # =========================#
-    # fig = sdgplt.figure()
-    # final_solver.step_size.plot(label="Jac step size")
-    # final_solver.step_size_fisher.plot(label="FIM step size")
-    # final_solver.step_size_grad.plot(label="gradient step size")
-    # sdgplt.plt.legend()
+    # =========================#
+    fig = sdgplt.figure()
+    final_solver.step_size.plot(label="Jac step size")
+    final_solver.step_size_fisher.plot(label="FIM step size")
+    final_solver.step_size_grad.plot(label="gradient step size")
+    sdgplt.plt.legend()
 
-    # _, _ = sdgplt.plot_params_grad(
-    #     final_res.theta,
-    #     final_res.grad_precond,
-    #     np.array(params_star_stack),
-    #     p=DIM_COV,
-    #     names=params_names,
-    #     logscale=False,
-    # )
+    _, _ = sdgplt.plot_params_grad(
+        final_res.theta,
+        final_res.grad_precond,
+        np.array(params_star_stack),
+        p=DIM_COV,
+        names=params_names,
+        logscale=False,
+    )
 
-    # _, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
+    _, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
 
-    # print(final_res.theta[-1][:DIM_COV])
+    print(final_res.theta[-1][:DIM_COV])

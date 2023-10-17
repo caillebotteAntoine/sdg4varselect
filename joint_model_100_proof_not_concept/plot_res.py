@@ -8,7 +8,7 @@ import sdg4varselect.plot as sdgplt
 folder = "images"
 
 # 200_50_simple_grad_10_rep
-with open("res_selection.pkl", "rb") as f:
+with open("res_selection_400.pkl", "rb") as f:
     data = pickle.load(f)
 
 bic = np.array(data["bic"])

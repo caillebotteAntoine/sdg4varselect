@@ -49,6 +49,7 @@ for i in range(7):
 fig = sdgplt.figure()
 ax = fig.add_subplot(1, 1, 1)
 beta = theta[:, 7:]
+print(f"p = {beta.shape[1]}")
 beta_support = beta.sum(axis=0) != 0
 id = [i for i in range(len(beta_support)) if beta_support[i]]
 print(beta[:, id])
