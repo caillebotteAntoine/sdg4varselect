@@ -5,7 +5,7 @@ from one_run import (
     N_IND,
     DIM_COV,
 )
-
+from datetime import datetime
 import pickle
 import sdg4varselect.plot as sdgplt
 from sdg4varselect import jrd, jnp
@@ -17,7 +17,7 @@ from sdg4varselect.miscellaneous import step_message, bic_final_estim_from_list
 
 from sdg4varselect.miscellaneous import time2string
 
-lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 
 
 def method(nrun=1, verbatim=True):
@@ -51,45 +51,39 @@ def method(nrun=1, verbatim=True):
         solver_selection, params0, lbd_set[bic_argmin], verbatim=True
     )
 
-    return final_res, bic, ebic, theta_reg
+    return final_res, bic, ebic, theta_reg, lbd_set[bic_argmin], solver_selection
 
 
-lr = []
+lr = llbd = []
+lbic = lebic = ltheta_reg = []
+
+
+print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
 for i in range(5):
-    print(step_message(i, 5))
+    print(step_message(i, 1))
 
-    res, _, _, _ = method(verbatim=False)
+    res, bic, ebic, theta_reg, lbd_select, solver = method(verbatim=False)
     lr.append(res)
+    llbd.append(lbd_select)
+    lbic.append(bic)
+    lebic.append(ebic)
+    ltheta_reg.append(theta_reg)
+
+print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+
 
 theta = [res.theta[-1] for res in lr]
 
-data = {"theta": theta}
+data = {
+    "theta": theta,
+    "lbd_select": llbd,
+    "params_names": solver.params_names,
+    "lbic": lbic,
+    "lebic": lebic,
+    "ltheta_reg": ltheta_reg,
+    "lbd_set": lbd_set,
+}
 
-with open("res_multi_run.pkl", "wb") as f:
-    pickle.dump(data, f)
-
-
-res = lr[0]
-_, _ = sdgplt.plot_params_grad(
-    res.theta,
-    res.grad_precond,
-    np.array(params_star_stack),
-    p=DIM_COV,
-    logscale=False,
-)
-
-_, _ = sdgplt.plot_params_hd(res.theta, p=DIM_COV, location="right")
-
-
-# fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
-# ax, ax_bic = axs
-
-# ax_ebic = ax.twinx()
-# ax_ebic.plot(lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC")
-# id_min = np.nanargmin(ebic)
-# sdgplt.plot_axvline(ax_ebic, lbd_set, ebic, id_min, color="g", msg="min(eBIC)")
-# ax_ebic.legend(loc="upper right")
-
-
-theta = np.array([res.theta[-1,] for res in lr])
+# with open("res_multi_run.pkl", "wb") as f:
+#     pickle.dump(data, f)
