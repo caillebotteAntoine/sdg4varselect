@@ -4,6 +4,7 @@ from one_run import (
     params_star_stack,
     N_IND,
     DIM_COV,
+    J_OBS,
 )
 from datetime import datetime
 import pickle
@@ -48,7 +49,7 @@ def method(nrun=1, verbatim=True):
     solver_selection = ls[0][bic_argmin]
 
     final_res, _ = final_estim(
-        solver_selection, params0, lbd_set[bic_argmin], verbatim=True
+        solver_selection, params0, lbd_set[bic_argmin], verbatim=False
     )
 
     return final_res, bic, ebic, theta_reg, lbd_set[bic_argmin], solver_selection
@@ -61,10 +62,12 @@ lebic = []
 ltheta_reg = []
 
 
+print(f"n = {N_IND}, p = {DIM_COV}, J = {J_OBS}")
 print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-for i in range(10):
-    print(step_message(i, 1))
+nrun = 10
+for i in range(nrun):
+    print(step_message(i, nrun))
 
     res, bic, ebic, theta_reg, lbd_select, solver = method(verbatim=False)
     lr.append(res)
