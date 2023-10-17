@@ -67,7 +67,7 @@ print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
 nrun = 10
 for i in range(nrun):
-    print(step_message(i, nrun))
+    # print(step_message(i, nrun))
 
     res, bic, ebic, theta_reg, lbd_select, solver = method(verbatim=False)
     lr.append(res)

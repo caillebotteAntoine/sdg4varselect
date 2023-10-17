@@ -34,7 +34,7 @@ def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=Fal
     data_set, key = sample(params_star_weibull, prng_key)
 
     for i in range(len(path)):
-        print(step_message(i, len(path)), end="\r" if not verbatim else "\n")
+        # print(step_message(i, len(path)), end="\r" if not verbatim else "\n")
 
         kwargs_run_GD["prox_regul"] = path[i]
         kwargs_run_GD["proximal_operator"] = True
@@ -65,13 +65,13 @@ def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=Fal
         list_solver.append(solver)
         list_res.append(res)
 
-        print(f"#beta = {solver.get_number_of_nonzero(p=DIM_COV)}")
+        # print(f"#beta = {solver.get_number_of_nonzero(p=DIM_COV)}")
 
         if solver.get_number_of_nonzero(p=DIM_COV) == 0:
             for k in range(len(path) - i - 1):
-                print(
-                    step_message(i + k, len(path)), end="\r" if not verbatim else "\n"
-                )
+                # print(
+                #     step_message(i + k, len(path)), end="\r" if not verbatim else "\n"
+                # )
                 list_solver.append(list_solver[-1])
                 list_res.append(list_res[-1])
 
