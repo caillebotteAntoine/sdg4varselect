@@ -39,6 +39,9 @@ for i in range(7):
     for patch in bp["boxes"]:
         patch.set(facecolor=f"C{i}")
 
+    for median in bp["medians"]:
+        median.set_color("black")
+
     ax.axhline(y=params_star_stack[i], color="k", label="true value")
 
     ax.legend()
