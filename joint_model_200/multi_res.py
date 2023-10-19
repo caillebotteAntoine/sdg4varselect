@@ -65,7 +65,7 @@ ltheta_reg = []
 print(f"n = {N_IND}, p = {DIM_COV}, J = {J_OBS}")
 print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-nrun = 10
+nrun = 50
 for i in range(nrun):
     # print(step_message(i, nrun))
 
