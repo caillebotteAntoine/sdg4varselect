@@ -10,7 +10,11 @@ jnp.set_printoptions(threshold=200)  # jnp.inf)
 
 import jax.numpy as jnp
 import jax.random as jrd
-from jax import jit, jacrev
+from jax import jit, jacrev, jacfwd
+
+from jax.config import config
+
+config.update("jax_enable_x64", True)
 
 
 def print_array(x):

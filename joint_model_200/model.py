@@ -3,7 +3,7 @@
 from collections import namedtuple
 from functools import partial
 
-from sdg4varselect import jacrev, jit, jnp
+from sdg4varselect import jacrev, jit, jnp, jacfwd
 from sdg4varselect.logistic_model import gaussian_prior, logistic_curve
 
 # ====================== PARAMIETRIZATION ===================== #
@@ -168,7 +168,10 @@ def likelihood(theta_reals1d, parametrization, **kwargs):
     return likelihood_array(theta_reals1d, parametrization, **kwargs).sum()
 
 
-un_jit_jac_likelihood = jacrev(likelihood_array)
+# jacfwd if more efficient for tall matrix
+# jacrev if more efficient for wide matrix
+
+un_jit_jac_likelihood = jacfwd(likelihood_array)
 
 
 @partial(

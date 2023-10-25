@@ -22,7 +22,9 @@ lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 
 
 def method(nrun=1, verbatim=True):
-    params0, prng_key = get_random_params0(jrd.PRNGKey(int(time())), error=0.2)
+    prng_key = int(time())
+    print(f"prng_key = {prng_key}")
+    params0, prng_key = get_random_params0(jrd.PRNGKey(prng_key), error=0.2)
 
     # ====================================================== #
     # ================ REGULARIZATION PATH ================= #

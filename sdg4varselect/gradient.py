@@ -234,12 +234,13 @@ class Gradient(Algorithm):
                 # Simulation
                 self.gibbs_sampler_step(gibbs_step)
                 # Gradient descent
-                if jnp.any(jnp.isnan(grad)):
-                    break
-
                 jac_current = jac_likelihood(
                     self._theta_reals1d, **self._likelihood_kwargs
                 )
+
+                if jnp.any(jnp.isnan(jac_current)):
+                    print("there is an nan in jac_current, stoping the algorithm !")
+                    break
 
                 old_theta = self._theta_reals1d
 
@@ -288,6 +289,20 @@ class Gradient(Algorithm):
                 # print(
                 #     f"{(not end_heating) or (abs(grad_diff.sum()) > 10e-7 and abs(theta_diff.sum()) > 10e-7)}\n"
                 # )
+
+                isnan = {
+                    "grad": jnp.any(jnp.isnan(grad)),
+                    "jac": jnp.any(jnp.isnan(jac)),
+                    "grad_precond": jnp.any(jnp.isnan(grad_precond)),
+                    "fisher_info": jnp.any(jnp.isnan(fisher_info)),
+                    "theta_reals1d": jnp.any(jnp.isnan(self._theta_reals1d)),
+                }
+
+                if True in isnan.values():
+                    print(
+                        f"there is an nan in {[key for x, key in enumerate(isnan) if x ]}, stoping the algorithm !"
+                    )
+                    break
 
                 yield res_grad_tupletype(
                     self._theta_reals1d,

@@ -5,6 +5,7 @@ from sdg4varselect.miscellaneous import time2string
 import sdg4varselect.plot as sdgplt
 import pickle
 import numpy as np
+from datetime import datetime
 
 from sdg4varselect.solver import shrink_support
 from one_run import (
@@ -50,7 +51,7 @@ def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=Fal
             lr=1e-8,
             # Grad
             plateau_grad=1000,
-            plateau_grad_size=100,
+            plateau_grad_size=200,
             scale_grad=1,
             # Jac
             plateau_jac=1000,
@@ -59,7 +60,7 @@ def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=Fal
             # Fim
             plateau_fim=1000,
             plateau_fim_size=2000,
-            scale_fim=1,
+            scale_fim=0.9,
         )
 
         list_solver.append(solver)
@@ -119,15 +120,15 @@ if __name__ == "__main__":
     # ====================================================== #
     # ================ REGULARIZATION PATH ================= #
     # ====================================================== #
-    params0, prng_key = get_random_params0(jrd.PRNGKey(int(time())), error=0.2)
-    print(f"params0 = {params0}")
+    print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-    # pour DIM_COV < 100
-    # lbd_set = 10 ** jnp.linspace(-1, -0.5, num=50)  # [10**-0.75]  #
-    # pour DIM_COV = 1000
-    lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
-    # lbd_set = [0.3]
-    # [0.1, 0.15]  # , 10**-1.5]  # 10 ** jnp.linspace(-2, -0.5, num=50)  #
+    prng_key = 1697807204  #
+    prng_key = int(time())  #
+    print(f"prng_key = {prng_key}")
+    params0, prng_key = get_random_params0(jrd.PRNGKey(prng_key), error=0.2)
+
+    lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
+    # lbd_set = [lbd_set[0]]  # 0.19]
 
     nrun = 1
     ls, lr = [], []
@@ -155,19 +156,22 @@ if __name__ == "__main__":
     bic_argmin = np.argmin(bic)
     res_selection = lr[0][bic_argmin]
     solver_selection = ls[0][bic_argmin]
+    # lbd_selection = lbd_set[bic_argmin]
 
-    final_res, final_solver = final_estim(
-        solver_selection, params0, lbd_set[bic_argmin], verbatim=True
-    )
+    final_res = res_selection
+    final_solver = solver_selection
+    # final_res, final_solver = final_estim(
+    #     solver_selection, params0, lbd_selection, verbatim=True
+    # )
 
-    fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
-    ax, ax_bic = axs
+    # fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
+    # ax, ax_bic = axs
 
-    ax_ebic = ax.twinx()
-    ax_ebic.plot(lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC")
-    id_min = np.nanargmin(ebic)
-    sdgplt.plot_axvline(ax_ebic, lbd_set, ebic, id_min, color="g", msg="min(eBIC)")
-    ax_ebic.legend(loc="upper right")
+    # ax_ebic = ax.twinx()
+    # ax_ebic.plot(lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC")
+    # id_min = np.nanargmin(ebic)
+    # sdgplt.plot_axvline(ax_ebic, lbd_set, ebic, id_min, color="g", msg="min(eBIC)")
+    # ax_ebic.legend(loc="upper right")
 
     # for res in lr[0]:
     #     _, _ = sdgplt.plot_params(
@@ -220,11 +224,6 @@ if __name__ == "__main__":
         "params_star_stack": params_star_stack,
     }
 
-    with open("res_selection.pkl", "wb") as f:
-        pickle.dump(data, f)
-
-    print("RESULT SAVED !")
-
     params_names = solver_selection.params_names
 
     fig = sdgplt.figure()
@@ -247,21 +246,28 @@ if __name__ == "__main__":
     print(res_selection.theta[-1][:DIM_COV])
 
     # =========================#
-    fig = sdgplt.figure()
-    final_solver.step_size.plot(label="Jac step size")
-    final_solver.step_size_fisher.plot(label="FIM step size")
-    final_solver.step_size_grad.plot(label="gradient step size")
-    sdgplt.plt.legend()
+    # fig = sdgplt.figure()
+    # final_solver.step_size.plot(label="Jac step size")
+    # final_solver.step_size_fisher.plot(label="FIM step size")
+    # final_solver.step_size_grad.plot(label="gradient step size")
+    # sdgplt.plt.legend()
 
-    _, _ = sdgplt.plot_params_grad(
-        final_res.theta,
-        final_res.grad_precond,
-        np.array(params_star_stack),
-        p=DIM_COV,
-        names=params_names,
-        logscale=False,
-    )
+    # _, _ = sdgplt.plot_params_grad(
+    #     final_res.theta,
+    #     final_res.grad_precond,
+    #     np.array(params_star_stack),
+    #     p=DIM_COV,
+    #     names=params_names,
+    #     logscale=False,
+    # )
 
-    _, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
+    # _, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
 
-    print(final_res.theta[-1][:DIM_COV])
+    # print(final_res.theta[-1][:DIM_COV])
+
+    print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+
+    # with open("res_selection.pkl", "wb") as f:
+    #     pickle.dump(data, f)
+
+    # print("RESULT SAVED !")

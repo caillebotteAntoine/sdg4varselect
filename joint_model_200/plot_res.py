@@ -52,25 +52,22 @@ fig.savefig(folder + "/reg_path.png")
 # ====================================================== #
 
 bic_argmin = np.argmin(bic)
-print("regularization value selected = {lbd_set[bic_argmin]}")
+print(f"regularization value selected = {lbd_set[bic_argmin]}")
 
 # ====================================================== #
 
 
 def plot_all(res):
-    fig, ax = sdgplt.plot_params(
-        x=res["theta"],
-        x_star=np.array(params_star_stack),
+    fig, ax = sdgplt.plot_params_grad(
+        res["theta"],
+        res["grad_precond"],
+        np.array(params_star_stack),
         p=DIM_COV,
         names=params_names,
         logscale=False,
     )
 
     fig.savefig(folder + "/theta.png")
-
-    fig, _ = sdgplt.plot_grad(x=res["grad_precond"], p=DIM_COV, names=params_names)
-
-    fig.savefig(folder + "/grad_precond.png")
 
     fig, ax = sdgplt.plot_params_hd(res["theta"], p=DIM_COV, location="right")
 
