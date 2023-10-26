@@ -129,16 +129,24 @@ def estim_solver(solver, niter, kwargs_run_GD, verbatim=False, **run_parameters)
 
     solver = set_solver_run_parameters(solver, **run_parameters)
 
-    res = solver.stochastic_gradient(
-        jac_likelihood=jac_likelihood,
-        fisher_mask=fisher_mask,
-        smart_start=solver.step_size_fisher.step_burnin,
-        p=DIM_COV,
-        niter=niter,
-        **kwargs_run_GD,
-    )
+    error_flag = False
+    newrun = 0
+    while newrun == 0 or (error_flag and newrun < 5):
+        newrun += 1
+        if error_flag:
+            print(f"error detected try a new run ! ({newrun-1})")
+            solver.reset_solver()
 
-    return res, solver
+        res, error_flag = solver.stochastic_gradient(
+            jac_likelihood=jac_likelihood,
+            fisher_mask=fisher_mask,
+            smart_start=solver.step_size_fisher.step_burnin,
+            p=DIM_COV,
+            niter=niter,
+            **kwargs_run_GD,
+        )
+
+    return res, solver, error_flag
 
 
 def estim(
@@ -146,10 +154,10 @@ def estim(
 ):
     solver, key = get_solver(parametrization, prng_key, params0, data_set, N_IND)
 
-    res, solver = estim_solver(
+    res, solver, error_flag = estim_solver(
         solver, niter, kwargs_run_GD=kwargs_run_GD, verbatim=verbatim, **run_parameters
     )
-    return res, solver, key
+    return res, solver, error_flag, key
 
 
 if __name__ == "__main__":

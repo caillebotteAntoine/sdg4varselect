@@ -58,43 +58,6 @@ def gradient_descent_fisher_preconditionner(
 
 
 @jit
-def gradient_descent_fisher_preconditionner_with_mask_old(
-    jac: jnp.ndarray,
-    jac_current: jnp.ndarray,
-    fisher_identity_mixture: bool,
-    step_size: float,
-    fisher_mask: jnp.ndarray,
-):
-    """compute one step of a gradient with perconditionner"""
-    grad = jac_current.mean(axis=0)
-
-    # Jacobian approximate
-    jac = (1 - step_size) * jac + step_size * jac_current
-
-    # id_mask = jnp.nonzero(fisher_mask)[0]
-    # id_rest = jnp.nonzero(1 - fisher_mask)[0]
-
-    # jac_shrink = jac[:, id_mask]
-    jac_shrink = jnp.where(fisher_mask, jac, 0)
-    fisher_info_shrink = jax.lax.cond(
-        fisher_identity_mixture,
-        lambda fim: step_size * fim + (1 - step_size) * jnp.eye(fim.shape[0]),
-        lambda fim: fim,
-        jac_shrink.T @ jac_shrink / jac_shrink.shape[0],
-    ) + jnp.diag(jnp.where(fisher_mask, 0, 1))
-
-    grad_shrink = jnp.linalg.solve(
-        fisher_info_shrink, jnp.where(fisher_mask, grad, 0)
-    )  # grad[id_mask])
-
-    theta_step = jnp.where(
-        fisher_mask, grad_shrink, grad
-    )  # jnp.hstack([grad_shrink, grad[id_rest]])
-
-    return jac, fisher_info_shrink, grad, theta_step
-
-
-@jit
 def gradient_descent_fisher_preconditionner_with_mask(
     jac: jnp.ndarray,
     jac_current: jnp.ndarray,
@@ -218,16 +181,6 @@ class Gradient(Algorithm):
 
         # c'est pas un iterator
         def GD(jac, grad):
-            yield res_grad_tupletype(
-                self._theta_reals1d,
-                jac,
-                jac.T @ jac,
-                grad,
-                grad,
-                self.likelihood(self._theta_reals1d, **self._likelihood_kwargs),
-                self._theta_reals1d,
-            )
-
             for _ in itertools.count():
                 self.step_message(niter)
 
@@ -240,23 +193,9 @@ class Gradient(Algorithm):
 
                 if jnp.any(jnp.isnan(jac_current)):
                     print("there is an nan in jac_current, stoping the algorithm !")
+                    yield -1
                     break
 
-                old_theta = self._theta_reals1d
-
-                # print(self.step_size_grad(self.iter))
-                # (
-                #     jac,
-                #     fisher_info,
-                #     grad,
-                #     grad_precond,
-                # ) = gradient_descent_fisher_preconditionner_with_mask_old(
-                #     jac,
-                #     jac_current,
-                #     fisher_identity_mixture=self.iter < 600,
-                #     step_size=self.step_size_grad(self.iter),
-                #     fisher_mask=fisher_mask,
-                # )
                 (
                     jac,
                     fisher_info,
@@ -280,16 +219,6 @@ class Gradient(Algorithm):
                         HD_mask=HD_mask,
                     )
 
-                # grad_diff = old_grad - grad
-                # theta_diff = old_theta - self._theta_reals1d
-                # end_heating = self.iter > self.step_size.step_heat
-                # print(
-                #     f"{abs(grad_diff.sum()) > 10e-7} {abs(theta_diff.sum()) > 10e-7} {end_heating}"
-                # )
-                # print(
-                #     f"{(not end_heating) or (abs(grad_diff.sum()) > 10e-7 and abs(theta_diff.sum()) > 10e-7)}\n"
-                # )
-
                 isnan = {
                     "grad": jnp.any(jnp.isnan(grad)),
                     "jac": jnp.any(jnp.isnan(jac)),
@@ -302,16 +231,16 @@ class Gradient(Algorithm):
                     print(
                         f"there is an nan in {[key for x, key in enumerate(isnan) if x ]}, stoping the algorithm !"
                     )
+                    yield -1
                     break
 
-                yield res_grad_tupletype(
+                yield (
                     self._theta_reals1d,
                     jac,
                     fisher_info,
                     grad,
                     grad_precond,
                     self.likelihood(self._theta_reals1d, **self._likelihood_kwargs),
-                    old_theta - self._theta_reals1d,
                 )
 
         res = list(

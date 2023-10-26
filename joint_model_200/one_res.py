@@ -39,7 +39,8 @@ def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=Fal
 
         kwargs_run_GD["prox_regul"] = path[i]
         kwargs_run_GD["proximal_operator"] = True
-        res, solver, key = estim(
+
+        res, solver, error_flag, key = estim(
             data_set,
             parameters0,
             key,
@@ -62,6 +63,9 @@ def clever_regularization_path(parameters0, path, prng_key, nrep=1, verbatim=Fal
             plateau_fim_size=2000,
             scale_fim=0.9,
         )
+        if error_flag:
+            print("error detected cancel regularization path !")
+            return -1
 
         list_solver.append(solver)
         list_res.append(res)
@@ -92,7 +96,7 @@ def final_estim(solver, parameters0, prox_regul, verbatim=False):
     solver_select.reset_solver()
     solver_select.theta_reals1d = p0
 
-    res, solver_select = estim_solver(
+    res, solver_select, error_flag = estim_solver(
         solver_select,
         niter=2000,
         kwargs_run_GD=kwargs_run_GD,
@@ -113,6 +117,11 @@ def final_estim(solver, parameters0, prox_regul, verbatim=False):
         plateau_fim_size=1000,
         scale_fim=0.9,
     )
+
+    if error_flag:
+        print("error detected cancel final estimation !")
+        return -1
+
     return res, solver_select
 
 
@@ -122,25 +131,27 @@ if __name__ == "__main__":
     # ====================================================== #
     print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-    prng_key = 1697807204  #
-    prng_key = int(time())  #
-    print(f"prng_key = {prng_key}")
-    params0, prng_key = get_random_params0(jrd.PRNGKey(prng_key), error=0.2)
+    seed = 1697807204  #
+    seed = int(time())  #
+    print(f"seed = {seed}")
+    params0, prng_key = get_random_params0(jrd.PRNGKey(seed), error=0.2)
 
-    lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
+    lbd_set = 10 ** jnp.linspace(-2, 0, num=2)
     # lbd_set = [lbd_set[0]]  # 0.19]
 
     nrun = 1
     ls, lr = [], []
     for k in range(nrun):
         time_start = time()
-        s, r, prng_key = clever_regularization_path(
-            params0, lbd_set, prng_key, verbatim=True
-        )
+        res = clever_regularization_path(params0, lbd_set, prng_key, verbatim=True)
         print(f"REGULARIZATION PATH TIME: {time2string(time() - time_start)}")
 
-        ls.append(s)
-        lr.append(r)
+        if res != -1:
+            s, r, prng_key = res
+            ls.append(s)
+            lr.append(r)
+        else:
+            prng_key, _ = jrd.split(prng_key, num=2)
 
     # final_res, final_solver = lr[0][0], ls[0][0]
 
@@ -192,7 +203,6 @@ if __name__ == "__main__":
             "theta": res.theta,
             "grad_precond": res.grad_precond,
             "likelihood": res.likelihood,
-            "theta_diff": res.theta_diff,
             "latent_variables": ls[0][bic_argmin].latent_variables,
             "jac_min": [res.jac[i].min() for i in range(len(res.jac))],
             "jac_max": [res.jac[i].max() for i in range(len(res.jac))],

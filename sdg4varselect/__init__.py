@@ -14,7 +14,7 @@ from jax import jit, jacrev, jacfwd
 
 from jax.config import config
 
-config.update("jax_enable_x64", True)
+# config.update("jax_enable_x64", True)
 
 
 def print_array(x):

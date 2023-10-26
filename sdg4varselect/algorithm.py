@@ -17,13 +17,18 @@ res_grad_tupletype = namedtuple(
         "grad",
         "grad_precond",
         "likelihood",
-        "theta_diff",
     ),
 )
 
 
 def list_res_to_res_list(res, parametrization):
-    res = [[res[i][j] for i in range(len(res))] for j in range(len(res[0]))]
+    error_flag = res[-1] == -1
+    n_run = len(res) - 1 if error_flag else len(res)
+
+    if n_run <= 0:
+        return res_grad_tupletype(0, 0, 0, 0, 0, 0), error_flag
+
+    res = [[res[i][j] for i in range(n_run)] for j in range(len(res[0]))]
 
     theta = [parametrization.reals1d_to_params(theta) for theta in res[0]]
     theta_jnp = jnp.array(
@@ -38,16 +43,17 @@ def list_res_to_res_list(res, parametrization):
     grad = jnp.array(res[3])
     grad_precond = jnp.array(res[4])
     likelihood = jnp.array(res[5])
-    theta_diff = jnp.array(res[6])
 
-    return res_grad_tupletype(
-        theta_jnp,
-        jac,
-        fisher_info,
-        grad,
-        grad_precond,
-        likelihood,
-        theta_diff,
+    return (
+        res_grad_tupletype(
+            theta_jnp,
+            jac,
+            fisher_info,
+            grad,
+            grad_precond,
+            likelihood,
+        ),
+        error_flag,
     )
 
 

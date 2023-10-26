@@ -27,60 +27,24 @@ theta = np.array(data["theta"])
 id = [i for i in range(len(theta)) if not np.isnan(theta[i]).any()]
 theta = theta[id]
 
+theta_reg = [data["ltheta_reg"][i] for i in id]
+bic = [data["lbic"][i] for i in id]
+ebic = [data["lebic"][i] for i in id]
+
 bic = data["lbic"]
 id = [i for i in range(len(bic)) if not np.isinf(bic[i]).any()]
 theta_reg = [data["ltheta_reg"][i] for i in id]
 bic = [data["lbic"][i] for i in id]
 ebic = [data["lebic"][i] for i in id]
+theta = theta[id]
 
-
-print(f"p = {theta.shape[1]-7}, nrun = {theta.shape[0]}")
-# ====================================================== #
-fig = sdgplt.figure()
-
-for i in range(7):
-    ax = fig.add_subplot(3, 3, 1 + i)
-    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-    bp = ax.boxplot(theta[:, i], patch_artist=True)
-
-    for patch in bp["boxes"]:
-        patch.set(facecolor=f"C{i}")
-
-    for median in bp["medians"]:
-        median.set_color("black")
-
-    ax.axhline(y=params_star_stack[i], color="k", label="true value")
-
-    ax.legend()
-    ax.set_title(params_names[i])
-
-
-# ====================================================== #
-fig = sdgplt.figure()
-ax = fig.add_subplot(1, 1, 1)
-beta = theta[:, 7:]
-beta_support = beta.sum(axis=0) != 0
-num_support = (beta != 0).sum(axis=0)
-
-id = [i for i in range(len(beta_support)) if beta_support[i] and num_support[i] > 5]
-
-#
-
-ax.boxplot(beta[:, id])
-ax.set_title("beta")
-
-
-# ====================================================== #
-fig = sdgplt.figure()
-ax = fig.add_subplot(1, 1, 1)
-ax.boxplot(data["lbd_select"])
-ax.set_title("regularization parameter")
-
+n_run = theta.shape[0]
+print(f"p = {theta.shape[1]-7}, nrun = {n_run}")
 
 # ====================================================== #
 
 
-for i in range(10):
+for i in [0, 1, 6, 7]:  # range(len(bic)):
     fig, axs = sdgplt.plot_regularization_path(theta_reg[i], lbd_set, bic[i])
     ax, ax_bic = axs
 
@@ -113,3 +77,73 @@ for i in range(10):
     # id_min = np.nanargmin(ebic[i])
     # sdgplt.plot_axvline(ax_ebic, lbd_set, ebic[i], id_min, color="g", msg="min(eBIC)")
     # ax_ebic.legend(loc="upper right")
+
+# ====================================================== #
+fig = sdgplt.figure()
+
+for i in range(7):
+    ax = fig.add_subplot(3, 3, 1 + i)
+    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
+    bp = ax.boxplot(theta[:, i], patch_artist=True)
+
+    for patch in bp["boxes"]:
+        patch.set(facecolor=f"C{i}")
+
+    for median in bp["medians"]:
+        median.set_color("black")
+
+    ax.axhline(y=params_star_stack[i], color="k", label="true value")
+
+    ax.legend()
+    ax.set_title(params_names[i])
+
+
+# ====================================================== #
+fig = sdgplt.figure()
+
+for i in range(7):
+    ax = fig.add_subplot(3, 3, 1 + i)
+    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
+    bp = ax.boxplot(
+        np.abs(theta[:, i] / params_star_stack[i] - 1),
+        patch_artist=True,
+        showfliers=False,
+    )
+
+    for patch in bp["boxes"]:
+        patch.set(facecolor=f"C{i}")
+
+    for median in bp["medians"]:
+        median.set_color("black")
+
+    ax.axhline(y=5 / 100, color="k", label="5% error")
+
+    ax.legend()
+
+    ax.set_title(f"relative error of {params_names[i]}")
+
+
+# ====================================================== #
+fig = sdgplt.figure()
+ax = fig.add_subplot(1, 1, 1)
+beta = theta[:, 7:]
+beta_support = beta.sum(axis=0) != 0
+num_support = (beta != 0).sum(axis=0)
+
+print(
+    f"pourcentage de fois que chaque composante à était selectionné :\n{num_support/n_run}"
+)
+
+id = [i for i in range(len(beta_support)) if beta_support[i] and num_support[i] > 5]
+
+#
+
+ax.boxplot(beta[:, id])
+ax.set_title("beta")
+
+
+# ====================================================== #
+# fig = sdgplt.figure()
+# ax = fig.add_subplot(1, 1, 1)
+# ax.boxplot(data["lbd_select"])
+# ax.set_title("regularization parameter")
