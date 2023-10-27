@@ -17,7 +17,7 @@ from one_run import (
 folder = "images"
 
 # 200_50_simple_grad_10_rep
-with open("res_multi_run.pkl", "rb") as f:
+with open("res_multi_run_soon.pkl", "rb") as f:
     data = pickle.load(f)
 
 params_names = data["params_names"]

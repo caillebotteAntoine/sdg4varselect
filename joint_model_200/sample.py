@@ -130,3 +130,23 @@ def get_parametrization(DIM_COV, beta_type="normal"):
     )
 
     return parametrization, params_star_weibull
+
+
+if __name__ == "__main__":
+    import sdg4varselect.plot as sdgplt
+
+    # from one_run import DIM_COV, N_IND, J_OBS
+
+    _, params_star_weibull = get_parametrization(20, "normal")
+
+    dt, sim, PRNGKey = get_sample(
+        jrd.PRNGKey(0), params_star_weibull, 10, 20, 5, "uniform"
+    )
+
+    sdgplt.plt.plot(dt["time"], dt["Y"].T)
+
+    sdgplt.figure()
+    sdgplt.plt.hist(dt["T"])
+
+    sdgplt.figure()
+    sdgplt.plt.hist(sim["phi2"])
