@@ -43,7 +43,16 @@ def nlmem_simulation(params, key, N_IND, J, t_min, t_max, *args, **kwargs):
 
 
 def data_simulation(
-    params, key, N_IND, J, t_min, t_max, cov_law="uniform", *args, **kwargs
+    params,
+    key,
+    N_IND,
+    J,
+    t_min,
+    t_max,
+    cov_law="uniform",
+    censoring=0.0,
+    *args,
+    **kwargs
 ):
     """return longitudinal and survival simulation
     and latente variable simulation in the two dict"""
@@ -143,7 +152,10 @@ def data_simulation(
         )
         tmp[i] = brenth(f, a=0, b=10 * params.a, args=args)
 
-    T = jnp.array(tmp)
+    Tstar = jnp.array(tmp)
+    C = Tstar.sort()[int(N_IND * censoring)]
+    T = np.array([min(Tstar[i], C) for i in range(N_IND)])
+    delta = Tstar <= C
 
-    obs.update({"T": T, "cov": cov})
+    obs.update({"T": T, "delta": delta, "cov": cov})
     return obs, sim, key_out

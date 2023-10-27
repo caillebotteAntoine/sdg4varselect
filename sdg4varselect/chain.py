@@ -40,7 +40,7 @@ class chain:
         msg = np.array2string(self._data, prefix=prefix, suffix=")")
         return prefix + msg + ")"
 
-    def print(self):
+    def print(self) -> str:
         msg_add = "\n previous values = "
         msg_add += str(np.array(self.__chain)).replace("\n", ", ")
 

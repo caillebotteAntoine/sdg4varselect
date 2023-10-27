@@ -9,6 +9,7 @@ import sdg4varselect.plot as sdgplt
 DIM_COV = 200
 N_IND = 100
 J_OBS = 5
+CENSORING = 0.2
 
 cov_law = "uniform"
 
@@ -63,7 +64,7 @@ def sample(params0_weibull, prng_key):
     """return solver, data_set, key"""
     # ====== DATA GENERATION ====== #
     data_set, _, key = get_sample(
-        prng_key, params0_weibull, N_IND, DIM_COV, J_OBS, cov_law
+        prng_key, params0_weibull, N_IND, DIM_COV, J_OBS, cov_law, censoring=CENSORING
     )
     return data_set, key
 

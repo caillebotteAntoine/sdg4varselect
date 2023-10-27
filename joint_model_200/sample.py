@@ -9,7 +9,15 @@ from sdg4varselect import Gradient, jrd
 # ===================================================== #
 # ==================== PARAMS STAR ==================== #
 # ===================================================== #
-def get_sample(key, params_star_weibull, N_IND, DIM_COV, J_OBS, cov_law="uniform"):
+def get_sample(
+    key,
+    params_star_weibull,
+    N_IND,
+    DIM_COV,
+    J_OBS,
+    cov_law="uniform",
+    censoring=0.0,
+):
     # ====== DATA GENERATION ====== #
     return data_simulation(
         params=params_star_weibull,
@@ -20,6 +28,7 @@ def get_sample(key, params_star_weibull, N_IND, DIM_COV, J_OBS, cov_law="uniform
         t_min=60,
         t_max=135,
         cov_law=cov_law,
+        censoring=censoring,
     )
 
 
@@ -136,12 +145,13 @@ if __name__ == "__main__":
     import sdg4varselect.plot as sdgplt
 
     # from one_run import DIM_COV, N_IND, J_OBS
-
     _, params_star_weibull = get_parametrization(20, "normal")
 
     dt, sim, PRNGKey = get_sample(
-        jrd.PRNGKey(0), params_star_weibull, 10, 20, 5, "uniform"
+        jrd.PRNGKey(0), params_star_weibull, 100, 20, 5, "uniform", censoring=0.8
     )
+
+    print(dt["delta"].mean())
 
     sdgplt.plt.plot(dt["time"], dt["Y"].T)
 

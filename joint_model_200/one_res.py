@@ -136,8 +136,8 @@ if __name__ == "__main__":
     print(f"seed = {seed}")
     params0, prng_key = get_random_params0(jrd.PRNGKey(seed), error=0.2)
 
-    lbd_set = 10 ** jnp.linspace(-2, 0, num=2)
-    # lbd_set = [lbd_set[0]]  # 0.19]
+    lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
+    # lbd_set = [0.15]
 
     nrun = 1
     ls, lr = [], []
@@ -167,13 +167,20 @@ if __name__ == "__main__":
     bic_argmin = np.argmin(bic)
     res_selection = lr[0][bic_argmin]
     solver_selection = ls[0][bic_argmin]
-    # lbd_selection = lbd_set[bic_argmin]
+    lbd_selection = lbd_set[bic_argmin]
 
     final_res = res_selection
     final_solver = solver_selection
-    # final_res, final_solver = final_estim(
-    #     solver_selection, params0, lbd_selection, verbatim=True
-    # )
+    final_res, final_solver = final_estim(
+        solver_selection, params0, lbd_selection, verbatim=True
+    )
+
+    res = final_estim(solver_selection, params0, lbd_set[bic_argmin], verbatim=False)
+
+    if res == -1:
+        final_res, _ = res
+    else:
+        final_res = -1
 
     # fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
     # ax, ax_bic = axs
@@ -212,7 +219,8 @@ if __name__ == "__main__":
         return data
 
     data_selection = extract_data(res_selection, ls[0][bic_argmin])
-    data_final = extract_data(final_res, final_solver)
+
+    data_final = extract_data(final_res, final_solver) if final_res != -1 else -1
 
     step_size = {
         "jac": final_solver.step_size,
