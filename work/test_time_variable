@@ -1,0 +1,41 @@
+import jax.numpy as jnp
+
+
+def logistic_curve(
+    time: jnp.ndarray,  # shape = (J,) [None, :]
+    supremum: jnp.ndarray,  # shape = (N,) [:,None]
+    midpoint: jnp.ndarray,  # shape = (N,) [:,None]
+    growth_rate: jnp.ndarray,  # shape = (1,) [:,None]
+) -> jnp.ndarray:  # shape = (N,J)
+    return supremum[:, None] / (
+        1 + jnp.exp(-(time[None, :] - midpoint[:, None]) / growth_rate[:, None])
+    )
+
+
+def likelihood_nlmem_without_prior(
+    params, Y, time, phi1, phi2, **kwargs
+) -> jnp.ndarray:
+    """return likelihood without the gaussian prior"""
+    N, J = Y.shape
+    assert time.shape == (J,)
+    assert phi1.shape == (N,)
+    assert phi2.shape == (N,)
+
+    pred = logistic_curve(time, phi1, phi2, jnp.array([params["mu3"]]))  # shape = (N,J)
+    print(pred)
+    print(Y)
+    likelihood_nlmem = jnp.nansum((Y - pred) ** 2, axis=1)
+
+    assert likelihood_nlmem.shape == (N,)
+    return likelihood_nlmem
+
+
+params = {"sigma2": 0.1, "mu3": 3}
+
+likelihood_nlmem_without_prior(
+    params,
+    jnp.array([[jnp.nan, 1, 3], [0, jnp.nan, 3], [0, 1, 3], [0, 1, 3]]),
+    time=jnp.array([0, 1, 3]),
+    phi1=jnp.array([0, 1, 3, 4]),
+    phi2=jnp.array([0, 1, 3, 4]),
+)

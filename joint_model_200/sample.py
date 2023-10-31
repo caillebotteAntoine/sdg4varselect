@@ -132,7 +132,7 @@ def get_parametrization(DIM_COV, beta_type="normal"):
         gamma2_1=0.0025,
         gamma2_2=20,
         sigma2=0.001,
-        a=80.0,
+        a=120.0,
         b=35,
         alpha=11.11,
         beta=beta,
@@ -148,7 +148,7 @@ if __name__ == "__main__":
     _, params_star_weibull = get_parametrization(20, "normal")
 
     dt, sim, PRNGKey = get_sample(
-        jrd.PRNGKey(0), params_star_weibull, 100, 20, 5, "uniform", censoring=0.8
+        jrd.PRNGKey(0), params_star_weibull, 500, 5, 50, "uniform", censoring=0.2
     )
 
     print(dt["delta"].mean())
@@ -156,7 +156,10 @@ if __name__ == "__main__":
     sdgplt.plt.plot(dt["time"], dt["Y"].T)
 
     sdgplt.figure()
-    sdgplt.plt.hist(dt["T"])
+    sdgplt.plt.hist(dt["T"], bins=20)
 
     sdgplt.figure()
-    sdgplt.plt.hist(sim["phi2"])
+    sdgplt.plt.hist(sim["T uncensored"], bins=20)
+
+    # sdgplt.figure()
+    # sdgplt.plt.hist(sim["phi2"])

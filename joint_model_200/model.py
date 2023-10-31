@@ -15,16 +15,7 @@ params_weibull = namedtuple(
 
 params = namedtuple(
     "params",
-    (
-        "mu1",
-        "mu2",
-        "mu3",
-        "gamma2_1",
-        "gamma2_2",
-        "sigma2",
-        "alpha",
-        "beta",
-    ),
+    ("mu1", "mu2", "mu3", "gamma2_1", "gamma2_2", "sigma2", "a", "b", "alpha", "beta"),
 )
 # ==================================================== #
 # ==================== LIKELIHOOD ==================== #
@@ -88,8 +79,8 @@ def likelihood_survival_without_prior(
         "phi1": phi1,
         "phi2": phi2,
         "mu3": params.mu3,
-        "a": 80,  # params_star_weibull.a,
-        "b": 35,  # params_star_weibull.b,
+        "a": params.a,  # 80,  # params_star_weibull.a,
+        "b": params.b,  # 35,  # params_star_weibull.b,
         "alpha": params.alpha,
         "beta": params.beta,
         "cov": cov,
@@ -124,9 +115,9 @@ def likelihood_nlmem_without_prior(
 
     pred = logistic_curve(time, phi1, phi2, jnp.array([params.mu3]))  # shape = (N,J)
 
-    likelihood_nlmem = -J / 2 * jnp.log(2 * jnp.pi * params.sigma2) - (
-        (Y - pred) ** 2
-    ).sum(axis=1) / (2 * params.sigma2)
+    likelihood_nlmem = -J / 2 * jnp.log(2 * jnp.pi * params.sigma2) - jnp.nansum(
+        (Y - pred) ** 2, axis=1
+    ) / (2 * params.sigma2)
 
     assert likelihood_nlmem.shape == (N,)
     return likelihood_nlmem

@@ -17,16 +17,18 @@ from one_run import (
 folder = "images"
 
 # 200_50_simple_grad_10_rep
-with open("res_multi_run_soon.pkl", "rb") as f:
+with open("res_multi_run.pkl", "rb") as f:
     data = pickle.load(f)
 
 params_names = data["params_names"]
 lbd_set = data["lbd_set"]
 theta = np.array(data["theta"])
+theta_biais = np.array(data["theta_biais"])
 
 id = [i for i in range(len(theta)) if not np.isnan(theta[i]).any()]
 theta = theta[id]
 
+theta_biais = theta_biais[id]
 theta_reg = [data["ltheta_reg"][i] for i in id]
 bic = [data["lbic"][i] for i in id]
 ebic = [data["lebic"][i] for i in id]
@@ -37,6 +39,7 @@ theta_reg = [data["ltheta_reg"][i] for i in id]
 bic = [data["lbic"][i] for i in id]
 ebic = [data["lebic"][i] for i in id]
 theta = theta[id]
+theta_biais = theta_biais[id]
 
 n_run = theta.shape[0]
 print(f"p = {theta.shape[1]-7}, nrun = {n_run}")
@@ -84,6 +87,26 @@ fig = sdgplt.figure()
 for i in range(7):
     ax = fig.add_subplot(3, 3, 1 + i)
     ax.ticklabel_format(style="sci", scilimits=(-3, 3))
+    bp = ax.boxplot(theta_biais[:, i], patch_artist=True)
+
+    for patch in bp["boxes"]:
+        patch.set(facecolor=f"C{i}")
+
+    for median in bp["medians"]:
+        median.set_color("black")
+
+    ax.axhline(y=params_star_stack[i], color="k", label="true value")
+
+    ax.legend()
+    ax.set_title(params_names[i])
+
+
+# ====================================================== #
+fig = sdgplt.figure()
+
+for i in range(7):
+    ax = fig.add_subplot(3, 3, 1 + i)
+    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
     bp = ax.boxplot(theta[:, i], patch_artist=True)
 
     for patch in bp["boxes"]:
@@ -97,6 +120,29 @@ for i in range(7):
     ax.legend()
     ax.set_title(params_names[i])
 
+# ====================================================== #
+fig = sdgplt.figure()
+
+for i in range(7):
+    ax = fig.add_subplot(3, 3, 1 + i)
+    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
+    bp = ax.boxplot(
+        np.abs(theta_biais[:, i] / params_star_stack[i] - 1),
+        patch_artist=True,
+        showfliers=False,
+    )
+
+    for patch in bp["boxes"]:
+        patch.set(facecolor=f"C{i}")
+
+    for median in bp["medians"]:
+        median.set_color("black")
+
+    ax.axhline(y=5 / 100, color="k", label="5% error")
+
+    ax.legend()
+
+    ax.set_title(f"relative error of {params_names[i]}")
 
 # ====================================================== #
 fig = sdgplt.figure()
@@ -121,6 +167,19 @@ for i in range(7):
     ax.legend()
 
     ax.set_title(f"relative error of {params_names[i]}")
+
+
+# ====================================================== #
+fig = sdgplt.figure()
+ax = fig.add_subplot(1, 1, 1)
+beta = theta_biais[:, 7:]
+beta_support = beta.sum(axis=0) != 0
+num_support = (beta != 0).sum(axis=0)
+
+id = [i for i in range(len(beta_support)) if beta_support[i] and num_support[i] > 5]
+
+ax.boxplot(beta[:, id])
+ax.set_title("beta")
 
 
 # ====================================================== #

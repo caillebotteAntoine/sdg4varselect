@@ -2,6 +2,7 @@
 
 from scipy.optimize import brenth
 import numpy as np
+from warnings import warn
 
 from sdg4varselect import jnp, jrd
 from sdg4varselect.logistic_model import (
@@ -52,7 +53,7 @@ def data_simulation(
     cov_law="uniform",
     censoring=0.0,
     *args,
-    **kwargs
+    **kwargs,
 ):
     """return longitudinal and survival simulation
     and latente variable simulation in the two dict"""
@@ -153,9 +154,20 @@ def data_simulation(
         tmp[i] = brenth(f, a=0, b=10 * params.a, args=args)
 
     Tstar = jnp.array(tmp)
-    C = Tstar.sort()[int(N_IND * censoring)]
+    C = Tstar.sort()[int(N_IND * (1 - censoring))]
     T = np.array([min(Tstar[i], C) for i in range(N_IND)])
     delta = Tstar <= C
 
+    if (obs["time"] < C).sum() < J:
+        J_NEW = int((obs["time"] < C).sum())
+        warn(
+            f"censuring implies to shrink the longitudinal data to {J_NEW} observations ! \n censuring starting at {C}"
+        )
+
+    id = [i for i in range(J) if obs["time"][i] < C]
+    obs["Y"] = obs["Y"][:, id]
+    obs["time"] = obs["time"][obs["time"] < C]
+
     obs.update({"T": T, "delta": delta, "cov": cov})
+    sim.update({"T uncensored": Tstar})
     return obs, sim, key_out
