@@ -291,25 +291,25 @@ if __name__ == "__main__":
 
     data_final = extract_data(final_res, final_solver) if final_res != -1 else -1
 
-    # step_size = {
-    #     "jac": final_solver.step_size,
-    #     "fisher": final_solver.step_size_fisher,
-    #     "gradient": final_solver.step_size_grad,
-    # }
+    step_size = {
+        "jac": final_solver.step_size,
+        "fisher": final_solver.step_size_fisher,
+        "gradient": final_solver.step_size_grad,
+    }
 
-    # data = {
-    #     "res_selection": data_selection,
-    #     "res_final": data_final,
-    #     "bic": bic,
-    #     "ebic": ebic,
-    #     "theta_reg": theta_reg,
-    #     "lbd_set": lbd_set,
-    #     "params_names": ls[0][0].params_names,
-    #     "step_size": step_size,
-    #     "DIM_COV": DIM_COV,
-    #     "N_IND": N_IND,
-    #     "params_star_stack": params_star_stack,
-    # }
+    data = {
+        "res_selection": data_selection,
+        "res_final": data_final,
+        "bic": bic,
+        "ebic": ebic,
+        "theta_reg": theta_reg,
+        "lbd_set": lbd_set,
+        "params_names": ls[0][0].params_names,
+        "step_size": step_size,
+        "DIM_COV": DIM_COV,
+        "N_IND": N_IND,
+        "params_star_stack": params_star_stack,
+    }
 
     # params_names = solver_selection.params_names
 
