@@ -1,11 +1,11 @@
 # Create by antoine.caillebotte@inrae.fr
 from time import time
+from datetime import datetime
 from sdg4varselect.miscellaneous import time2string, list_to_BIC
 
 import sdg4varselect.plot as sdgplt
 import pickle
 import numpy as np
-from datetime import datetime
 
 from sdg4varselect.solver import shrink_support
 from joint_model.sample import sample, get_params_star
@@ -39,22 +39,22 @@ def one_res(
         data_set,
         parameters0,
         prng_key,
-        niter=2000,
+        niter=3000,
         kwargs_run_GD=kwargs_run_GD,
         verbatim=verbatim,
         activate_fim=True,
         activate_jac_approx=True,
         lr=1e-8,
         # Grad
-        plateau_grad=1000,
+        plateau_grad=2000,
         plateau_grad_size=200,
         scale_grad=1,
         # Jac
-        plateau_jac=1000,
+        plateau_jac=2000,
         plateau_jac_size=1000,
         scale_jac=1,
         # Fim
-        plateau_fim=1000,
+        plateau_fim=2000,
         plateau_fim_size=2000,
         scale_fim=0.9,
     )
@@ -181,7 +181,7 @@ def method(
     if res != -1:
         ls, lr, prng_key = res
     else:
-        prng_key, _ = jrd.split(prng_key, num=2)
+        return -1
 
     bic, ebic, theta_reg = list_to_BIC(ls, lr, N_IND, DIM_COV, verbatim=False)
 
@@ -243,21 +243,10 @@ if __name__ == "__main__":
         "beta": np.random.uniform(-1, 1, size=DIM_COV),
     }
     lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
-    # lbd_set = [0.19]
+    # lbd_set = [0.25]
     # ====================================================== #
 
-    (
-        final_res,
-        final_solver,
-        solver_selection,
-        res_selection,
-        bic,
-        ebic,
-        theta_reg,
-        lbd_selection,
-        ls,
-        lr,
-    ) = method(
+    res = method(
         params0,
         params_star_weibull,
         lbd_set,
@@ -269,105 +258,120 @@ if __name__ == "__main__":
         verbatim=True,
     )
 
-    # ====================================================== #
-    # fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
+    if res != -1:
+        (
+            final_res,
+            final_solver,
+            solver_selection,
+            res_selection,
+            bic,
+            ebic,
+            theta_reg,
+            lbd_selection,
+            ls,
+            lr,
+        ) = res
 
-    # ax, ax_bic = axs
-    # ax_ebic = ax.twinx()
-    # ax_ebic.plot(lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC")
-    # id_min = np.nanargmin(ebic)
-    # sdgplt.plot_axvline(ax_ebic, lbd_set, ebic, id_min, color="g", msg="min(eBIC)")
-    # ax_ebic.legend(loc="upper right")
+        # ====================================================== #
+        # fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
 
-    # for res in lr[0]:
-    #     _, _ = sdgplt.plot_params(
-    #         x=res.theta,
-    #         x_star=np.array(params_star_stack),
-    #         p=DIM_COV,
-    #         names=final_solver.params_names,
-    #         logscale=False,
-    #     )
+        # ax, ax_bic = axs
+        # ax_ebic = ax.twinx()
+        # ax_ebic.plot(lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC")
+        # id_min = np.nanargmin(ebic)
+        # sdgplt.plot_axvline(ax_ebic, lbd_set, ebic, id_min, color="g", msg="min(eBIC)")
+        # ax_ebic.legend(loc="upper right")
 
-    # ====================================================== #
-    def extract_data(res, solver):
-        latent_variables = ls[np.argmin(bic)].latent_variables
-        for var in latent_variables.values():
-            var.likelihood = None
+        # for res in lr[0]:
+        #     _, _ = sdgplt.plot_params(
+        #         x=res.theta,
+        #         x_star=np.array(params_star_stack),
+        #         p=DIM_COV,
+        #         names=final_solver.params_names,
+        #         logscale=False,
+        #     )
 
-        data = {
-            "theta": res.theta,
-            "grad_precond": res.grad_precond,
-            "likelihood": res.likelihood,
-            "latent_variables": latent_variables,
-            "jac_min": [res.jac[i].min() for i in range(len(res.jac))],
-            "jac_max": [res.jac[i].max() for i in range(len(res.jac))],
-            "fim_det": [jnp.linalg.det(x) for x in res.fisher_info],
-            "fim_vp": np.array([jnp.linalg.eigvalsh(x) for x in res.fisher_info]),
-        }
-        return data
+        # ====================================================== #
+        params_names = solver_selection.params_names
 
-    data_selection = extract_data(res_selection, ls[np.argmin(bic)])
+        fig = sdgplt.figure()
+        solver_selection.step_size.plot(label="Jac step size")
+        solver_selection.step_size_fisher.plot(label="FIM step size")
+        solver_selection.step_size_grad.plot(label="gradient step size")
+        sdgplt.plt.legend()
 
-    data_final = extract_data(final_res, final_solver) if final_res != -1 else -1
+        _, _ = sdgplt.plot_params_grad(
+            res_selection.theta,
+            res_selection.grad_precond,
+            np.array(params_star_stack),
+            p=DIM_COV,
+            names=params_names,
+            logscale=False,
+        )
 
-    step_size = {
-        "jac": final_solver.step_size,
-        "fisher": final_solver.step_size_fisher,
-        "gradient": final_solver.step_size_grad,
-    }
+        _, _ = sdgplt.plot_params_hd(res_selection.theta, p=DIM_COV, location="right")
 
-    data = {
-        "res_selection": data_selection,
-        "res_final": data_final,
-        "bic": bic,
-        "ebic": ebic,
-        "theta_reg": theta_reg,
-        "lbd_set": lbd_set,
-        "params_names": ls[0].params_names,
-        "step_size": step_size,
-        "DIM_COV": DIM_COV,
-        "N_IND": N_IND,
-        "params_star_stack": params_star_stack,
-    }
+        print(res_selection.theta[-1][:DIM_COV])
 
-    # params_names = solver_selection.params_names
+        # =========================#
+        _, _ = sdgplt.plot_params_grad(
+            final_res.theta,
+            final_res.grad_precond,
+            np.array(params_star_stack),
+            p=DIM_COV,
+            names=params_names,
+            logscale=False,
+        )
 
-    # fig = sdgplt.figure()
-    # solver_selection.step_size.plot(label="Jac step size")
-    # solver_selection.step_size_fisher.plot(label="FIM step size")
-    # solver_selection.step_size_grad.plot(label="gradient step size")
-    # sdgplt.plt.legend()
+        _, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
 
-    # _, _ = sdgplt.plot_params_grad(
-    #     res_selection.theta,
-    #     res_selection.grad_precond,
-    #     np.array(params_star_stack),
-    #     p=DIM_COV,
-    #     names=params_names,
-    #     logscale=False,
-    # )
+        print(final_res.theta[-1][:DIM_COV])
 
-    # _, _ = sdgplt.plot_params_hd(res_selection.theta, p=DIM_COV, location="right")
+        print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-    # print(res_selection.theta[-1][:DIM_COV])
+        # ====================================================== #
+        # def extract_data(res, solver):
+        #     latent_variables = ls[np.argmin(bic)].latent_variables
+        #     for var in latent_variables.values():
+        #         var.likelihood = None
 
-    # # =========================#
-    # _, _ = sdgplt.plot_params_grad(
-    #     final_res.theta,
-    #     final_res.grad_precond,
-    #     np.array(params_star_stack),
-    #     p=DIM_COV,
-    #     names=params_names,
-    #     logscale=False,
-    # )
+        #     data = {
+        #         "theta": res.theta,
+        #         "grad_precond": res.grad_precond,
+        #         "likelihood": res.likelihood,
+        #         "latent_variables": latent_variables,
+        #         "jac_min": [res.jac[i].min() for i in range(len(res.jac))],
+        #         "jac_max": [res.jac[i].max() for i in range(len(res.jac))],
+        #         "fim_det": [jnp.linalg.det(x) for x in res.fisher_info],
+        #         "fim_vp": np.array([jnp.linalg.eigvalsh(x) for x in res.fisher_info]),
+        #     }
+        #     return data
 
-    # _, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
+        # data_selection = extract_data(res_selection, ls[np.argmin(bic)])
 
-    # print(final_res.theta[-1][:DIM_COV])
+        # data_final = extract_data(final_res, final_solver) if final_res != -1 else -1
 
-    # print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+        # step_size = {
+        #     "jac": final_solver.step_size,
+        #     "fisher": final_solver.step_size_fisher,
+        #     "gradient": final_solver.step_size_grad,
+        # }
 
-    with open("res_selection.pkl", "wb") as f:
-        pickle.dump(data, f)
+        # data = {
+        #     "res_selection": data_selection,
+        #     "res_final": data_final,
+        #     "bic": bic,
+        #     "ebic": ebic,
+        #     "theta_reg": theta_reg,
+        #     "lbd_set": lbd_set,
+        #     "params_names": ls[0].params_names,
+        #     "step_size": step_size,
+        #     "DIM_COV": DIM_COV,
+        #     "N_IND": N_IND,
+        #     "params_star_stack": params_star_stack,
+        # }
 
-    print("RESULT SAVED !")
+        # with open("res_selection.pkl", "wb") as f:
+        #     pickle.dump(data, f)
+
+        # print("RESULT SAVED !")

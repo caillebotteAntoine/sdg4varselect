@@ -1,8 +1,7 @@
 from joint_model.sample import get_solver, sample
 import numpy as np
 from sdg4varselect import jnp, jrd, learning_rate
-from joint_model.model import jac_likelihood
-import sdg4varselect.plot as sdgplt
+from joint_model.model_weibull import jac_likelihood, likelihood, likelihood_array
 
 
 def get_random_params0(prng_key, params0, error=0.2):
@@ -87,20 +86,20 @@ def estim_solver(solver, niter, kwargs_run_GD, verbatim=False, **run_parameters)
     # ====================================================== #
 
     error_flag = False
-    # newrun = 0
-    # while newrun == 0 or (error_flag and newrun < 5):
-    #     newrun += 1
-    #     if error_flag:
-    #         print(f"error detected try a new run ! ({newrun-1})")
-    #         solver.reset_solver()
+    newrun = 0
+    while newrun == 0 or (error_flag and newrun < 5):
+        newrun += 1
+        if error_flag:
+            print(f"error detected try a new run ! ({newrun-1})")
+            solver.reset_solver()
 
-    res, error_flag = solver.stochastic_gradient(
-        jac_likelihood=jac_likelihood,
-        fisher_mask=fisher_mask,
-        p=DIM_COV,
-        niter=niter,
-        **kwargs_run_GD,
-    )
+        res, error_flag = solver.stochastic_gradient(
+            jac_likelihood=jac_likelihood,
+            fisher_mask=fisher_mask,
+            p=DIM_COV,
+            niter=niter,
+            **kwargs_run_GD,
+        )
 
     return res, solver, error_flag
 
@@ -108,7 +107,7 @@ def estim_solver(solver, niter, kwargs_run_GD, verbatim=False, **run_parameters)
 def estim(
     data_set, params0, prng_key, niter, kwargs_run_GD, verbatim=False, **run_parameters
 ):
-    solver, key = get_solver(prng_key, params0, data_set)
+    solver, key = get_solver(prng_key, params0, data_set, likelihood, likelihood_array)
 
     res, solver, error_flag = estim_solver(
         solver, niter, kwargs_run_GD=kwargs_run_GD, verbatim=verbatim, **run_parameters
@@ -133,4 +132,6 @@ if __name__ == "__main__":
     params_star_stack, params_star_weibull = get_params_star(5)
 
     data_set, _, key = sample(params_star_weibull, jrd.PRNGKey(0), 100, 5, 20, 0.2)
-    solver, key = get_solver(jrd.PRNGKey(0), params0, data_set)
+    solver, key = get_solver(
+        jrd.PRNGKey(0), params0, data_set, likelihood, likelihood_array
+    )

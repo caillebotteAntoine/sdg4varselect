@@ -3,12 +3,25 @@
 from scipy.optimize import brenth
 import numpy as np
 from warnings import warn
+from collections import namedtuple
 
 from sdg4varselect import jnp, jrd
 from sdg4varselect.logistic_model import (
     logistic_curve,
     logistic_curve_float,
 )
+
+# ============================================================= #
+# ====================== PARAMIETRIZATION ===================== #
+# ============================================================= #
+params_weibull = namedtuple(
+    "params_weibull",
+    ("mu1", "mu2", "mu3", "gamma2_1", "gamma2_2", "sigma2", "a", "b", "alpha", "beta"),
+)
+
+# ======================================================= #
+# ====================== SIMULATION ===================== #
+# ======================================================= #
 
 
 def nlmem_simulation(params, key, N_IND, J_OBS, t_min, t_max, *args, **kwargs):

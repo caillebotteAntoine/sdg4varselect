@@ -8,11 +8,6 @@ from sdg4varselect.logistic_model import gaussian_prior, logistic_curve
 
 # ====================== PARAMIETRIZATION ===================== #
 # ============================================================= #
-params_weibull = namedtuple(
-    "params_weibull",
-    ("mu1", "mu2", "mu3", "gamma2_1", "gamma2_2", "sigma2", "a", "b", "alpha", "beta"),
-)
-
 params = namedtuple(
     "params",
     ("mu1", "mu2", "mu3", "gamma2_1", "gamma2_2", "sigma2", "alpha", "beta"),

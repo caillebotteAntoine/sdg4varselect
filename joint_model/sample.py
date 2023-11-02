@@ -1,7 +1,6 @@
 import numpy as np
 import parametrization_cookbook.jax as pc
-from sdg4varselect.data_generation import data_simulation
-from joint_model.model import likelihood, likelihood_array, params_weibull
+from sdg4varselect.data_generation import data_simulation, params_weibull
 
 from sdg4varselect import Gradient, jrd
 
@@ -33,7 +32,7 @@ def sample(
     return data_set, sim, prng_key
 
 
-def get_solver(prng_key, params0, data_set):
+def get_solver(prng_key, params0, data_set, likelihood, likelihood_array):
     key1, key_out = jrd.split(prng_key, num=2)
     N_IND, _ = data_set["Y"].shape
     (DIM_COV,) = params0["beta"].shape
@@ -112,6 +111,8 @@ def get_parametrization(DIM_COV, beta_type="normal"):
         mu3=pc.RealPositive(scale=10),
         gamma2_1=pc.RealPositive(scale=0.001),
         gamma2_2=pc.RealPositive(scale=10),
+        # a=pc.Real(scale=100),
+        # b=pc.Real(scale=50),
         sigma2=pc.RealPositive(scale=0.001),
         alpha=pc.Real(scale=10),
         beta=pc.Real(scale=1, shape=(DIM_COV,)),
@@ -143,6 +144,8 @@ def get_params_star(DIM_COV, beta_type="normal"):
             params_star_weibull.mu3,
             params_star_weibull.gamma2_1,
             params_star_weibull.gamma2_2,
+            # params_star_weibull.a,
+            # params_star_weibull.b,
             params_star_weibull.sigma2,
             params_star_weibull.alpha,
             params_star_weibull.beta,
