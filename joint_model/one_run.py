@@ -1,7 +1,7 @@
 from joint_model.sample import get_solver, sample
 import numpy as np
 from sdg4varselect import jnp, jrd, learning_rate
-from joint_model.model_weibull import jac_likelihood, likelihood, likelihood_array
+from joint_model.model import jac_likelihood, likelihood, likelihood_array
 
 
 def get_random_params0(prng_key, params0, error=0.2):
