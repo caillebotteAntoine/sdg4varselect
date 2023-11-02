@@ -271,7 +271,7 @@ if __name__ == "__main__":
 
     # ====================================================== #
     def extract_data(res, solver):
-        latent_variables = ls[0][bic_argmin].latent_variables
+        latent_variables = ls[bic_argmin].latent_variables
         for var in latent_variables.values():
             var.likelihood = None
 
@@ -279,7 +279,7 @@ if __name__ == "__main__":
             "theta": res.theta,
             "grad_precond": res.grad_precond,
             "likelihood": res.likelihood,
-            "latent_variables": ls[0][bic_argmin].latent_variables,
+            "latent_variables": ls[bic_argmin].latent_variables,
             "jac_min": [res.jac[i].min() for i in range(len(res.jac))],
             "jac_max": [res.jac[i].max() for i in range(len(res.jac))],
             "fim_det": [jnp.linalg.det(x) for x in res.fisher_info],
@@ -304,7 +304,7 @@ if __name__ == "__main__":
         "ebic": ebic,
         "theta_reg": theta_reg,
         "lbd_set": lbd_set,
-        "params_names": ls[0][0].params_names,
+        "params_names": ls[0].params_names,
         "step_size": step_size,
         "DIM_COV": DIM_COV,
         "N_IND": N_IND,
