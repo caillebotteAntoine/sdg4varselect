@@ -117,7 +117,10 @@ def difftime(*funcs, nloop=100, nrun=20):
         loop_times_msg = (
             " out of a total of " + time2string(nloop * func_time.min()) + ".\n"
         )
-        difftime2saving(nloop, func_time.max() - func_time.min(), end=loop_times_msg)
+        print(
+            difftime2saving(nloop, func_time.max() - func_time.min()),
+            end=loop_times_msg,
+        )
         print("The fastest function is " + funcs[func_time.argmin()].__name__)
 
     return func
@@ -155,11 +158,17 @@ def step_message(iter: int, max_iter: int) -> str:
     os = ""
     os = loadnumber(os, iter, max_iter) + " "
     os = loadbar(os, float(iter) / max_iter)
+    if iter == max_iter - 1:
+        os += "\n"
     return os  # you should use `print(os, end="\r")`
 
 
 if __name__ == "__main__":
     import numpy as np
+
+    for i in range(1000):
+        print(step_message(i, 1000), end="\r")
+    print("HELLO WORLD")
 
     x = np.arange(0, 1e6)
 

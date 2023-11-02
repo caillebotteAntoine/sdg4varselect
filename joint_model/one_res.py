@@ -1,7 +1,7 @@
 # Create by antoine.caillebotte@inrae.fr
 from time import time
 from datetime import datetime
-from sdg4varselect.miscellaneous import time2string, list_to_BIC
+from sdg4varselect.miscellaneous import time2string, list_to_BIC, step_message
 
 import sdg4varselect.plot as sdgplt
 import pickle
@@ -39,22 +39,22 @@ def one_res(
         data_set,
         parameters0,
         prng_key,
-        niter=3000,
+        niter=2000,
         kwargs_run_GD=kwargs_run_GD,
         verbatim=verbatim,
         activate_fim=True,
         activate_jac_approx=True,
         lr=1e-8,
         # Grad
-        plateau_grad=2000,
+        plateau_grad=1000,
         plateau_grad_size=200,
         scale_grad=1,
         # Jac
-        plateau_jac=2000,
+        plateau_jac=1000,
         plateau_jac_size=1000,
         scale_jac=1,
         # Fim
-        plateau_fim=2000,
+        plateau_fim=1000,
         plateau_fim_size=2000,
         scale_fim=0.9,
     )
@@ -80,7 +80,7 @@ def regularization_path(
     )
 
     for i in range(len(path)):
-        # print(step_message(i, len(path)), end="\r" if not verbatim else "\n")
+        print(step_message(i, len(path)), end="\r" if not verbatim else "\n")
         solver, res, error_flag = one_res(parameters0, data_set, path[i], key, verbatim)
 
         if error_flag:
@@ -100,7 +100,8 @@ def regularization_path(
                 list_solver.append(list_solver[-1])
                 list_res.append(list_res[-1])
 
-            print(f"break at {path[i]}")
+            if verbatim:
+                print(f"break at {path[i]}")
             break
 
     return list_solver, list_res, key
@@ -174,7 +175,7 @@ def method(
         J_OBS,
         CENSORING,
         prng_key=prng_key,
-        verbatim=True,
+        verbatim=verbatim,
     )
     print(f"REGULARIZATION PATH TIME: {time2string(time() - time_start)}")
 
@@ -193,7 +194,7 @@ def method(
     solver_selection = ls[bic_argmin]
     lbd_selection = path[bic_argmin]
 
-    res = final_estim(solver_selection, params0, lbd_selection, verbatim=False)
+    res = final_estim(solver_selection, params0, lbd_selection, verbatim=verbatim)
 
     if res != -1:
         final_res = res[0]

@@ -1,14 +1,14 @@
 import numpy as np
 from datetime import datetime
 import pickle
-from joint_model.one_res import method
-from joint_model.sample import get_params_star
+from sdg4varselect.miscellaneous import step_message
 
+from joint_model.sample import get_params_star
 from joint_model.one_run import get_random_params0
+from joint_model.one_res import method
 
 from time import time
-import jax.random as jrd
-import jax.numpy as jnp
+from sdg4varselect import jrd, jnp
 
 # ====================================================== #
 print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
@@ -19,7 +19,7 @@ print(f"seed = {seed}")
 prng_key = jrd.PRNGKey(seed)
 # ====================================================== #
 
-DIM_COV = 200
+DIM_COV = 20
 N_IND = 100
 J_OBS = 5
 CENSORING = 0
@@ -36,7 +36,7 @@ params0 = {
     "alpha": 5.0,  # 7
     "beta": np.random.uniform(-1, 1, size=DIM_COV),
 }
-lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
+lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 # lbd_set = [0.19]
 # ====================================================== #
 
@@ -50,9 +50,9 @@ ltheta_reg = []
 print(f"n = {N_IND}, p = {DIM_COV}, J = {J_OBS}")
 print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-nrun = 50
+nrun = 5
 for i in range(nrun):
-    # print(step_message(i, nrun))
+    print("\nrun = " + step_message(i, nrun), end="\n")
     params_start, prng_key = get_random_params0(prng_key, params0, error=0.2)
 
     res = method(
@@ -64,7 +64,7 @@ for i in range(nrun):
         J_OBS,
         CENSORING,
         prng_key=prng_key,
-        verbatim=True,
+        verbatim=False,
     )
     if res != -1:
         res_f, _, solver, res_s, bic, ebic, theta_reg, lbd_select, _, _ = res
