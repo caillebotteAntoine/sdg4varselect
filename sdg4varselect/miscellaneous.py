@@ -18,7 +18,8 @@ def list_to_BIC(list_solver, list_res, N, p, verbatim=False):
             id_out.append(id_out[i] + 1)
             chosen_model.append(i + 1)
 
-    print(id_out)
+    if verbatim:
+        print(id_out)
 
     chosen_bic = np.array([list_solver[i].BIC(N, p, size=1000) for i in chosen_model])
     chosen_ebic = np.array([list_solver[i].eBIC(N, p, size=1000) for i in chosen_model])

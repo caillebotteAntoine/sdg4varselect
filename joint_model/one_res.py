@@ -1,6 +1,6 @@
 # Create by antoine.caillebotte@inrae.fr
 from time import time
-from sdg4varselect.miscellaneous import time2string, step_message, list_to_BIC
+from sdg4varselect.miscellaneous import time2string, list_to_BIC
 
 import sdg4varselect.plot as sdgplt
 import pickle
@@ -8,11 +8,12 @@ import numpy as np
 from datetime import datetime
 
 from sdg4varselect.solver import shrink_support
-from sample import sample, get_params_star
+from joint_model.sample import sample, get_params_star
 
-from one_run import (
+from joint_model.one_run import (
     estim,
     estim_solver,
+    get_random_params0,
 )
 
 from sdg4varselect import jrd, jnp
@@ -109,6 +110,7 @@ def final_estim(solver, parameters0, prox_regul, verbatim=False):
     kwargs_run_GD["prox_regul"] = prox_regul
     kwargs_run_GD["proximal_operator"] = False
     p0 = parameters0.copy()
+    (DIM_COV,) = p0["beta"].shape
 
     solver_select, mask_select = shrink_support(solver, "beta", DIM_COV)
     p0["beta"] = jnp.where(mask_select[-DIM_COV:], p0["beta"], 0)
@@ -143,45 +145,77 @@ def final_estim(solver, parameters0, prox_regul, verbatim=False):
 
     return res, solver_select
 
+
+def method(
+    params0,
+    params_star_weibull,
+    path,
+    N_IND,
+    DIM_COV,
+    J_OBS,
+    CENSORING,
+    prng_key=None,
+    verbatim=True,
+):
+    prng_key = jrd.PRNGKey(int(time())) if prng_key is None else prng_key
+    print(f"prng_key = {prng_key}")
+    params0, prng_key = get_random_params0(prng_key, params0, error=0.2)
+
     # ====================================================== #
+    # ================ REGULARIZATION PATH ================= #
     # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
-    # ====================================================== #
+    time_start = time()
+    res = regularization_path(
+        params0,
+        params_star_weibull,
+        path,
+        N_IND,
+        DIM_COV,
+        J_OBS,
+        CENSORING,
+        prng_key=prng_key,
+        verbatim=True,
+    )
+    print(f"REGULARIZATION PATH TIME: {time2string(time() - time_start)}")
+
+    if res != -1:
+        ls, lr, prng_key = res
+    else:
+        prng_key, _ = jrd.split(prng_key, num=2)
+
+    bic, ebic, theta_reg = list_to_BIC(ls, lr, N_IND, DIM_COV, verbatim=False)
+
+    # ============================================ #
+    # ================ INFERENCE ================= #
+    # ============================================ #
+    bic_argmin = np.argmin(bic)
+    res_selection = lr[bic_argmin]
+    solver_selection = ls[bic_argmin]
+    lbd_selection = path[bic_argmin]
+
+    res = final_estim(solver_selection, params0, lbd_selection, verbatim=False)
+
+    if res != -1:
+        final_res = res[0]
+        final_solver = res[1]
+    else:
+        final_res, final_solver = -1, -1
+
+    return (
+        final_res,
+        final_solver,
+        solver_selection,
+        res_selection,
+        bic,
+        ebic,
+        theta_reg,
+        lbd_selection,
+        ls,
+        lr,
+    )
 
 
 if __name__ == "__main__":
-    # ====================================================== #
-    # ================ REGULARIZATION PATH ================= #
     # ====================================================== #
     print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
@@ -191,8 +225,8 @@ if __name__ == "__main__":
     prng_key = jrd.PRNGKey(seed)
     # ====================================================== #
 
-    DIM_COV = 200
-    N_IND = 100
+    DIM_COV = 10
+    N_IND = 20
     J_OBS = 5
     CENSORING = 0
 
@@ -208,13 +242,22 @@ if __name__ == "__main__":
         "alpha": 5.0,  # 7
         "beta": np.random.uniform(-1, 1, size=DIM_COV),
     }
-    # ====================================================== #
-
     lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
     # lbd_set = [0.19]
+    # ====================================================== #
 
-    time_start = time()
-    res = regularization_path(
+    (
+        final_res,
+        final_solver,
+        solver_selection,
+        res_selection,
+        bic,
+        ebic,
+        theta_reg,
+        lbd_selection,
+        ls,
+        lr,
+    ) = method(
         params0,
         params_star_weibull,
         lbd_set,
@@ -225,30 +268,6 @@ if __name__ == "__main__":
         prng_key=prng_key,
         verbatim=True,
     )
-    print(f"REGULARIZATION PATH TIME: {time2string(time() - time_start)}")
-
-    if res != -1:
-        ls, lr, prng_key = res
-    else:
-        prng_key, _ = jrd.split(prng_key, num=2)
-
-    bic, ebic, theta_reg = list_to_BIC(ls, lr, N_IND, DIM_COV, verbatim=True)
-
-    # ============================================ #
-    # ================ INFERENCE ================= #
-    # ============================================ #
-    bic_argmin = np.argmin(bic)
-    res_selection = lr[bic_argmin]
-    solver_selection = ls[bic_argmin]
-    lbd_selection = lbd_set[bic_argmin]
-
-    res = final_estim(solver_selection, params0, lbd_set[bic_argmin], verbatim=True)
-
-    if res != -1:
-        final_res = res[0]
-        final_solver = res[1]
-    else:
-        final_res, final_solver = -1, -1
 
     # ====================================================== #
     # fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
@@ -271,7 +290,7 @@ if __name__ == "__main__":
 
     # ====================================================== #
     def extract_data(res, solver):
-        latent_variables = ls[bic_argmin].latent_variables
+        latent_variables = ls[np.argmin(bic)].latent_variables
         for var in latent_variables.values():
             var.likelihood = None
 
@@ -279,7 +298,7 @@ if __name__ == "__main__":
             "theta": res.theta,
             "grad_precond": res.grad_precond,
             "likelihood": res.likelihood,
-            "latent_variables": ls[bic_argmin].latent_variables,
+            "latent_variables": latent_variables,
             "jac_min": [res.jac[i].min() for i in range(len(res.jac))],
             "jac_max": [res.jac[i].max() for i in range(len(res.jac))],
             "fim_det": [jnp.linalg.det(x) for x in res.fisher_info],
@@ -287,7 +306,7 @@ if __name__ == "__main__":
         }
         return data
 
-    data_selection = extract_data(res_selection, ls[bic_argmin])
+    data_selection = extract_data(res_selection, ls[np.argmin(bic)])
 
     data_final = extract_data(final_res, final_solver) if final_res != -1 else -1
 

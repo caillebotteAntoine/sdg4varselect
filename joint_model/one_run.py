@@ -1,9 +1,7 @@
-from sample import get_solver
-
-from sample import sample
+from joint_model.sample import get_solver, sample
 import numpy as np
 from sdg4varselect import jnp, jrd, learning_rate
-from model import jac_likelihood
+from joint_model.model import jac_likelihood
 import sdg4varselect.plot as sdgplt
 
 

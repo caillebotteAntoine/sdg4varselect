@@ -1,7 +1,7 @@
 import numpy as np
 import parametrization_cookbook.jax as pc
 from sdg4varselect.data_generation import data_simulation
-from model import likelihood, likelihood_array, params_weibull
+from joint_model.model import likelihood, likelihood_array, params_weibull
 
 from sdg4varselect import Gradient, jrd
 

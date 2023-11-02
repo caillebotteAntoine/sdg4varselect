@@ -5,21 +5,13 @@ import pickle
 
 import sdg4varselect.plot as sdgplt
 
-from one_run import (
-    get_random_params0,
-    params_star_weibull,
-    params_star_stack,
-    N_IND,
-    DIM_COV,
-    get_solver,
-)
-
 folder = "images"
 
 # 200_50_simple_grad_10_rep
-with open("res_multi_run.pkl", "rb") as f:
+with open("../run_script/res_multi_run.pkl", "rb") as f:
     data = pickle.load(f)
 
+params_star_stack = data["params_star_stack"]
 params_names = data["params_names"]
 lbd_set = data["lbd_set"]
 theta = np.array(data["theta"])
@@ -47,7 +39,7 @@ print(f"p = {theta.shape[1]-7}, nrun = {n_run}")
 # ====================================================== #
 
 
-for i in [0, 1, 6, 7]:  # range(len(bic)):
+for i in range(len(bic)):
     fig, axs = sdgplt.plot_regularization_path(theta_reg[i], lbd_set, bic[i])
     ax, ax_bic = axs
 

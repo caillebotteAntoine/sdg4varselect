@@ -47,7 +47,7 @@ ax[1].text(
     backgroundcolor="white",
 )
 
-fig.savefig(folder + "/reg_path.png")
+# fig.savefig(folder + "/reg_path.png")
 # ====================================================== #
 # ====================================================== #
 
@@ -67,11 +67,11 @@ def plot_all(res):
         logscale=False,
     )
 
-    fig.savefig(folder + "/theta.png")
+    # fig.savefig(folder + "/theta.png")
 
     fig, ax = sdgplt.plot_params_hd(res["theta"], p=DIM_COV, location="right")
 
-    fig.savefig(folder + "/beta.png")
+    # fig.savefig(folder + "/beta.png")
 
     for var in res["latent_variables"].values():
         sdgplt.plot_mcmc(var)
@@ -82,13 +82,13 @@ def plot_all(res):
         np.array([res["jac_max"]]).T, title="maximum de la jacobienne", figsize=5
     )
 
-    fig.savefig(folder + "/maximum_jacobiene.png")
+    # fig.savefig(folder + "/maximum_jacobiene.png")
 
     fig, ax = sdgplt.plot_multi_line(
         np.array([res["jac_min"]]).T, title="minimum de la jacobienne", figsize=5
     )
 
-    fig.savefig(folder + "/minimum_jacobiene.png")
+    # fig.savefig(folder + "/minimum_jacobiene.png")
 
     # ====================================================== #
     sdgplt.plot_multi_line(
@@ -114,7 +114,7 @@ def plot_all(res):
         title="valeur propre de la fim",
         location="right",
     )
-    fig.savefig(folder + "/valeur_propre_fim.png")
+    # fig.savefig(folder + "/valeur_propre_fim.png")
 
     # ====================================================== #
     fig, ax = sdgplt.plot_multi_line(
@@ -122,7 +122,7 @@ def plot_all(res):
         title="valeur propre minimal de la fim",
     )
 
-    fig.savefig(folder + "/valeur_propre_minimal_fim.png")
+    # fig.savefig(folder + "/valeur_propre_minimal_fim.png")
     # ====================================================== #
 
 
@@ -135,4 +135,4 @@ step_size["fisher"].plot(label="FIM step size")
 step_size["gradient"].plot(label="gradient step size")
 sdgplt.plt.legend()
 
-fig.savefig(folder + "/step_size.png")
+# fig.savefig(folder + "/step_size.png")
