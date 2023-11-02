@@ -18,27 +18,10 @@ def list_to_BIC(list_solver, list_res, N, p, verbatim=False):
             id_out.append(id_out[i] + 1)
             chosen_model.append(i + 1)
 
-    # print(id_out)
-    def get_last_theta_estim(res):
-        res_nan = [jnp.isnan(r).any() for r in res.theta]
-        if True in res_nan:
-            return res.theta[res_nan.index(True) - 1]
-        return res.theta[-1]
+    print(id_out)
 
-    chosen_bic = np.array(
-        [
-            list_solver[i].BIC(N, p, size=1000, theta=get_last_theta_estim(list_res[i]))
-            for i in chosen_model
-        ]
-    )
-    chosen_ebic = np.array(
-        [
-            list_solver[i].eBIC(
-                N, p, size=1000, theta=get_last_theta_estim(list_res[i])
-            )
-            for i in chosen_model
-        ]
-    )
+    chosen_bic = np.array([list_solver[i].BIC(N, p, size=1000) for i in chosen_model])
+    chosen_ebic = np.array([list_solver[i].eBIC(N, p, size=1000) for i in chosen_model])
 
     if verbatim:
         print(chosen_model)

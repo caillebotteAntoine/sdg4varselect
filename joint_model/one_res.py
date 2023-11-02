@@ -24,6 +24,43 @@ kwargs_run_GD = {
 }
 
 
+def one_res(
+    parameters0,
+    data_set,
+    lbd,
+    prng_key,
+    verbatim=False,
+):
+    kwargs_run_GD["prox_regul"] = lbd
+    kwargs_run_GD["proximal_operator"] = True
+
+    res, solver, error_flag, key = estim(
+        data_set,
+        parameters0,
+        prng_key,
+        niter=2000,
+        kwargs_run_GD=kwargs_run_GD,
+        verbatim=verbatim,
+        activate_fim=True,
+        activate_jac_approx=True,
+        lr=1e-8,
+        # Grad
+        plateau_grad=1000,
+        plateau_grad_size=200,
+        scale_grad=1,
+        # Jac
+        plateau_jac=1000,
+        plateau_jac_size=1000,
+        scale_jac=1,
+        # Fim
+        plateau_fim=1000,
+        plateau_fim_size=2000,
+        scale_fim=0.9,
+    )
+
+    return solver, res, error_flag
+
+
 def regularization_path(
     parameters0,
     params_star_weibull,
@@ -33,7 +70,6 @@ def regularization_path(
     J_OBS,
     CENSORING,
     prng_key,
-    nrep=1,
     verbatim=False,
 ):
     list_res = []
@@ -44,33 +80,8 @@ def regularization_path(
 
     for i in range(len(path)):
         # print(step_message(i, len(path)), end="\r" if not verbatim else "\n")
+        solver, res, error_flag = one_res(parameters0, data_set, path[i], key, verbatim)
 
-        kwargs_run_GD["prox_regul"] = path[i]
-        kwargs_run_GD["proximal_operator"] = True
-
-        res, solver, error_flag, key = estim(
-            data_set,
-            parameters0,
-            key,
-            niter=2000,
-            kwargs_run_GD=kwargs_run_GD,
-            verbatim=verbatim,
-            activate_fim=True,
-            activate_jac_approx=True,
-            lr=1e-8,
-            # Grad
-            plateau_grad=1000,
-            plateau_grad_size=200,
-            scale_grad=1,
-            # Jac
-            plateau_jac=1000,
-            plateau_jac_size=1000,
-            scale_jac=1,
-            # Fim
-            plateau_fim=1000,
-            plateau_fim_size=2000,
-            scale_fim=0.9,
-        )
         if error_flag:
             print("error detected cancel regularization path !")
             return -1
@@ -180,8 +191,8 @@ if __name__ == "__main__":
     prng_key = jrd.PRNGKey(seed)
     # ====================================================== #
 
-    DIM_COV = 10
-    N_IND = 50
+    DIM_COV = 200
+    N_IND = 100
     J_OBS = 5
     CENSORING = 0
 
@@ -199,7 +210,7 @@ if __name__ == "__main__":
     }
     # ====================================================== #
 
-    lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+    lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
     # lbd_set = [0.19]
 
     time_start = time()
@@ -240,9 +251,9 @@ if __name__ == "__main__":
         final_res, final_solver = -1, -1
 
     # ====================================================== #
-    fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
-    ax, ax_bic = axs
+    # fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
 
+    # ax, ax_bic = axs
     # ax_ebic = ax.twinx()
     # ax_ebic.plot(lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC")
     # id_min = np.nanargmin(ebic)
@@ -259,26 +270,26 @@ if __name__ == "__main__":
     #     )
 
     # ====================================================== #
-    # def extract_data(res, solver):
-    #     latent_variables = ls[0][bic_argmin].latent_variables
-    #     for var in latent_variables.values():
-    #         var.likelihood = None
+    def extract_data(res, solver):
+        latent_variables = ls[0][bic_argmin].latent_variables
+        for var in latent_variables.values():
+            var.likelihood = None
 
-    #     data = {
-    #         "theta": res.theta,
-    #         "grad_precond": res.grad_precond,
-    #         "likelihood": res.likelihood,
-    #         "latent_variables": ls[0][bic_argmin].latent_variables,
-    #         "jac_min": [res.jac[i].min() for i in range(len(res.jac))],
-    #         "jac_max": [res.jac[i].max() for i in range(len(res.jac))],
-    #         "fim_det": [jnp.linalg.det(x) for x in res.fisher_info],
-    #         "fim_vp": np.array([jnp.linalg.eigvalsh(x) for x in res.fisher_info]),
-    #     }
-    #     return data
+        data = {
+            "theta": res.theta,
+            "grad_precond": res.grad_precond,
+            "likelihood": res.likelihood,
+            "latent_variables": ls[0][bic_argmin].latent_variables,
+            "jac_min": [res.jac[i].min() for i in range(len(res.jac))],
+            "jac_max": [res.jac[i].max() for i in range(len(res.jac))],
+            "fim_det": [jnp.linalg.det(x) for x in res.fisher_info],
+            "fim_vp": np.array([jnp.linalg.eigvalsh(x) for x in res.fisher_info]),
+        }
+        return data
 
-    # data_selection = extract_data(res_selection, ls[0][bic_argmin])
+    data_selection = extract_data(res_selection, ls[0][bic_argmin])
 
-    # data_final = extract_data(final_res, final_solver) if final_res != -1 else -1
+    data_final = extract_data(final_res, final_solver) if final_res != -1 else -1
 
     # step_size = {
     #     "jac": final_solver.step_size,
@@ -300,44 +311,44 @@ if __name__ == "__main__":
     #     "params_star_stack": params_star_stack,
     # }
 
-    params_names = solver_selection.params_names
+    # params_names = solver_selection.params_names
 
-    fig = sdgplt.figure()
-    solver_selection.step_size.plot(label="Jac step size")
-    solver_selection.step_size_fisher.plot(label="FIM step size")
-    solver_selection.step_size_grad.plot(label="gradient step size")
-    sdgplt.plt.legend()
+    # fig = sdgplt.figure()
+    # solver_selection.step_size.plot(label="Jac step size")
+    # solver_selection.step_size_fisher.plot(label="FIM step size")
+    # solver_selection.step_size_grad.plot(label="gradient step size")
+    # sdgplt.plt.legend()
 
-    _, _ = sdgplt.plot_params_grad(
-        res_selection.theta,
-        res_selection.grad_precond,
-        np.array(params_star_stack),
-        p=DIM_COV,
-        names=params_names,
-        logscale=False,
-    )
+    # _, _ = sdgplt.plot_params_grad(
+    #     res_selection.theta,
+    #     res_selection.grad_precond,
+    #     np.array(params_star_stack),
+    #     p=DIM_COV,
+    #     names=params_names,
+    #     logscale=False,
+    # )
 
-    _, _ = sdgplt.plot_params_hd(res_selection.theta, p=DIM_COV, location="right")
+    # _, _ = sdgplt.plot_params_hd(res_selection.theta, p=DIM_COV, location="right")
 
-    print(res_selection.theta[-1][:DIM_COV])
+    # print(res_selection.theta[-1][:DIM_COV])
 
-    # =========================#
-    _, _ = sdgplt.plot_params_grad(
-        final_res.theta,
-        final_res.grad_precond,
-        np.array(params_star_stack),
-        p=DIM_COV,
-        names=params_names,
-        logscale=False,
-    )
+    # # =========================#
+    # _, _ = sdgplt.plot_params_grad(
+    #     final_res.theta,
+    #     final_res.grad_precond,
+    #     np.array(params_star_stack),
+    #     p=DIM_COV,
+    #     names=params_names,
+    #     logscale=False,
+    # )
 
-    _, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
+    # _, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
 
-    print(final_res.theta[-1][:DIM_COV])
+    # print(final_res.theta[-1][:DIM_COV])
 
-    print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+    # print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-    # with open("res_selection.pkl", "wb") as f:
-    #     pickle.dump(data, f)
+    with open("res_selection.pkl", "wb") as f:
+        pickle.dump(data, f)
 
-    # print("RESULT SAVED !")
+    print("RESULT SAVED !")
