@@ -15,6 +15,7 @@ class Solver:
     def __init__(self):
         """Constructor of solver."""
         self._theta_reals1d: jnp.ndarray = None
+        self._theta0_reals1d: jnp.ndarray = None
         self._parametrization: pc.NamedTuple = None
 
         self.latent_variables: dict[str, MCMC_chain] = {}

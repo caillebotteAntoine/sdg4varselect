@@ -11,13 +11,13 @@ from sdg4varselect.logistic_model import (
 )
 
 
-def nlmem_simulation(params, key, N_IND, J, t_min, t_max, *args, **kwargs):
+def nlmem_simulation(params, key, N_IND, J_OBS, t_min, t_max, *args, **kwargs):
     """return longitudinal and survival simulation
     and latente variable simulation in the two dict"""
     key1, key2, key3, key_out = jrd.split(key, num=4)
 
-    eps = jnp.sqrt(params.sigma2) * jrd.normal(key1, shape=(N_IND, J))
-    time = jnp.linspace(t_min, t_max, num=J)
+    eps = jnp.sqrt(params.sigma2) * jrd.normal(key1, shape=(N_IND, J_OBS))
+    time = jnp.linspace(t_min, t_max, num=J_OBS)
 
     phi1 = params.mu1 + jnp.sqrt(params.gamma2_1) * jrd.normal(key2, shape=(N_IND,))
     phi2 = params.mu2 + jnp.sqrt(params.gamma2_2) * jrd.normal(key3, shape=(N_IND,))
@@ -47,7 +47,7 @@ def data_simulation(
     params,
     key,
     N_IND,
-    J,
+    J_OBS,
     t_min,
     t_max,
     cov_law="uniform",
@@ -58,7 +58,7 @@ def data_simulation(
     """return longitudinal and survival simulation
     and latente variable simulation in the two dict"""
     obs, sim, key = nlmem_simulation(
-        params, key, N_IND, J, t_min, t_max, *args, **kwargs
+        params, key, N_IND, J_OBS, t_min, t_max, *args, **kwargs
     )
 
     key1, key2, key_out = jrd.split(key, num=3)
@@ -154,17 +154,22 @@ def data_simulation(
         tmp[i] = brenth(f, a=0, b=10 * params.a, args=args)
 
     Tstar = jnp.array(tmp)
-    C = Tstar.sort()[int(N_IND * (1 - censoring))]
+
+    C = (
+        Tstar.sort()[int(N_IND * (1 - censoring))]
+        if censoring != 0.0
+        else Tstar.max() * 2
+    )
     T = np.array([min(Tstar[i], C) for i in range(N_IND)])
     delta = Tstar <= C
 
-    if (obs["time"] < C).sum() < J:
+    if (obs["time"] < C).sum() < J_OBS:
         J_NEW = int((obs["time"] < C).sum())
         warn(
             f"censuring implies to shrink the longitudinal data to {J_NEW} observations ! \n censuring starting at {C}"
         )
 
-    id = [i for i in range(J) if obs["time"][i] < C]
+    id = [i for i in range(J_OBS) if obs["time"][i] < C]
     obs["Y"] = obs["Y"][:, id]
     obs["time"] = obs["time"][obs["time"] < C]
 

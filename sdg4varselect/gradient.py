@@ -104,12 +104,15 @@ def gradient_descent_fisher_preconditionner_with_mask(
 
 
 class Gradient(Algorithm):
-    def __init__(self, key):
+    def __init__(self, key, parametrization, params0):
         """Constructor of Gradient algorithm."""
         super().__init__(key)
 
         self.__step_size_fisher = learning_rate()
         self.__step_size_grad = learning_rate()
+
+        self.parametrization = parametrization
+        self.theta_reals1d = params0
 
     @property
     def step_size_fisher(self):
@@ -160,7 +163,6 @@ class Gradient(Algorithm):
         niter: int,
         jac_likelihood,
         fisher_mask: jnp.ndarray,
-        smart_start: int,
         proximal_operator: bool,
         prox_regul: float = 1.0,
         p: int = 0,
