@@ -8,7 +8,7 @@ import sdg4varselect.plot as sdgplt
 folder = "images"
 
 # 200_50_simple_grad_10_rep
-with open("../run_script/res_multi_run.pkl", "rb") as f:
+with open("res_multi_run.pkl", "rb") as f:
     data = pickle.load(f)
 
 params_star_stack = data["params_star_stack"]
