@@ -287,7 +287,7 @@ if __name__ == "__main__":
         }
         return data
 
-    data_selection = extract_data(res_selection, ls[0][bic_argmin])
+    data_selection = extract_data(res_selection, ls[bic_argmin])
 
     data_final = extract_data(final_res, final_solver) if final_res != -1 else -1
 
