@@ -6,7 +6,7 @@ import jax.numpy as jnp
 np.set_printoptions(precision=3, threshold=10)
 
 
-def list_bic(list_solver, list_res, N, p, verbatim=False):
+def list_to_BIC(list_solver, list_res, N, p, verbatim=False):
     beta = [list_solver[i].theta_nonzero_support(p=p) for i in range(len(list_solver))]
 
     id_out = [0]
@@ -43,23 +43,9 @@ def list_bic(list_solver, list_res, N, p, verbatim=False):
     if verbatim:
         print(chosen_model)
 
-    return np.array([chosen_bic[i] for i in id_out]), np.array(
-        [chosen_ebic[i] for i in id_out]
-    )
-
-
-def bic_final_estim_from_list(ls, lr, N, p, verbatim=False):
-    theta_regularization = np.array([x.theta_reals1d[-p:] for x in ls[0]])
-    bic, ebic = list_bic(ls[0], lr[0], N, p, verbatim=verbatim)
-
-    for i in range(1, len(ls)):
-        theta_regularization += [x.theta_reals1d[-p:] for x in ls[i]]
-        bic_tmp, ebic_tmp = list_bic(ls[i], lr[i], N, p, verbatim=verbatim)
-        bic += bic_tmp
-        ebic += ebic_tmp
-
-    bic = bic / len(ls)
-    theta_regularization /= len(ls)
+    theta_regularization = np.array([x.theta_reals1d[-p:] for x in list_solver])
+    bic = np.array([chosen_bic[i] for i in id_out])
+    ebic = np.array([chosen_ebic[i] for i in id_out])
 
     return bic, ebic, theta_regularization
 

@@ -1,6 +1,6 @@
 # Create by antoine.caillebotte@inrae.fr
 from time import time
-from sdg4varselect.miscellaneous import time2string
+from sdg4varselect.miscellaneous import time2string, step_message, list_to_BIC
 
 import sdg4varselect.plot as sdgplt
 import pickle
@@ -14,7 +14,6 @@ from one_run import (
     estim,
     estim_solver,
 )
-from sdg4varselect.miscellaneous import step_message, bic_final_estim_from_list
 
 from sdg4varselect import jrd, jnp
 
@@ -25,7 +24,7 @@ kwargs_run_GD = {
 }
 
 
-def clever_regularization_path(
+def regularization_path(
     parameters0,
     params_star_weibull,
     path,
@@ -72,9 +71,9 @@ def clever_regularization_path(
             plateau_fim_size=2000,
             scale_fim=0.9,
         )
-        # if error_flag:
-        #     print("error detected cancel regularization path !")
-        #     return -1
+        if error_flag:
+            print("error detected cancel regularization path !")
+            return -1
 
         list_solver.append(solver)
         list_res.append(res)
@@ -181,8 +180,8 @@ if __name__ == "__main__":
     prng_key = jrd.PRNGKey(seed)
     # ====================================================== #
 
-    DIM_COV = 200
-    N_IND = 100
+    DIM_COV = 10
+    N_IND = 50
     J_OBS = 5
     CENSORING = 0
 
@@ -200,56 +199,49 @@ if __name__ == "__main__":
     }
     # ====================================================== #
 
-    # lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
-    lbd_set = [0.19]
+    lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+    # lbd_set = [0.19]
 
-    nrun = 1
-    ls, lr = [], []
-    for k in range(nrun):
-        time_start = time()
-        res = clever_regularization_path(
-            params0,
-            params_star_weibull,
-            lbd_set,
-            N_IND,
-            DIM_COV,
-            J_OBS,
-            CENSORING,
-            prng_key=prng_key,
-            verbatim=True,
-        )
-        print(f"REGULARIZATION PATH TIME: {time2string(time() - time_start)}")
-
-        if res != -1:
-            s, r, prng_key = res
-            ls.append(s)
-            lr.append(r)
-        else:
-            prng_key, _ = jrd.split(prng_key, num=2)
-
-    bic, ebic, theta_reg = bic_final_estim_from_list(
-        ls, lr, N_IND, DIM_COV, verbatim=True
+    time_start = time()
+    res = regularization_path(
+        params0,
+        params_star_weibull,
+        lbd_set,
+        N_IND,
+        DIM_COV,
+        J_OBS,
+        CENSORING,
+        prng_key=prng_key,
+        verbatim=True,
     )
-    # bic_nJ, theta_reg = bic_final_estim_from_list(
-    #     ls, lr, N_IND * 20, DIM_COV, verbatim=True
-    # )
+    print(f"REGULARIZATION PATH TIME: {time2string(time() - time_start)}")
+
+    if res != -1:
+        ls, lr, prng_key = res
+    else:
+        prng_key, _ = jrd.split(prng_key, num=2)
+
+    bic, ebic, theta_reg = list_to_BIC(ls, lr, N_IND, DIM_COV, verbatim=True)
+
     # ============================================ #
     # ================ INFERENCE ================= #
     # ============================================ #
     bic_argmin = np.argmin(bic)
-    res_selection = lr[0][bic_argmin]
-    solver_selection = ls[0][bic_argmin]
+    res_selection = lr[bic_argmin]
+    solver_selection = ls[bic_argmin]
     lbd_selection = lbd_set[bic_argmin]
 
-    final_res = res_selection
-    final_solver = solver_selection
+    res = final_estim(solver_selection, params0, lbd_set[bic_argmin], verbatim=True)
 
-    res = final_estim(solver_selection, params0, lbd_set[bic_argmin], verbatim=False)
+    if res != -1:
+        final_res = res[0]
+        final_solver = res[1]
+    else:
+        final_res, final_solver = -1, -1
 
-    final_res = res[0] if res != -1 else -1
-
-    # fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
-    # ax, ax_bic = axs
+    # ====================================================== #
+    fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
+    ax, ax_bic = axs
 
     # ax_ebic = ax.twinx()
     # ax_ebic.plot(lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC")
@@ -316,7 +308,7 @@ if __name__ == "__main__":
     solver_selection.step_size_grad.plot(label="gradient step size")
     sdgplt.plt.legend()
 
-    _, _ = sdgplt.plot_all_params_grad(
+    _, _ = sdgplt.plot_params_grad(
         res_selection.theta,
         res_selection.grad_precond,
         np.array(params_star_stack),
@@ -330,12 +322,6 @@ if __name__ == "__main__":
     print(res_selection.theta[-1][:DIM_COV])
 
     # =========================#
-    fig = sdgplt.figure()
-    final_solver.step_size.plot(label="Jac step size")
-    final_solver.step_size_fisher.plot(label="FIM step size")
-    final_solver.step_size_grad.plot(label="gradient step size")
-    sdgplt.plt.legend()
-
     _, _ = sdgplt.plot_params_grad(
         final_res.theta,
         final_res.grad_precond,

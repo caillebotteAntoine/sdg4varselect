@@ -5,8 +5,6 @@ import jax.numpy as jnp
 
 from functools import wraps
 
-from sdg4varselect.miscellaneous import list_bic
-
 
 def figure(figsize=15):
     fig = plt.figure()
@@ -293,6 +291,7 @@ def ax_plot_list_of_vector(
     i=1,
     p=None,
     x_axs=None,
+    y_ord=None,
     colormap="RdBu_r",
     logscale=False,
     title=None,
@@ -310,7 +309,7 @@ def ax_plot_list_of_vector(
 
     x_abs = x_axs if x_axs is not None else 0.5 + np.arange(0, x_hd.shape[1] + 1, 1)
 
-    y_ord = 0.5 + np.arange(0, p + 1, 1)
+    y_ord = y_ord if y_ord is not None else 0.5 + np.arange(0, p + 1, 1)
 
     ax = fig.add_subplot(nrow, ncol, i)
 
@@ -324,6 +323,9 @@ def ax_plot_list_of_vector(
         cmap=plt.colormaps[colormap] if isinstance(colormap, str) else colormap,
         norm=colors.TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax),
     )
+
+    ax.set_yticks(np.arange(1, p + 1, 1))
+
     if colorbar:
         fig.colorbar(colormesh, ax=ax, location=location)
 
@@ -340,18 +342,29 @@ def ax_plot_list_of_vector(
 def plot_params_hd(
     x,
     p,
+    mask=None,
     colormap="RdBu_r",
     location="bottom",
 ):
-    return ax_plot_list_of_vector(
+    mask = np.array([x[0, i] != 0 for i in range(len(x[0]))])
+    p_new = p
+    if mask is not None and mask.sum() > len(mask) - p:
+        p_new = mask.sum() - len(mask) + p
+        x = x[:, mask]
+
+    fig, ax = ax_plot_list_of_vector(
         x,
-        p=p,
+        p=p_new,
         x_axs=None,
+        y_ord=None,
         colormap=colormap,
         logscale=False,
         title="HD parameter",
         location=location,
     )
+
+    ax.set_yticklabels([i + 1 for i in range(p) if mask[-p:][i]])
+    return fig, ax
 
 
 @dec_figsize

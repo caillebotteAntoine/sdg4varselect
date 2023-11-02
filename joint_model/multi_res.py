@@ -22,36 +22,42 @@ def method(params0, N_IND, DIM_COV, J_OBS, CENSORING, nrun=1, verbatim=True):
     # ====================================================== #
     # ================ REGULARIZATION PATH ================= #
     # ====================================================== #
-    ls, lr = [], []
-    for k in range(nrun):
-        time_start = time()
-        res = clever_regularization_path(params0, lbd_set, prng_key, verbatim=verbatim)
-        print(f"REGULARIZATION PATH TIME: {time2string(time() - time_start)}")
-
-        if res != -1:
-            s, r, prng_key = res
-            ls.append(s)
-            lr.append(r)
-        else:
-            return -1
-
-    bic, ebic, theta_reg = bic_final_estim_from_list(
-        ls, lr, N_IND, DIM_COV, verbatim=verbatim
+    time_start = time()
+    res = regularization_path(
+        params0,
+        params_star_weibull,
+        lbd_set,
+        N_IND,
+        DIM_COV,
+        J_OBS,
+        CENSORING,
+        prng_key=prng_key,
+        verbatim=True,
     )
+    print(f"REGULARIZATION PATH TIME: {time2string(time() - time_start)}")
+
+    if res != -1:
+        ls, lr, prng_key = res
+    else:
+        prng_key, _ = jrd.split(prng_key, num=2)
+
+    bic, ebic, theta_reg = list_to_BIC(ls, lr, N_IND, DIM_COV, verbatim=verbatim)
 
     # ============================================ #
     # ================ INFERENCE ================= #
     # ============================================ #
     bic_argmin = np.argmin(bic)
-    solver_selection = ls[0][bic_argmin]
-    res_selection = lr[0][bic_argmin]
+    res_selection = lr[bic_argmin]
+    solver_selection = ls[bic_argmin]
+    lbd_selection = lbd_set[bic_argmin]
 
-    res = final_estim(solver_selection, params0, lbd_set[bic_argmin], verbatim=False)
+    res = final_estim(solver_selection, params0, lbd_selection, verbatim=False)
 
-    if res == -1:
-        return -1
-
-    final_res, _ = res
+    if res != -1:
+        final_res = res[0]
+        final_solver = res[1]
+    else:
+        final_res, final_solver = -1, -1
 
     return (
         final_res,
@@ -59,7 +65,7 @@ def method(params0, N_IND, DIM_COV, J_OBS, CENSORING, nrun=1, verbatim=True):
         bic,
         ebic,
         theta_reg,
-        lbd_set[bic_argmin],
+        lbd_selection,
         solver_selection,
     )
 
