@@ -19,7 +19,7 @@ print(f"seed = {seed}")
 prng_key = jrd.PRNGKey(seed)
 # ====================================================== #
 
-DIM_COV = 20
+DIM_COV = 200
 N_IND = 100
 J_OBS = 5
 CENSORING = 0
