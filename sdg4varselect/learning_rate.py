@@ -38,6 +38,7 @@ class learning_rate:
             raise TypeError("step_flat must be int or float")
         self._step_flat = step_flat
 
+    # === PROPERTY === #
     @property
     def step_heat(self):
         """return step_heat"""
@@ -68,6 +69,7 @@ class learning_rate:
         """return step_flat"""
         return self._step_flat
 
+    # === STATIC METHOD === #
     @staticmethod
     def zero():
         return learning_rate(step_heat=1000, scale=0)
@@ -106,7 +108,7 @@ class learning_rate:
         out = (
             self.__class__.__name__
             + " :"
-            + "\n\t i -> | "
+            + "\n\t i ->\t | "
             + scale_msg
             + "exp("
             + str(self._coef_heat)
@@ -114,7 +116,7 @@ class learning_rate:
             + str(self._step_heat)
             + "))\t if i < "
             + str(self._step_heat)
-            + "\n\t      | "
+            + "\n\t\t | "
             + scale_msg
             + "( i - "
             + str(self._coef_burnin)
@@ -122,7 +124,7 @@ class learning_rate:
             + str(-self._coef_burnin)
             + "\t if i >= "
             + str(self._step_burnin)
-            + "\n\t      | "
+            + "\n\t\t | "
             + str(self._scale)
             + "\t otherwise"
         )
@@ -142,8 +144,6 @@ class learning_rate:
 
         y = [self.__call__(i) for i in x]
 
-        # print(x)
-        # print(y)
         if label is None:
             return plt.plot(x, y)
         return plt.plot(x, y, label=label)
@@ -164,7 +164,7 @@ if __name__ == "__main__":
     f = learning_rate.from_0_to_1(10, -2)
     y = [f(i) for i in range(20)]
 
-    f = learning_rate.from_1_to_0(20, 0.75)
+    f = learning_rate.from_0_to_1(10, -2)
     y += [f(i) for i in range(20, 40)]
 
     plt.step(x, y)

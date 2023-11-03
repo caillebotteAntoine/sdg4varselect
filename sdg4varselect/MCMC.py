@@ -159,6 +159,30 @@ class MCMC_chain(chain):
 
 if __name__ == "__main__":
     pass
+
+    def f(x, mean, var):
+        return 1 / np.sqrt(2 * np.pi * var**2) * ((x - mean) ** 2).mean()
+
+    x = np.random.normal(4, 0.5, 100)
+
+    mean = MCMC_chain(1.0, sd=1, size=1, name="mean")
+
+    key = jrd.PRNGKey(0)
+
+    def gibbs(key):
+        for i in range(200):
+            key = mean.gibbs_sampler_step(
+                key,
+                f,
+                theta0_reals1d,
+                **sim,
+            )
+
+    gibbs(jrd.PRNGKey(0))
+
+    print(phi1.data().mean())
+    print(phi1.data().var())
+
     # from sdg4varselect.logistic_model import (
     #     likelihood_array,
     #     model,
