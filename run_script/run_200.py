@@ -50,7 +50,7 @@ ltheta_reg = []
 print(f"n = {N_IND}, p = {DIM_COV}, J = {J_OBS}")
 print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-nrun = 5
+nrun = 50
 for i in range(nrun):
     print("\nrun = " + step_message(i, nrun), end="\n")
     params_start, prng_key = get_random_params0(prng_key, params0, error=0.2)
