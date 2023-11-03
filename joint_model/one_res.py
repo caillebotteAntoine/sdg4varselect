@@ -3,7 +3,6 @@ from time import time
 from datetime import datetime
 from sdg4varselect.miscellaneous import time2string, list_to_BIC, step_message
 
-import sdg4varselect.plot as sdgplt
 import pickle
 import numpy as np
 
@@ -217,6 +216,8 @@ def method(
 
 
 if __name__ == "__main__":
+    from work import sdgplt
+
     # ====================================================== #
     print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
