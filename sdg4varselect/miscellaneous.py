@@ -126,7 +126,9 @@ def difftime(*funcs, nloop=100, nrun=20):
     return func
 
 
-def loadbar(os: str, progress: float, maxbar: int = 50, indicator: str = ">") -> str:
+def loadbar(
+    os: str, progress: float, maxbar: int = 50, indicator: str = ">", **kwargs
+) -> str:
     nbar = int(progress * maxbar)
     if nbar > maxbar:
         nbar = maxbar
@@ -141,7 +143,7 @@ def loadbar(os: str, progress: float, maxbar: int = 50, indicator: str = ">") ->
     return os
 
 
-def loadnumber(os: str, number: int, max: int, unit: str = "") -> str:
+def loadnumber(os: str, number: int, max: int, unit: str = "", **kwargs) -> str:
     number_str = str(number)
     max_str = str(max)
 
@@ -154,10 +156,10 @@ def loadnumber(os: str, number: int, max: int, unit: str = "") -> str:
     return os
 
 
-def step_message(iter: int, max_iter: int) -> str:
+def step_message(iter: int, max_iter: int, **kwargs) -> str:
     os = ""
-    os = loadnumber(os, iter, max_iter) + " "
-    os = loadbar(os, float(iter) / max_iter)
+    os = loadnumber(os, iter, max_iter, **kwargs) + " "
+    os = loadbar(os, float(iter) / max_iter, **kwargs)
     if iter == max_iter - 1:
         os += "\n"
     return os  # you should use `print(os, end="\r")`
