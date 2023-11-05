@@ -133,7 +133,7 @@ for i in range(7):
 
 
 # ====================================================== #
-def plot_beta(theta):
+def plot_beta(theta, threshold=0):
     fig = sdgplt.figure()
     ax = fig.add_subplot(1, 1, 1)
     beta = theta[:, 7:]
@@ -144,7 +144,7 @@ def plot_beta(theta):
         [
             i
             for i in range(len(beta_support))
-            if beta_support[i] and num_support[i] > n_run / 10
+            if beta_support[i] and num_support[i] > threshold
         ]
     )
     xticks = [i + 1 for i in range(len(id))]
@@ -158,9 +158,9 @@ def plot_beta(theta):
     return fig, ax
 
 
-fig, ax = plot_beta(theta_biais)
+fig, ax = plot_beta(theta_biais, n_run / 10)
 ax.set_title("biaised beta")
 
-fig, ax = plot_beta(theta)
+fig, ax = plot_beta(theta, n_run / 10)
 ax.set_title("EMV beta")
 # ====================================================== #

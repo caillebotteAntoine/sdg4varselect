@@ -112,7 +112,13 @@ class Gradient(Algorithm):
         self.__step_size_grad = learning_rate()
 
         self.parametrization = parametrization
-        self.theta_reals1d = params0
+        self._params0 = params0
+        self.theta_reals1d = self._params0
+
+    def reset_solver(self) -> None:
+        """resets the resolution time and the number of iterations made for the solver"""
+        super().reset_solver()
+        self.theta_reals1d = self._params0
 
     @property
     def step_size_fisher(self):

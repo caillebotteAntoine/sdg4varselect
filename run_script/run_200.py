@@ -18,7 +18,7 @@ params0 = {
     "alpha": 5.0,  # 7
     "beta": np.random.uniform(-1, 1, size=DIM_COV),
 }
-lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
+lbd_set = 10 ** jnp.linspace(-2, 0, num=2)
 # lbd_set = [0.19]
 
-multi_run(params0, lbd_set, N_IND, DIM_COV, J_OBS, CENSORING, nrun=50)
+multi_run(params0, lbd_set, N_IND, DIM_COV, J_OBS, CENSORING, nrun=2)
