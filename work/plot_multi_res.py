@@ -3,7 +3,7 @@
 import numpy as np
 import pickle
 
-import sdg4varselect.plot as sdgplt
+import sdgplt
 
 folder = "images"
 
