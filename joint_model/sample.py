@@ -2,7 +2,7 @@ import numpy as np
 import parametrization_cookbook.jax as pc
 from sdg4varselect.data_generation import data_simulation, params_weibull
 
-from sdg4varselect import Gradient, jrd
+from sdg4varselect import Gradient, jrd, jnp
 
 
 # ===================================================== #
@@ -37,7 +37,7 @@ def get_solver(prng_key, params0, data_set, likelihood, likelihood_array):
     N_IND, _ = data_set["Y"].shape
     (DIM_COV,) = params0["beta"].shape
 
-    parametrization, _ = get_parametrization(DIM_COV, "normal")
+    parametrization, _, prng_key = get_parametrization(prng_key, DIM_COV, "normal")
     # ====== SOLVER CREATION ====== #
     solver = Gradient(key1, parametrization, params0)
 
@@ -81,7 +81,8 @@ def get_solver(prng_key, params0, data_set, likelihood, likelihood_array):
     return solver, key_out
 
 
-def get_parametrization(DIM_COV, beta_type="normal"):
+def get_parametrization(prng_key, DIM_COV, beta_type="normal", percentage=None):
+    prng_key, key1, key2, key3 = jrd.split(prng_key, num=4)
     beta = np.zeros(shape=(DIM_COV,))
 
     if beta_type == "normal":
@@ -92,6 +93,22 @@ def get_parametrization(DIM_COV, beta_type="normal"):
             beta[2] = 3
         if DIM_COV > 3:
             beta[3] = 2
+
+    elif beta_type == "percentage":
+        DIM_COV_ACT = int(DIM_COV * percentage)
+
+        choosen_id = jrd.choice(
+            key1, jnp.arange(DIM_COV), shape=(DIM_COV_ACT,), replace=False
+        )
+        choosen_id = jnp.array([i in choosen_id for i in range(DIM_COV)])
+        # print(choosen_id.sum())
+        beta_active = jrd.uniform(key2, (DIM_COV,), minval=1, maxval=2) * jrd.choice(
+            key3, jnp.array([-1, 1]), shape=(DIM_COV,), replace=True
+        )
+
+        beta = jnp.where(choosen_id, beta_active, jnp.zeros((DIM_COV,)))
+        # print(beta.sum())
+        # print((beta !=0).sum())
 
     elif beta_type == "clever":
         beta[0] = -4
@@ -104,6 +121,8 @@ def get_parametrization(DIM_COV, beta_type="normal"):
         beta[30] = -10
         beta[53] = 4
         beta[77] = 2
+    else:
+        raise TypeError("beta type unknown !")
 
     parametrization = pc.NamedTuple(
         mu1=pc.RealPositive(scale=0.5),
@@ -131,11 +150,13 @@ def get_parametrization(DIM_COV, beta_type="normal"):
         beta=beta,
     )
 
-    return parametrization, params_star_weibull
+    return parametrization, params_star_weibull, prng_key
 
 
-def get_params_star(DIM_COV, beta_type="normal"):
-    parametrization, params_star_weibull = get_parametrization(DIM_COV, "normal")
+def get_params_star(prng_key, DIM_COV, beta_type="normal", percentage=None):
+    parametrization, params_star_weibull, prng_key = get_parametrization(
+        prng_key, DIM_COV, beta_type, percentage
+    )
 
     params_star_stack = np.hstack(
         [
@@ -152,33 +173,34 @@ def get_params_star(DIM_COV, beta_type="normal"):
         ]
     )
 
-    return params_star_stack, params_star_weibull
+    return params_star_stack, params_star_weibull, prng_key
 
 
 if __name__ == "__main__":
-    import sdg4varselect.plot as sdgplt
+    pass
+    # import sdg4varselect.plot as sdgplt
 
-    # from one_run import DIM_COV, N_IND, J_OBS
-    _, params_star_weibull = get_parametrization(20, "normal")
+    # # from one_run import DIM_COV, N_IND, J_OBS
+    # _, params_star_weibull = get_parametrization(20, "normal")
 
-    dt, sim, PRNGKey = sample(
-        params_star_weibull,
-        prng_key=jrd.PRNGKey(0),
-        N_IND=500,
-        DIM_COV=5,
-        J_OBS=50,
-        CENSORING=0.2,
-    )
+    # dt, sim, PRNGKey = sample(
+    #     params_star_weibull,
+    #     prng_key=jrd.PRNGKey(0),
+    #     N_IND=500,
+    #     DIM_COV=5,
+    #     J_OBS=50,
+    #     CENSORING=0.2,
+    # )
 
-    print(dt["delta"].mean())
+    # print(dt["delta"].mean())
 
-    sdgplt.plt.plot(dt["time"], dt["Y"].T)
-
-    sdgplt.figure()
-    sdgplt.plt.hist(dt["T"], bins=20)
-
-    sdgplt.figure()
-    sdgplt.plt.hist(sim["T uncensored"], bins=20)
+    # sdgplt.plt.plot(dt["time"], dt["Y"].T)
 
     # sdgplt.figure()
-    # sdgplt.plt.hist(sim["phi2"])
+    # sdgplt.plt.hist(dt["T"], bins=20)
+
+    # sdgplt.figure()
+    # sdgplt.plt.hist(sim["T uncensored"], bins=20)
+
+    # # sdgplt.figure()
+    # # sdgplt.plt.hist(sim["phi2"])

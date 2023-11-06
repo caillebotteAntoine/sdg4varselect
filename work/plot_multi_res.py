@@ -8,7 +8,7 @@ import sdgplt
 folder = "images"
 
 # 200_50_simple_grad_10_rep
-with open("../run_script/res_multi_run.pkl", "rb") as f:
+with open("../run_script/1699274542.5545883_multi_100_50_5_0.pkl", "rb") as f:
     data = pickle.load(f)
 
 params_star_stack = data["params_star_stack"]
@@ -40,7 +40,7 @@ print(f"p = {theta.shape[1]-7}, nrun = {n_run} (remove {n_run_base-n_run})")
 # ====================================================== #
 
 
-for i in range(len(bic)):
+for i in range(len(bic) // 10):
     fig, axs = sdgplt.plot_regularization_path(theta_reg[i], lbd_set, bic[i])
     ax, ax_bic = axs
 
@@ -82,30 +82,6 @@ for i in range(7):
 
     ax.legend()
     ax.set_title(f"EMV of {params_names[i]}")
-
-# ====================================================== #
-fig = sdgplt.figure()
-
-for i in range(7):
-    ax = fig.add_subplot(3, 3, 1 + i)
-    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-    bp = ax.boxplot(
-        np.abs(theta_biais[:, i] / params_star_stack[i] - 1),
-        patch_artist=True,
-        showfliers=False,
-    )
-
-    for patch in bp["boxes"]:
-        patch.set(facecolor=f"C{i}")
-
-    for median in bp["medians"]:
-        median.set_color("black")
-
-    ax.axhline(y=5 / 100, color="k", label="5% error")
-
-    ax.legend()
-
-    ax.set_title(f"relative error of {params_names[i]}")
 
 # ====================================================== #
 fig = sdgplt.figure()

@@ -129,7 +129,7 @@ if __name__ == "__main__":
         "beta": np.random.uniform(-1, 1, size=5),
     }
 
-    params_star_stack, params_star_weibull = get_params_star(5)
+    params_star_stack, params_star_weibull, _ = get_params_star(jrd.PRNGKey(0), 5)
 
     data_set, _, key = sample(params_star_weibull, jrd.PRNGKey(0), 100, 5, 20, 0.2)
     solver, key = get_solver(

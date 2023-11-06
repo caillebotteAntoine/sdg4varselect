@@ -11,15 +11,27 @@ from sdg4varselect import jrd
 
 
 # ====================================================== #
-def multi_run(params0, lbd_set, N_IND, DIM_COV, J_OBS, CENSORING, nrun):
+def multi_run(
+    params0,
+    lbd_set,
+    N_IND,
+    DIM_COV,
+    J_OBS,
+    CENSORING,
+    nrun,
+    beta_type="normal",
+    percentage=None,
+):
     print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
-
-    params_star_stack, params_star_weibull = get_params_star(DIM_COV)
 
     seed = 1697807204  #
     seed = int(time())  #
     print(f"seed = {seed}")
     prng_key = jrd.PRNGKey(seed)
+    # ====================================================== #
+    params_star_stack, params_star_weibull, prng_key = get_params_star(
+        prng_key, DIM_COV, beta_type, percentage
+    )
     # ====================================================== #
 
     lrf = []
@@ -74,7 +86,13 @@ def multi_run(params0, lbd_set, N_IND, DIM_COV, J_OBS, CENSORING, nrun):
         "lbd_set": lbd_set,
     }
 
-    with open(f"{time()}_multi_{N_IND}_{DIM_COV}_{J_OBS}_{CENSORING}.pkl", "wb") as f:
+    filename = f"{int(time())}_multi_{N_IND}_{DIM_COV}"
+    if percentage is not None:
+        filename += f"_{int(percentage*100)}"
+
+    filename += f"_{J_OBS}_{int(CENSORING*100)}"
+
+    with open(f"{filename}.pkl", "wb") as f:
         pickle.dump(data, f)
 
     print("RESULT SAVED !")
