@@ -8,7 +8,7 @@ import sdgplt
 folder = "images"
 
 # 200_50_simple_grad_10_rep
-with open("../run_script/1699274542.5545883_multi_100_50_5_0.pkl", "rb") as f:
+with open("../run_script/1699246117.3774574_multi_100_200_5_0.2.pkl", "rb") as f:
     data = pickle.load(f)
 
 params_star_stack = data["params_star_stack"]

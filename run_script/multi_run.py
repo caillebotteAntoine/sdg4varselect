@@ -41,7 +41,7 @@ def multi_run(
     lebic = []
     ltheta_reg = []
 
-    print(f"n = {N_IND}, p = {DIM_COV}, J = {J_OBS}")
+    print(f"n = {N_IND}, p = {DIM_COV}, J = {J_OBS}, C = {CENSORING}")
     print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
     for i in range(nrun):
