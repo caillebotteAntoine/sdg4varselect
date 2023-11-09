@@ -7,9 +7,13 @@ import sdgplt
 
 folder = "images"
 
-# 200_50_simple_grad_10_rep
-with open("../run_script/1699246117.3774574_multi_100_200_5_0.2.pkl", "rb") as f:
+# 50 full random beta0
+with open("../run_script/1699274542_multi_100_50_30_5_0.pkl", "rb") as f:
     data = pickle.load(f)
+
+# 200 + censure 20%
+# with open("../run_script/1699246117_multi_100_200_5_20.pkl", "rb") as f:
+#     data = pickle.load(f)
 
 params_star_stack = data["params_star_stack"]
 params_names = data["params_names"]
@@ -36,6 +40,12 @@ theta_biais = theta_biais[id]
 
 n_run = theta.shape[0]
 print(f"p = {theta.shape[1]-7}, nrun = {n_run} (remove {n_run_base-n_run})")
+
+
+# from sdg4varselect import jrd
+# from joint_model.sample import get_params_star
+
+# params_star_stack, _, prng_key = get_params_star(jrd.PRNGKey(0), theta.shape[1] - 7)
 
 # ====================================================== #
 
