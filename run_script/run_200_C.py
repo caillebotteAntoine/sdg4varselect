@@ -6,7 +6,7 @@ from multi_run import multi_run
 DIM_COV = 200
 N_IND = 100
 J_OBS = 5
-CENSORING = 0.2
+CENSORING = 0.4
 
 params0 = {
     "mu1": 0.5,  # 1
