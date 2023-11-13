@@ -3,10 +3,10 @@ from sdg4varselect import jnp
 from multi_run import multi_run
 
 # ====================================================== #
-DIM_COV = 4
-N_IND = 15
+DIM_COV = 200
+N_IND = 100
 J_OBS = 5
-CENSORING = 0.0
+CENSORING = [0.0, 0.2, 0.4, 0.6, 0.8]
 
 params0 = {
     "mu1": 0.5,  # 1
