@@ -7,9 +7,12 @@ import sdgplt
 
 folder = "images"
 
-# 50 full random beta0
-with open("../run_script/1699274542_multi_100_50_30_5_0.pkl", "rb") as f:
+with open("../run_script/1699457965.2837865_multi_100_400_5_0.pkl", "rb") as f:
     data = pickle.load(f)
+
+# 50 full random beta0
+# with open("../run_script/1699274542_multi_100_50_30_5_0.pkl", "rb") as f:
+#     data = pickle.load(f)
 
 # 200 + censure 20%
 # with open("../run_script/1699246117_multi_100_200_5_20.pkl", "rb") as f:
