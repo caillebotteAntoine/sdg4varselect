@@ -3,19 +3,14 @@ from time import time
 from datetime import datetime
 from sdg4varselect.miscellaneous import time2string, list_to_BIC, step_message
 
-import pickle
 import numpy as np
 
 from sdg4varselect.solver import shrink_support
 from joint_model.sample import sample
 
-from joint_model.one_run import (
-    estim,
-    estim_solver,
-    get_random_params0,
-)
+from joint_model.one_run import estim, estim_solver
 
-from sdg4varselect import jrd, jnp
+from sdg4varselect import jnp
 
 
 kwargs_run_GD = {
@@ -58,29 +53,25 @@ def one_res(
         scale_fim=0.9,
     )
 
-    return solver, res, error_flag
+    return solver, res, error_flag, key
 
 
 def regularization_path(
     parameters0,
-    params_star_weibull,
+    data_set,
     path,
-    N_IND,
     DIM_COV,
-    J_OBS,
-    CENSORING,
     prng_key,
     verbatim=False,
 ):
     list_res = []
     list_solver = []
-    data_set, _, key = sample(
-        params_star_weibull, prng_key, N_IND, DIM_COV, J_OBS, CENSORING
-    )
 
     for i in range(len(path)):
         print(step_message(i, len(path)), end="\r" if not verbatim else "\n")
-        solver, res, error_flag = one_res(parameters0, data_set, path[i], key, verbatim)
+        solver, res, error_flag, key = one_res(
+            parameters0, data_set, path[i], prng_key, verbatim
+        )
 
         if error_flag:
             print("error detected cancel regularization path !")
@@ -148,31 +139,22 @@ def final_estim(solver, parameters0, prox_regul, verbatim=False):
 
 def method(
     params0,
-    params_star_weibull,
+    data_set,
     path,
     N_IND,
     DIM_COV,
-    J_OBS,
-    CENSORING,
-    prng_key=None,
+    prng_key,
     verbatim=True,
 ):
-    prng_key = jrd.PRNGKey(int(time())) if prng_key is None else prng_key
-    print(f"prng_key = {prng_key}")
-    params0, prng_key = get_random_params0(prng_key, params0, error=0.2)
-
     # ====================================================== #
     # ================ REGULARIZATION PATH ================= #
     # ====================================================== #
     time_start = time()
     res = regularization_path(
         params0,
-        params_star_weibull,
+        data_set,
         path,
-        N_IND,
         DIM_COV,
-        J_OBS,
-        CENSORING,
         prng_key=prng_key,
         verbatim=verbatim,
     )
@@ -199,7 +181,7 @@ def method(
         final_res = res[0]
         final_solver = res[1]
     else:
-        final_res, final_solver = -1, -1
+        return -1
 
     return (
         final_res,

@@ -2,7 +2,7 @@ from datetime import datetime
 import pickle
 from sdg4varselect.miscellaneous import step_message
 
-from joint_model.sample import get_params_star
+from joint_model.sample import get_params_star, sample
 from joint_model.one_run import get_random_params0
 from joint_model.one_res import method
 
@@ -46,16 +46,23 @@ def multi_run(
 
     for i in range(nrun):
         print("\nrun = " + step_message(i, nrun), end="\n")
+
+        print(f"prng_key = {prng_key}")
+
+        # ================ DATA SET GENERATION ================= #
+        data_set, _, prng_key = sample(
+            params_star_weibull, prng_key, N_IND, DIM_COV, J_OBS, CENSORING
+        )
+
+        # ================ ESTIMATION ================= #
         params_start, prng_key = get_random_params0(prng_key, params0, error=0.2)
 
         res = method(
-            params0,
-            params_star_weibull,
+            params_start,
+            data_set,
             lbd_set,
             N_IND,
             DIM_COV,
-            J_OBS,
-            CENSORING,
             prng_key=prng_key,
             verbatim=False,
         )
