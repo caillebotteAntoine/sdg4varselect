@@ -3,10 +3,10 @@ from sdg4varselect import jnp
 from multi_run import multi_run
 
 # ====================================================== #
-DIM_COV = 200
-N_IND = 100
+DIM_COV = 4
+N_IND = 15
 J_OBS = 5
-CENSORING = 0.4
+CENSORING = 0.0
 
 params0 = {
     "mu1": 0.5,  # 1
@@ -18,7 +18,7 @@ params0 = {
     "alpha": 5.0,  # 7
     "beta": np.random.uniform(-1, 1, size=DIM_COV),
 }
-lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
+lbd_set = 10 ** jnp.linspace(-2, 0, num=3)
 # lbd_set = [0.19]
 
-multi_run(params0, lbd_set, N_IND, DIM_COV, J_OBS, CENSORING, nrun=50)
+multi_run(params0, lbd_set, N_IND, DIM_COV, J_OBS, CENSORING, nrun=2)

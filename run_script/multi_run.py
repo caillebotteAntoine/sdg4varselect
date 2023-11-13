@@ -19,88 +19,94 @@ def multi_run(
     J_OBS,
     CENSORING,
     nrun,
+    seed=None,
     beta_type="normal",
     percentage=None,
 ):
-    print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+    if not isinstance(CENSORING, list):
+        CENSORING = [CENSORING]
 
-    seed = 1697807204  #
-    seed = int(time())  #
-    print(f"seed = {seed}")
-    prng_key = jrd.PRNGKey(seed)
-    # ====================================================== #
-    params_star_stack, params_star_weibull, prng_key = get_params_star(
-        prng_key, DIM_COV, beta_type, percentage
-    )
-    # ====================================================== #
+    for censoring in CENSORING:
+        if seed is None:
+            seed = int(time())  #
+        print(f"seed = {seed}")
+        prng_key = jrd.PRNGKey(seed)
 
-    lrf = []
-    lrs = []
-    llbd = []
-    lbic = []
-    lebic = []
-    ltheta_reg = []
-
-    print(f"n = {N_IND}, p = {DIM_COV}, J = {J_OBS}, C = {CENSORING}")
-    print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
-
-    for i in range(nrun):
-        print("\nrun = " + step_message(i, nrun), end="\n")
-
-        print(f"prng_key = {prng_key}")
-
-        # ================ DATA SET GENERATION ================= #
-        data_set, _, prng_key = sample(
-            params_star_weibull, prng_key, N_IND, DIM_COV, J_OBS, CENSORING
+        print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+        # ====================================================== #
+        params_star_stack, params_star_weibull, prng_key = get_params_star(
+            prng_key, DIM_COV, beta_type, percentage
         )
+        # ====================================================== #
 
-        # ================ ESTIMATION ================= #
-        params_start, prng_key = get_random_params0(prng_key, params0, error=0.2)
+        lrf = []
+        lrs = []
+        llbd = []
+        lbic = []
+        lebic = []
+        ltheta_reg = []
 
-        res = method(
-            params_start,
-            data_set,
-            lbd_set,
-            N_IND,
-            DIM_COV,
-            prng_key=prng_key,
-            verbatim=False,
-        )
-        if res != -1:
-            res_f, _, solver, res_s, bic, ebic, theta_reg, lbd_select, _, _ = res
-            lrf.append(res_f)
-            lrs.append(res_s)
-            llbd.append(lbd_select)
-            lbic.append(bic)
-            lebic.append(ebic)
-            ltheta_reg.append(theta_reg)
+        print(f"n = {N_IND}, p = {DIM_COV}, J = {J_OBS}, C = {censoring}")
+        print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-    print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+        for i in range(nrun):
+            print("\nrun = " + step_message(i, nrun), end="\n")
 
-    theta = [res.theta[-1] for res in lrf]
-    theta_biais = [res.theta[-1] for res in lrs]
+            print(f"prng_key = {prng_key}")
 
-    data = {
-        "theta": theta,
-        "theta_biais": theta_biais,
-        "lbd_select": llbd,
-        # "params_star_weibull": params_star_weibull,
-        "params_star_stack": params_star_stack,
-        "params_names": solver.params_names,
-        "lbic": lbic,
-        "lebic": lebic,
-        "ltheta_reg": ltheta_reg,
-        "lbd_set": lbd_set,
-    }
+            # ================ DATA SET GENERATION ================= #
+            data_set, _, prng_key = sample(
+                params_star_weibull, prng_key, N_IND, DIM_COV, J_OBS, censoring
+            )
 
-    filename = f"{int(time())}_multi_{N_IND}_{DIM_COV}"
-    if percentage is not None:
-        filename += f"_{int(percentage*100)}"
+            # ================ ESTIMATION ================= #
+            params_start, prng_key = get_random_params0(prng_key, params0, error=0.2)
 
-    filename += f"_{J_OBS}_{int(CENSORING*100)}"
+            res = method(
+                params_start,
+                data_set,
+                lbd_set,
+                N_IND,
+                DIM_COV,
+                prng_key=prng_key,
+                verbatim=False,
+            )
+            if res != -1:
+                res_f, _, solver, res_s, bic, ebic, theta_reg, lbd_select, _, _ = res
+                lrf.append(res_f)
+                lrs.append(res_s)
+                llbd.append(lbd_select)
+                lbic.append(bic)
+                lebic.append(ebic)
+                ltheta_reg.append(theta_reg)
 
-    with open(f"{filename}.pkl", "wb") as f:
-        pickle.dump(data, f)
+        print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-    print("RESULT SAVED !")
+        theta = [res.theta[-1] for res in lrf]
+        theta_biais = [res.theta[-1] for res in lrs]
+
+        data = {
+            "theta": theta,
+            "theta_biais": theta_biais,
+            "lbd_select": llbd,
+            # "params_star_weibull": params_star_weibull,
+            "params_star_stack": params_star_stack,
+            "params_names": solver.params_names,
+            "lbic": lbic,
+            "lebic": lebic,
+            "ltheta_reg": ltheta_reg,
+            "lbd_set": lbd_set,
+            "seed": seed,
+        }
+
+        filename = f"{int(seed)}_multi_N{N_IND}_P{DIM_COV}"
+        if percentage is not None:
+            filename += f"_{int(percentage*100)}"
+
+        filename += f"_J{J_OBS}_C{int(censoring*100)}"
+
+        with open(f"{filename}.pkl", "wb") as f:
+            pickle.dump(data, f)
+
+        print("RESULT SAVED !")
     return True
