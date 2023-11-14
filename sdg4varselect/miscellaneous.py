@@ -160,8 +160,8 @@ def step_message(iter: int, max_iter: int, **kwargs) -> str:
     os = ""
     os = loadnumber(os, iter, max_iter, **kwargs) + " "
     os = loadbar(os, float(iter) / max_iter, **kwargs)
-    if iter == max_iter - 1:
-        os += "\n"
+    # if iter == max_iter - 1:
+    #     os += "\n"
     return os  # you should use `print(os, end="\r")`
 
 

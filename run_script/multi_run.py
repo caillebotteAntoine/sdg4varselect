@@ -27,6 +27,10 @@ def multi_run(
         CENSORING = [CENSORING]
 
     for censoring in CENSORING:
+        msg = f"n = {N_IND}, p = {DIM_COV}, J = {J_OBS}, C = {censoring}"
+        msg = "\n" + "=" * len(msg) + msg + "\n" + "=" * len(msg)
+        print(msg)
+
         if seed is None:
             seed = int(time())  #
         print(f"seed = {seed}")
@@ -45,9 +49,6 @@ def multi_run(
         lbic = []
         lebic = []
         ltheta_reg = []
-
-        print(f"n = {N_IND}, p = {DIM_COV}, J = {J_OBS}, C = {censoring}")
-        print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
         for i in range(nrun):
             print("\nrun = " + step_message(i, nrun), end="\n")
@@ -80,6 +81,8 @@ def multi_run(
                 lebic.append(ebic)
                 ltheta_reg.append(theta_reg)
 
+        print("\nrun = " + step_message(nrun, nrun), end="\n")
+
         print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
         theta = [res.theta[-1] for res in lrf]
@@ -108,5 +111,5 @@ def multi_run(
         with open(f"{filename}.pkl", "wb") as f:
             pickle.dump(data, f)
 
-        print("RESULT SAVED !")
+        print("RESULT SAVED !\n\n")
     return True

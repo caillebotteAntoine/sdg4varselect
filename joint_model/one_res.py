@@ -94,6 +94,7 @@ def regularization_path(
                 print(f"break at {path[i]}")
             break
 
+    print(step_message(len(path), len(path)), end="\n")
     return list_solver, list_res, key
 
 
