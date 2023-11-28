@@ -6,17 +6,18 @@ from warnings import warn
 from collections import namedtuple
 
 from sdg4varselect import jnp, jrd
-from sdg4varselect.logistic_model import (
-    logistic_curve,
-    logistic_curve_float,
+from sdg4varselect.linear_model import (
+    linear_curve,
+    linear_curve_float,
 )
+
 
 # ============================================================= #
 # ====================== PARAMIETRIZATION ===================== #
 # ============================================================= #
 params_weibull = namedtuple(
     "params_weibull",
-    ("mu1", "mu2", "mu3", "gamma2_1", "gamma2_2", "sigma2", "a", "b", "alpha", "beta"),
+    ("mu1", "mu2", "gamma2_1", "gamma2_2", "sigma2", "a", "b", "alpha", "beta"),
 )
 
 # ======================================================= #
@@ -34,14 +35,12 @@ def nlmem_simulation(params, key, N_IND, J_OBS, t_min, t_max):
 
     phi1 = params.mu1 + jnp.sqrt(params.gamma2_1) * jrd.normal(key2, shape=(N_IND,))
     phi2 = params.mu2 + jnp.sqrt(params.gamma2_2) * jrd.normal(key3, shape=(N_IND,))
-    phi3 = jnp.array([params.mu3])
 
     Y = (
-        logistic_curve(
+        linear_curve(
             time=time,
-            supremum=phi1,
-            midpoint=phi2,
-            growth_rate=phi3,
+            intercept=phi1,
+            slope=phi2,
         )
         + eps
     )
@@ -51,7 +50,7 @@ def nlmem_simulation(params, key, N_IND, J_OBS, t_min, t_max):
             "Y": Y,
             "time": time,
         },  # obs
-        {"phi1": phi1, "phi2": phi2, "eps": eps},  # sim
+        {"phi1": phi1, "phi2": phi2},  # sim
         key_out,
     )
 
@@ -87,8 +86,7 @@ def data_simulation(
         def lbd(t):
             lbd0 = params.b / params.a * (t / params.a) ** (params.b - 1)
             return lbd0 * jnp.exp(
-                beta_prod_cov
-                + params.alpha * logistic_curve_float(t, phi1, phi2, params.mu3)
+                beta_prod_cov + params.alpha * linear_curve_float(t, phi1, phi2)
             )
 
         t_linspace = jnp.linspace(0, t, num=100)
@@ -98,7 +96,7 @@ def data_simulation(
 
     DIM_COV = params.beta.shape[0]
 
-    cov = jrd.uniform(key1, minval=-1, maxval=1, shape=(N_IND, DIM_COV))
+    cov = jrd.uniform(key1, minval=-0.1, maxval=0.1, shape=(N_IND, DIM_COV))
     cov = cov - cov.mean(axis=0)[None, :]
     cov = jnp.array(
         cov,
@@ -154,22 +152,21 @@ if __name__ == "__main__":
     N_IND = 500
 
     params_star = params_weibull(
-        mu1=0.3,
-        mu2=90.0,
-        mu3=7.5,
-        gamma2_1=0.0025,
-        gamma2_2=20,
-        sigma2=0.001,
-        a=80.0,
-        b=35,
-        alpha=11.11,
+        mu1=1,
+        mu2=1.5,
+        gamma2_1=0.1**2,
+        gamma2_2=0.1**2,
+        sigma2=0.1**2,
+        a=2.0,
+        b=5,
+        alpha=1.5,
         beta=jnp.concatenate(
-            [jnp.array([-2, -1, 1, 2]), jnp.zeros(shape=(DIM_COV - 4,))]
+            [jnp.array([0.3, 0.5, 0.3, 0.5]), jnp.zeros(shape=(DIM_COV - 4,))]
         ),
     )
 
     obs, sim, _ = data_simulation(
-        params_star, jrd.PRNGKey(0), N_IND, 50, t_min=60, t_max=135, censoring=0.0
+        params_star, jrd.PRNGKey(0), N_IND, 50, t_min=0, t_max=1, censoring=0.0
     )
     print(obs)
 

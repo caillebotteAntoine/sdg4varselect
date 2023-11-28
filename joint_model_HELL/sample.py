@@ -1,6 +1,6 @@
 import numpy as np
 import parametrization_cookbook.jax as pc
-from sdg4varselect.data_generation import data_simulation, params_weibull
+from sdg4varselect.data_generation_linear import data_simulation, params_weibull
 
 from sdg4varselect import Gradient, jrd, jnp
 
@@ -22,8 +22,8 @@ def sample(
         key=prng_key,
         N_IND=N_IND,
         J_OBS=J_OBS,
-        t_min=60,
-        t_max=135,
+        t_min=0,
+        t_max=1,
         censoring=CENSORING,
     )
     return data_set, sim, prng_key
@@ -50,7 +50,7 @@ def get_solver(prng_key, params0, data_set, likelihood, likelihood_array):
 
     solver.add_mcmc(
         float(mu1),
-        sd=0.001,
+        sd=0.5,
         size=N_IND,
         likelihood=likelihood_array,
         name="phi1",
@@ -58,7 +58,7 @@ def get_solver(prng_key, params0, data_set, likelihood, likelihood_array):
     solver.latent_variables["phi1"].adaptative_sd = True
     solver.add_mcmc(
         float(mu2),
-        sd=5,
+        sd=0.5,
         size=N_IND,
         likelihood=likelihood_array,
         name="phi2",
@@ -80,67 +80,43 @@ def get_solver(prng_key, params0, data_set, likelihood, likelihood_array):
 
 def get_parametrization(prng_key, DIM_COV, beta_type="normal", percentage=None):
     prng_key, key1, key2, key3 = jrd.split(prng_key, num=4)
-    beta = np.zeros(shape=(DIM_COV,))
-
-    if beta_type == "normal":
-        beta[0] = -2
-        if DIM_COV > 1:
-            beta[1] = -3
-        if DIM_COV > 2:
-            beta[2] = 3
-        if DIM_COV > 3:
-            beta[3] = 2
-
-        # beta *= 10
-
-    elif beta_type == "percentage":
-        DIM_COV_ACT = int(DIM_COV * percentage)
-
-        choosen_id = jrd.choice(
-            key1, jnp.arange(DIM_COV), shape=(DIM_COV_ACT,), replace=False
-        )
-        choosen_id = jnp.array([i in choosen_id for i in range(DIM_COV)])
-        # print(choosen_id.sum())
-        beta_active = jrd.uniform(key2, (DIM_COV,), minval=1, maxval=2) * jrd.choice(
-            key3, jnp.array([-1, 1]), shape=(DIM_COV,), replace=True
-        )
-
-        beta = jnp.where(choosen_id, beta_active, jnp.zeros((DIM_COV,)))
-        # print(beta.sum())
-        # print((beta !=0).sum())
-
-    elif beta_type == "NIRS":
-        beta[2] = -2
-        beta[30] = -10
-        beta[53] = 4
-        beta[77] = 2
-    else:
-        raise TypeError("beta type unknown !")
 
     parametrization = pc.NamedTuple(
-        mu1=pc.RealPositive(scale=0.5),
-        mu2=pc.Real(scale=100),
-        mu3=pc.RealPositive(scale=10),
-        gamma2_1=pc.RealPositive(scale=0.001),
-        gamma2_2=pc.RealPositive(scale=10),
-        # a=pc.Real(scale=100),
-        # b=pc.Real(scale=50),
-        sigma2=pc.RealPositive(scale=0.001),
-        alpha=pc.Real(scale=10),
+        mu1=pc.RealPositive(scale=0.1),
+        mu2=pc.Real(scale=0.1),
+        gamma2_1=pc.RealPositive(scale=1),
+        gamma2_2=pc.RealPositive(scale=1),
+        sigma2=pc.RealPositive(scale=0.01),
+        alpha=pc.Real(scale=0.1),
         beta=pc.Real(scale=1, shape=(DIM_COV,)),
     )
 
     params_star_weibull = params_weibull(
-        mu1=0.3,
-        mu2=90.0,
-        mu3=7.5,
-        gamma2_1=0.0025,
-        gamma2_2=20,
-        sigma2=0.001,
-        a=80.0,
+        mu1=1,
+        mu2=1.5,
+        gamma2_1=2**2,
+        gamma2_2=0.3**2,
+        sigma2=0.1**2,
+        a=110.0,
         b=35,
-        alpha=11.11,
-        beta=beta,
+        alpha=0.1,
+        beta=jnp.concatenate(
+            [jnp.array([0.3, 0.5, 0.3, 0.5]), jnp.zeros(shape=(DIM_COV - 4,))]
+        ),
+    )
+
+    params_star_weibull = params_weibull(
+        mu1=1,
+        mu2=1.5,
+        gamma2_1=0.1**2,
+        gamma2_2=0.1**2,
+        sigma2=0.1**2,
+        a=2.0,
+        b=5,
+        alpha=1.5,
+        beta=jnp.concatenate(
+            [jnp.array([0.3, 0.5, 0.3, 0.5]), jnp.zeros(shape=(DIM_COV - 4,))]
+        ),
     )
 
     return parametrization, params_star_weibull, prng_key
@@ -155,11 +131,8 @@ def get_params_star(prng_key, DIM_COV, beta_type="normal", percentage=None):
         [
             params_star_weibull.mu1,
             params_star_weibull.mu2,
-            params_star_weibull.mu3,
             params_star_weibull.gamma2_1,
             params_star_weibull.gamma2_2,
-            # params_star_weibull.a,
-            # params_star_weibull.b,
             params_star_weibull.sigma2,
             params_star_weibull.alpha,
             params_star_weibull.beta,

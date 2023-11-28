@@ -1,6 +1,6 @@
 import jax.numpy as jnp
+import jax.random as jrd
 from jax import jit
-import jax
 
 import itertools
 
@@ -265,6 +265,78 @@ class Gradient(Algorithm):
             )
         )
         return list_res_to_res_list(res, self.parametrization)
+
+
+def set_gradient_run_parameters(
+    solver,
+    activate_fim=False,
+    activate_jac_approx=True,
+    lr=1e-8,
+    # Grad
+    plateau_grad=400,
+    scale_grad=1,
+    plateau_grad_size=100,
+    # Jac
+    plateau_jac=300,
+    plateau_jac_size=50,
+    scale_jac=0.5,
+    # Fim
+    plateau_fim=750,
+    plateau_fim_size=50,
+    scale_fim=0.95,
+):
+    if activate_jac_approx:
+        solver.step_size = learning_rate(
+            plateau_jac,
+            float(jnp.log(lr)),
+            plateau_jac + plateau_jac_size,
+            0.65,
+            scale=scale_jac,
+        )
+    else:
+        solver.step_size = learning_rate.one()
+
+    if activate_fim:
+        solver.step_size_fisher = learning_rate(
+            plateau_fim,
+            float(jnp.log(lr)),
+            plateau_fim + plateau_fim_size,
+            0.65,
+            # step_flat=plateau_jac + 100,
+            scale=scale_fim,
+        )
+    else:
+        solver.step_size_fisher = learning_rate.zero()
+
+    solver.step_size_grad = learning_rate(
+        plateau_grad,
+        float(jnp.log(lr)),
+        plateau_grad + plateau_grad_size,
+        0.65,
+        scale=scale_grad,
+        # step_flat=100,
+    )
+
+    # solver.step_size = solver.step_size_fisher
+    # solver.step_size_grad = solver.step_size_fisher
+    # learning_rate.from_1_to_0(plateau_fim + 100, 0.65)
+    return solver
+
+
+def get_random_params0(prng_key, params0, error=0.2, uniform_on=None):
+    p = params0.copy()
+    for key in p:
+        key_new, prng_key = jrd.split(prng_key, 2)
+        p[key] *= float(jrd.uniform(key_new, minval=1.0 - error))
+
+    if uniform_on is not None:
+        for key in uniform_on:
+            key_new, prng_key = jrd.split(prng_key, 2)
+            p[uniform_on] = jrd.uniform(
+                prng_key, shape=p[uniform_on].shape, minval=-1, maxval=1
+            )
+
+    return p, key_new
 
 
 if __name__ == "__main__":

@@ -6,17 +6,26 @@ from warnings import warn
 from collections import namedtuple
 
 from sdg4varselect import jnp, jrd
-from sdg4varselect.logistic_model import (
-    logistic_curve,
-    logistic_curve_float,
+from sdg4varselect.linear_model import (
+    linear_curve,
+    linear_curve_float,
 )
 
 # ============================================================= #
 # ====================== PARAMIETRIZATION ===================== #
 # ============================================================= #
-params_weibull = namedtuple(
-    "params_weibull",
-    ("mu1", "mu2", "mu3", "gamma2_1", "gamma2_2", "sigma2", "a", "b", "alpha", "beta"),
+params_type = namedtuple(
+    "params_type",
+    (
+        "mu1",
+        "mu2",
+        "gamma2_1",
+        "gamma2_2",
+        "sigma2",
+        "alpha",
+        "beta_surv",
+        "beta_long",
+    ),
 )
 
 # ======================================================= #
@@ -24,24 +33,39 @@ params_weibull = namedtuple(
 # ======================================================= #
 
 
-def nlmem_simulation(params, key, N_IND, J_OBS, t_min, t_max):
+def lmem_simulation(params, key, N_IND, J_OBS, *args, **kwargs):
     """return longitudinal and survival simulation
     and latente variable simulation in the two dict"""
-    key1, key2, key3, key_out = jrd.split(key, num=4)
+    key1, key2, key3, key4, key_out = jrd.split(key, num=5)
+
+    DIM_COV_LONG = params.beta_long.shape[0]
+
+    cov_long = jrd.uniform(key4, minval=-0.1, maxval=0.1, shape=(N_IND, DIM_COV_LONG))
+    cov_long = cov_long - cov_long.mean(axis=0)[None, :]
+    cov_long = jnp.array(
+        cov_long,
+        dtype=jnp.float32,
+    )
+    beta_prod_cov_obs = cov_long @ params.beta_long
+    print(beta_prod_cov_obs)
 
     eps = jnp.sqrt(params.sigma2) * jrd.normal(key1, shape=(N_IND, J_OBS))
-    time = jnp.linspace(t_min, t_max, num=J_OBS)
+
+    # mimicking yearly appointments
+    time = jnp.arange(J_OBS) * 365
+    time = jnp.concatenate(jnp.array([[time]] * N_IND), axis=0)
+    time += jrd.choice(jrd.PRNGKey(0), jnp.arange(1, 365), time.shape)
+    time /= time.shape[1] * 365
+    time = time
 
     phi1 = params.mu1 + jnp.sqrt(params.gamma2_1) * jrd.normal(key2, shape=(N_IND,))
     phi2 = params.mu2 + jnp.sqrt(params.gamma2_2) * jrd.normal(key3, shape=(N_IND,))
-    phi3 = jnp.array([params.mu3])
 
     Y = (
-        logistic_curve(
+        linear_curve(
             time=time,
-            supremum=phi1,
-            midpoint=phi2,
-            growth_rate=phi3,
+            intercept=phi1 + beta_prod_cov_obs,
+            slope=phi2,
         )
         + eps
     )
@@ -50,6 +74,7 @@ def nlmem_simulation(params, key, N_IND, J_OBS, t_min, t_max):
         {
             "Y": Y,
             "time": time,
+            "cov_long": cov_long,
         },  # obs
         {"phi1": phi1, "phi2": phi2, "eps": eps},  # sim
         key_out,
@@ -61,34 +86,33 @@ def data_simulation(
     key,
     N_IND,
     J_OBS,
-    t_min,
-    t_max,
-    censoring=0.0,
+    *args,
+    **kwargs,
 ):
     """return longitudinal and survival simulation
     and latente variable simulation in the two dict"""
-    obs, sim, key = nlmem_simulation(params, key, N_IND, J_OBS, t_min, t_max)
+    obs, sim, key = lmem_simulation(params, key, N_IND, J_OBS, *args, **kwargs)
 
     key1, key2, key_out = jrd.split(key, num=3)
 
-    def f(t, phi1, phi2, beta_prod_cov, uni):
+    def f(t, phi1, phi2, beta_prod_cov_surv, beta_prod_cov_long, uni):
         """
         For data generation we seek t such that : P(T <= t ) = U([0,1])         # = 1 - S(t)
                                             ie : S(t) = 1 - U([0,1])
 
         where S is the survival function  : S(t) = exp(-int_0^t lbd(s) ds )
         where lbd is the hazard function : lbd(t) = lbd0(t) * exp(beta^T U  + alpha* m(t))
-                                    with : lbd0(t) = b a^-b t^{b-1} = b /a * (t/a)^{b-1}
+                                    with : lbd0(t) = 1
 
         so we seek t such that : - int_0^t lbd(s) ds = log(1 - U([0,1]))
                             ie : int_0^t lbd(s) ds + log(1 - U([0,1])) = 0
         """
 
         def lbd(t):
-            lbd0 = params.b / params.a * (t / params.a) ** (params.b - 1)
-            return lbd0 * jnp.exp(
-                beta_prod_cov
-                + params.alpha * logistic_curve_float(t, phi1, phi2, params.mu3)
+            return jnp.exp(
+                beta_prod_cov_surv
+                + params.alpha
+                * linear_curve_float(t, intercept=phi1 + beta_prod_cov_long, slope=phi2)
             )
 
         t_linspace = jnp.linspace(0, t, num=100)
@@ -96,18 +120,17 @@ def data_simulation(
 
     f = jnp.vectorize(f)
 
-    DIM_COV = params.beta.shape[0]
+    DIM_COV_SURV = params.beta_surv.shape[0]
 
-    cov = jrd.uniform(key1, minval=-1, maxval=1, shape=(N_IND, DIM_COV))
-    cov = cov - cov.mean(axis=0)[None, :]
-    cov = jnp.array(
-        cov,
+    cov_surv = jrd.uniform(key1, minval=-0.1, maxval=0.1, shape=(N_IND, DIM_COV_SURV))
+    cov_surv = cov_surv - cov_surv.mean(axis=0)[None, :]
+    cov_surv = jnp.array(
+        cov_surv,
         dtype=jnp.float32,
     )
 
-    beta_prod_cov_obs = cov @ params.beta
-
-    # print(f"beta^T cov = {beta_prod_cov_obs}")
+    beta_prod_cov_surv = cov_surv @ params.beta_surv
+    beta_prod_cov_long = obs["cov_long"] @ params.beta_long
 
     tmp = [0 for i in range(N_IND)]
     uni = jrd.uniform(key2, shape=(N_IND,))
@@ -117,32 +140,21 @@ def data_simulation(
         args = (
             sim["phi1"][i],
             sim["phi2"][i],
-            beta_prod_cov_obs[i],
+            beta_prod_cov_surv[i],
+            beta_prod_cov_long[i],
             uni[i],
         )
-        tmp[i] = brenth(f, a=0, b=10 * params.a, args=args)
+        tmp[i] = brenth(f, a=0, b=100, args=args)
 
     Tstar = jnp.array(tmp)
 
-    C = (
-        Tstar.sort()[int(N_IND * (1 - censoring))]
-        if censoring != 0.0
-        else Tstar.max() * 2
-    )
-    T = np.array([min(Tstar[i], C) for i in range(N_IND)])
-    delta = Tstar <= C
+    delta = Tstar <= obs["time"].max()  # axis=1)  # jnp.ones(Tstar.shape)  #
+    T = jnp.minimum(Tstar, obs["time"].max())  # axis=1))
 
-    if (obs["time"] < C).sum() < J_OBS:
-        J_NEW = int((obs["time"] < C).sum())
-        warn(
-            f"censuring implies to shrink the longitudinal data to {J_NEW} observations ! \n censuring starting at {C}"
-        )
+    # id = obs["time"] <= T[:, None]
+    # obs["time"] = jnp.where(id, obs["time"], jnp.nan)
 
-    id = [i for i in range(J_OBS) if obs["time"][i] < C]
-    obs["Y"] = obs["Y"][:, id]
-    obs["time"] = obs["time"][obs["time"] < C]
-
-    obs.update({"T": T, "delta": delta, "cov": cov})
+    obs.update({"T": T, "delta": delta, "cov_surv": cov_surv})
     sim.update({"T uncensored": Tstar})
     return obs, sim, key_out
 
@@ -153,24 +165,21 @@ if __name__ == "__main__":
     DIM_COV = 10
     N_IND = 500
 
-    params_star = params_weibull(
-        mu1=0.3,
-        mu2=90.0,
-        mu3=7.5,
-        gamma2_1=0.0025,
-        gamma2_2=20,
-        sigma2=0.001,
-        a=80.0,
-        b=35,
-        alpha=11.11,
-        beta=jnp.concatenate(
-            [jnp.array([-2, -1, 1, 2]), jnp.zeros(shape=(DIM_COV - 4,))]
+    params_star = params_type(
+        mu1=1,
+        mu2=1.5,
+        gamma2_1=2**2,
+        gamma2_2=0.3**2,
+        sigma2=0.1**2,
+        alpha=0.1,
+        beta_surv=10
+        * jnp.concatenate([jnp.array([1, 2, 1, 2]), jnp.zeros(shape=(DIM_COV - 4,))]),
+        beta_long=jnp.concatenate(
+            [jnp.array([0.3, 0.5, 0.3, 0.5]), jnp.zeros(shape=(DIM_COV - 4,))]
         ),
     )
 
-    obs, sim, _ = data_simulation(
-        params_star, jrd.PRNGKey(0), N_IND, 50, t_min=60, t_max=135, censoring=0.0
-    )
+    obs, sim, _ = data_simulation(params_star, jrd.PRNGKey(0), N_IND, 50)
     print(obs)
 
     plt.plot(obs["time"].T, obs["Y"].T, "o-")

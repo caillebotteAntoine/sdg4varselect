@@ -14,7 +14,7 @@ def test_loadnumber():
 def test_step_message():
     assert miscel.step_message(24, 42, maxbar=10) == "24/42 [=====>     ]"
 
-    assert miscel.step_message(41, 42, maxbar=10) == "41/42 [=========> ]\n"
+    assert miscel.step_message(41, 42, maxbar=10) == "41/42 [=========> ]"
 
 
 def test_time2string():

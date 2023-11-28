@@ -2,6 +2,7 @@ from datetime import datetime
 import pickle
 from sdg4varselect.miscellaneous import step_message
 
+# joint_model
 from joint_model.sample import get_params_star, sample
 from joint_model.one_run import get_random_params0
 from joint_model.one_res import method
@@ -57,7 +58,7 @@ def multi_run(
 
             # ================ DATA SET GENERATION ================= #
             data_set, _, prng_key = sample(
-                params_star_weibull, prng_key, N_IND, DIM_COV, J_OBS, censoring
+                params_star_weibull, prng_key, N_IND, J_OBS, censoring
             )
 
             # ================ ESTIMATION ================= #
@@ -108,7 +109,7 @@ def multi_run(
 
         filename += f"_J{J_OBS}_C{int(censoring*100)}"
 
-        with open(f"{filename}.pkl", "wb") as f:
+        with open(f"results/{filename}.pkl", "wb") as f:
             pickle.dump(data, f)
 
         print("RESULT SAVED !\n\n")

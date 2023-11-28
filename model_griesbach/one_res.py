@@ -1,15 +1,13 @@
 # Create by antoine.caillebotte@inrae.fr
 from time import time
-from datetime import datetime
-from sdg4varselect.miscellaneous import time2string, list_to_BIC, step_message
-
 import numpy as np
 
+from sdg4varselect import jnp
+
+from sdg4varselect.miscellaneous import time2string, list_to_BIC, step_message
 from sdg4varselect.solver import shrink_support
 
-from joint_model.one_run import estim, estim_solver
-
-from sdg4varselect import jnp
+from model_griesbach.one_run import estim, estim_solver
 
 
 kwargs_run_GD = {
@@ -175,7 +173,8 @@ def method(
     solver_selection = ls[bic_argmin]
     lbd_selection = path[bic_argmin]
 
-    res = final_estim(solver_selection, params0, lbd_selection, verbatim=verbatim)
+    # res = final_estim(solver_selection, params0, lbd_selection, verbatim=verbatim)
+    res = (res_selection, solver_selection)
 
     if res != -1:
         final_res = res[0]
@@ -198,76 +197,80 @@ def method(
 
 
 if __name__ == "__main__":
-    # from joint_model.sample import get_params_star
+    from datetime import datetime
+    from sdg4varselect import jrd
+
+    from model_griesbach.sample import get_params_star, sample
 
     pass
-    # from work import sdgplt
+    from work import sdgplt
 
-    # # ====================================================== #
-    # print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+    # ====================================================== #
+    print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-    # seed = 1697807204  #
-    # seed = int(time())  #
-    # print(f"seed = {seed}")
-    # prng_key = jrd.PRNGKey(seed)
-    # # ====================================================== #
+    seed = 1697807204  #
+    seed = int(time())  #
+    print(f"seed = {seed}")
+    prng_key = jrd.PRNGKey(seed)
+    # ====================================================== #
 
-    # DIM_COV = 10
-    # N_IND = 20
-    # J_OBS = 5
-    # CENSORING = 0
+    DIM_COV = 10
+    N_IND = 500
+    J_OBS = 5
 
-    # params_star_stack, params_star_weibull = get_params_star(DIM_COV)
+    params_star_stack, params_star, PRNGKey = get_params_star(jrd.PRNGKey(0), DIM_COV)
 
-    # params0 = {
-    #     "mu1": 0.5,  # 1
-    #     "mu2": 50.0,  # 2
-    #     "mu3": 3.0,  # 3
-    #     "gamma2_1": 0.00025,  # 4
-    #     "gamma2_2": 2.0,  # 5
-    #     "sigma2": 0.0001,  # 6
-    #     "alpha": 5.0,  # 7
-    #     "beta": np.random.uniform(-1, 1, size=DIM_COV),
-    # }
-    # lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
-    # # lbd_set = [0.25]
-    # # ====================================================== #
+    params0 = {
+        "mu1": 0.5,
+        "mu2": 0.5,
+        "gamma2_1": 0.1,
+        "gamma2_2": 0.1,
+        "sigma2": 0.1,
+        "alpha": 1.0,
+        "beta_surv": jrd.uniform(jrd.PRNGKey(0), shape=(DIM_COV,), minval=-1, maxval=1),
+        "beta_long": jrd.uniform(jrd.PRNGKey(0), shape=(DIM_COV,), minval=-1, maxval=1),
+    }
 
-    # res = method(
-    #     params0,
-    #     params_star_weibull,
-    #     lbd_set,
-    #     N_IND,
-    #     DIM_COV,
-    #     J_OBS,
-    #     CENSORING,
-    #     prng_key=prng_key,
-    #     verbatim=True,
-    # )
+    lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
+    # lbd_set = [0.25]
+    # ====================================================== #
+    data_set, _, PRNGKey = sample(params_star, PRNGKey, N_IND=100, J_OBS=20)
 
-    # if res != -1:
-    #     (
-    #         final_res,
-    #         final_solver,
-    #         solver_selection,
-    #         res_selection,
-    #         bic,
-    #         ebic,
-    #         theta_reg,
-    #         lbd_selection,
-    #         ls,
-    #         lr,
-    #     ) = res
+    res = method(
+        params0,
+        data_set,
+        lbd_set,
+        N_IND,
+        DIM_COV,
+        prng_key=prng_key,
+        verbatim=True,
+    )
 
-    #     # ====================================================== #
-    #     # fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
+    if res != -1:
+        (
+            final_res,
+            final_solver,
+            solver_selection,
+            res_selection,
+            bic,
+            ebic,
+            theta_reg,
+            lbd_selection,
+            ls,
+            lr,
+        ) = res
 
-    #     # ax, ax_bic = axs
-    #     # ax_ebic = ax.twinx()
-    #     # ax_ebic.plot(lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC")
-    #     # id_min = np.nanargmin(ebic)
-    #     # sdgplt.plot_axvline(ax_ebic, lbd_set, ebic, id_min, color="g", msg="min(eBIC)")
-    #     # ax_ebic.legend(loc="upper right")
+        # ====================================================== #
+        fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
+
+        ax, ax_bic = axs
+        ax_ebic = ax.twinx()
+        ax_ebic.plot(
+            lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC"
+        )
+        id_min = np.nanargmin(ebic)
+        sdgplt.plot_axvline(ax_ebic, lbd_set, ebic, id_min, color="g", msg="min(eBIC)")
+        ax_ebic.legend(loc="upper right")
 
     #     # for res in lr[0]:
     #     #     _, _ = sdgplt.plot_params(

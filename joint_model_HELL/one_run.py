@@ -1,8 +1,20 @@
 from sdg4varselect import jnp, jrd
+from sdg4varselect.gradient import set_gradient_run_parameters
 
-from sdg4varselect.gradient import set_gradient_run_parameters, get_random_params0
-from joint_model.model import jac_likelihood, likelihood, likelihood_array
-from joint_model.sample import get_solver, sample
+from joint_model_HELL.model import jac_likelihood, likelihood, likelihood_array
+from joint_model_HELL.sample import get_solver, sample
+
+
+def get_random_params0(prng_key, params0, error=0.2):
+    p = params0.copy()
+    for key in p:
+        key_new, prng_key = jrd.split(prng_key, 2)
+        p[key] *= float(jrd.uniform(key_new, minval=1.0 - error))
+
+    key_new, prng_key = jrd.split(prng_key, 2)
+    p["beta"] = jrd.uniform(prng_key, shape=p["beta"].shape, minval=-1, maxval=1)
+
+    return p, key_new
 
 
 def estim_solver(solver, niter, kwargs_run_GD, verbatim=False, **run_parameters):
@@ -48,25 +60,22 @@ def estim(
     return res, solver, error_flag, key
 
 
-# ============================== #
-# ============ TEST ============ #
-# ============================== #
 if __name__ == "__main__":
     from sample import get_params_star
     from time import time
 
     DIM_COV = 5
     params0_start = {
-        "mu1": 0.5,  # 1
-        "mu2": 50.0,  # 2
-        "mu3": 3.0,  # 3
-        "gamma2_1": 0.00025,  # 4
-        "gamma2_2": 2.0,  # 5
-        "sigma2": 0.0001,  # 6
-        "alpha": 0.01,  # 7
-        "beta": jrd.uniform(
-            jrd.PRNGKey(int(time())), shape=(DIM_COV,), minval=-1, maxval=1
-        ),
+        "mu1": 0.5,
+        "mu2": 0.5,
+        "gamma2_1": 0.1,
+        "gamma2_2": 0.1,
+        "sigma2": 0.001,
+        "alpha": 0.001,
+        "beta": jnp.zeros(shape=(DIM_COV,))
+        # "beta": jrd.uniform(
+        #     jrd.PRNGKey(int(time())), shape=(DIM_COV,), minval=-1, maxval=1
+        # ),
     }
 
     params_star_stack, params_star_weibull, PRNGKey = get_params_star(
@@ -74,12 +83,13 @@ if __name__ == "__main__":
     )
 
     data_set, sim, PRNGKey = sample(
-        params_star_weibull, PRNGKey, 100, 20, CENSORING=0.2
+        params_star_weibull, PRNGKey, 100, 20, CENSORING=0.0
     )
     ls = []
     lr = []
-    for i in range(5):
+    for i in range(10):
         params0, PRNGKey = get_random_params0(PRNGKey, params0_start)
+        params0["beta"] = jnp.zeros(shape=(DIM_COV,))
 
         solver, PRNGKey = get_solver(
             jrd.PRNGKey(int(time())), params0, data_set, likelihood, likelihood_array
@@ -122,8 +132,6 @@ if __name__ == "__main__":
     from work import sdgplt
     import numpy as np
 
-    solver = ls[0]
-
     _, _ = sdgplt.plot_params(
         x=res.theta[:-1],
         x_star=np.array(params_star_stack),
@@ -132,9 +140,9 @@ if __name__ == "__main__":
         logscale=False,
     )
 
-    _, _ = sdgplt.plot_params_hd(res.theta, p=DIM_COV, location="right")
+    _, _ = sdgplt.plot_params_hd(res.theta, p=2 * DIM_COV, location="right")
 
-    _, _ = sdgplt.plot_params_hd(res.grad, p=DIM_COV, location="right")
+    _, _ = sdgplt.plot_params_hd(res.grad, p=2 * DIM_COV, location="right")
 
     # for var in solver.latent_variables.values():
     #     sdgplt.plot_mcmc(var)
@@ -144,7 +152,7 @@ if __name__ == "__main__":
     def plot_beta(theta, threshold=0):
         fig = sdgplt.figure()
         ax = fig.add_subplot(1, 1, 1)
-        beta = theta[:, 7:]
+        beta = theta
         # beta_support = beta.sum(axis=0) != 0
         num_support = (beta != 0).sum(axis=0)
         print(num_support)
@@ -156,10 +164,18 @@ if __name__ == "__main__":
         #
 
         ax.boxplot(beta[:, id])
-        ax.plot(xticks, params_star_stack[7:][id], "bs", label="true value")
+        ax.plot(xticks, params_star_stack[id], "bs", label="true value")
         ax.set_xticks(xticks, id)
         ax.legend()
 
         return fig, ax
 
     plot_beta(theta)
+
+    cov = data_set["cov"]
+
+    sdgplt.figure()
+    _ = sdgplt.plot([cov @ beta[6:] for beta in res.theta])
+
+    sdgplt.figure()
+    _ = sdgplt.plot([beta[6:] for beta in res.theta])

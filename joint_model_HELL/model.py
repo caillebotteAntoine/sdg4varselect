@@ -4,13 +4,13 @@ from collections import namedtuple
 from functools import partial
 
 from sdg4varselect import jacrev, jit, jnp, jacfwd
-from sdg4varselect.logistic_model import gaussian_prior, logistic_curve
+from sdg4varselect.linear_model import gaussian_prior, linear_curve
 
 # ====================== PARAMIETRIZATION ===================== #
 # ============================================================= #
 params = namedtuple(
     "params",
-    ("mu1", "mu2", "mu3", "gamma2_1", "gamma2_2", "sigma2", "alpha", "beta"),
+    ("mu1", "mu2", "gamma2_1", "gamma2_2", "sigma2", "alpha", "beta"),
 )
 # ==================================================== #
 # ==================== LIKELIHOOD ==================== #
@@ -22,7 +22,6 @@ def log_hazard(
     time: jnp.ndarray,  # shape = (N,num)
     phi1: jnp.ndarray,  # shape = (N,)
     phi2: jnp.ndarray,  # shape = (N,)
-    mu3: jnp.ndarray,  # shape = (1,)
     a: jnp.ndarray,  # shape = (1,)
     b: jnp.ndarray,  # shape = (1,)
     beta: jnp.ndarray,  # shape = (p,)
@@ -35,7 +34,7 @@ def log_hazard(
     return : log(b/a) + (b-1)*log(t/a) + beta^T U + alpha*m(t)
     """
 
-    logistic_value = logistic_curve(time, phi1, phi2, jnp.array([mu3]))
+    logistic_value = linear_curve(time, phi1, phi2)
     assert logistic_value.shape == time.shape
 
     log_h_0 = jnp.log(b / a)
@@ -74,8 +73,7 @@ def likelihood_survival_without_prior(
         "time": time_s,
         "phi1": phi1,
         "phi2": phi2,
-        "mu3": params.mu3,
-        "a": 80,  # params_star_weibull.a,params.a,  #
+        "a": 110,  # params_star_weibull.a,params.a,  #
         "b": 35,  # params_star_weibull.b,params.b,  #
         "alpha": params.alpha,
         "beta": params.beta,
@@ -109,8 +107,10 @@ def likelihood_nlmem_without_prior(
     assert phi1.shape == (N,)
     assert phi2.shape == (N,)
 
-    pred = logistic_curve(
-        time, supremum=phi1, midpoint=phi2, growth_rate=jnp.array([params.mu3])
+    pred = linear_curve(
+        time,
+        intercept=phi1,
+        slope=phi2,
     )  # shape = (N,J)
 
     likelihood_nlmem = -J / 2 * jnp.log(2 * jnp.pi * params.sigma2) - jnp.nansum(
@@ -157,8 +157,8 @@ def likelihood(theta_reals1d, parametrization, **kwargs):
     return likelihood_array(theta_reals1d, parametrization, **kwargs).sum()
 
 
-# jacfwd is more efficient for tall matrix
-# jacrev is more efficient for wide matrix
+# jacfwd if more efficient for tall matrix
+# jacrev if more efficient for wide matrix
 
 un_jit_jac_likelihood = jacfwd(likelihood_array)
 

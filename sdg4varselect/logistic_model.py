@@ -9,44 +9,15 @@ def logistic_curve_float(x, supremum: float, midpoint: float, growth_rate: float
 
 
 @jit
-def logistic_curve_vector(
-    time: jnp.ndarray,  # shape = (J,) [None, :]
-    supremum: jnp.ndarray,  # shape = (N,) [:,None]
-    midpoint: jnp.ndarray,  # shape = (N,) [:,None]
-    growth_rate: jnp.ndarray,  # shape = (1,) [:,None]
-) -> jnp.ndarray:  # shape = (N,J)
-
-    return supremum[:, None] / (
-        1 + jnp.exp(-(time[None, :] - midpoint[:, None]) / growth_rate[:, None])
-    )
-
-
-@jit
-def logistic_curve_matrix(
-    time: jnp.ndarray,  # shape = (N,J)
-    supremum: jnp.ndarray,  # shape = (N,) [:,None]
-    midpoint: jnp.ndarray,  # shape = (N,) [:,None]
-    growth_rate: jnp.ndarray,  # shape = (1,) [:,None]
-) -> jnp.ndarray:  # shape = (N,J)
-
-    return supremum[:, None] / (
-        1 + jnp.exp(-(time - midpoint[:, None]) / growth_rate[:, None])
-    )
-
-
-@jit
 def logistic_curve(
     time: jnp.ndarray,  # shape = (J,) [None, :]
     supremum: jnp.ndarray,  # shape = (N,) [:,None]
     midpoint: jnp.ndarray,  # shape = (N,) [:,None]
-    growth_rate: jnp.ndarray,  # shape = (1,) [:,None]
+    growth_rate: jnp.ndarray,  # shape = (N,) [:,None]
 ) -> jnp.ndarray:  # shape = (N,J)
-
-    assert len(time.shape) <= 2
-    if len(time.shape) == 1:
-        return logistic_curve_vector(time, supremum, midpoint, growth_rate)
-    else:
-        return logistic_curve_matrix(time, supremum, midpoint, growth_rate)
+    return supremum[:, None] / (
+        1 + jnp.exp(-(time - midpoint[:, None]) / growth_rate[:, None])
+    )
 
 
 @jit

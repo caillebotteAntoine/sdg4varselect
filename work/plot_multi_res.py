@@ -7,7 +7,7 @@ import sdgplt
 
 folder = "images"
 
-with open("../run_script/1699870656_multi_N100_P200_J5_C0.pkl", "rb") as f:
+with open("../run_script/1699995084_multi_N100_P200_J5_C20.pkl", "rb") as f:
     data = pickle.load(f)
 
 # 50 full random beta0
@@ -126,16 +126,11 @@ def plot_beta(theta, threshold=0):
     fig = sdgplt.figure()
     ax = fig.add_subplot(1, 1, 1)
     beta = theta[:, 7:]
-    beta_support = beta.sum(axis=0) != 0
+    # beta_support = beta.sum(axis=0) != 0
     num_support = (beta != 0).sum(axis=0)
+    print(num_support)
 
-    id = np.array(
-        [
-            i
-            for i in range(len(beta_support))
-            if beta_support[i] and num_support[i] > threshold
-        ]
-    )
+    id = np.array([i for i in range(len(num_support)) if num_support[i] >= threshold])
     xticks = [i + 1 for i in range(len(id))]
     #
 
