@@ -144,6 +144,12 @@ if __name__ == "__main__":
         ),  # jrd.uniform(jrd.PRNGKey(0), shape=(DIM_COV,), minval=-1, maxval=1),
     }
 
+    params0_start["mu1"] = 1
+    params0_start["mu2"] = 1.5
+    params0_start["gamma2_1"] = 2**2
+    params0_start["gamma2_2"] = 0.3**2
+    params0_start["sigma2"] = 0.1**2
+    params0_start["alpha"] = 0.1
     params_star_stack, params_star, PRNGKey = get_params_star(
         jrd.PRNGKey(int(time())), DIM_COV
     )
@@ -153,7 +159,7 @@ if __name__ == "__main__":
     ls = []
     lr = []
     for i in range(1):
-        params0, PRNGKey = get_random_params0(PRNGKey, params0_start)
+        params0, PRNGKey = get_random_params0(PRNGKey, params0_start, error=0.0)
 
         solver, PRNGKey = get_solver(
             jrd.PRNGKey(int(time())), params0, data_set, likelihood, likelihood_array

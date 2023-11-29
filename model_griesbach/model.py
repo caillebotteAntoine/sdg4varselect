@@ -98,7 +98,7 @@ def likelihood_nlmem_without_prior(
 ) -> jnp.ndarray:
     """return likelihood without the gaussian prior"""
     N, J = Y.shape
-    assert time.shape == (J,)
+    assert time.shape == (N, J)
     assert phi1.shape == (N,)
     assert phi2.shape == (N,)
 

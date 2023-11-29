@@ -82,8 +82,8 @@ def gradient_descent_fisher_preconditionner_with_mask(
     # Gradient
     grad = jac.mean(axis=0)
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
-    # for i in range(3, 5):
-    #     grad = grad.at[i].set(0)
+    for i in range(0, 6):
+        grad = grad.at[i].set(0)
 
     # grad = grad.at[6].set(0)
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
