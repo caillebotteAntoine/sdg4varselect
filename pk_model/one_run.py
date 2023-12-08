@@ -1,8 +1,8 @@
-from sdg4varselect import jnp, jrd, learning_rate
+from sdg4varselect import jnp, jrd
 
 from sdg4varselect.gradient import set_gradient_run_parameters, get_random_params0
-from model_griesbach.model import jac_likelihood, likelihood, likelihood_array
-from model_griesbach.sample import get_solver, sample
+from pk_model.model import jac_likelihood, likelihood, likelihood_array
+from pk_model.sample import get_solver, sample
 
 
 def estim_solver(solver, niter, kwargs_run_GD, verbatim=False, **run_parameters):
@@ -12,11 +12,10 @@ def estim_solver(solver, niter, kwargs_run_GD, verbatim=False, **run_parameters)
 
     # ====================================================== #
     params = solver.params
-    (DIM_COV_SURV,) = params.beta_surv.shape
-    (DIM_COV_LONG,) = params.beta_long.shape
+    (DIM_COV,) = params.beta.shape
     fisher_mask = (
-        jnp.arange(0, len(params) + DIM_COV_SURV + DIM_COV_LONG - 2) < len(params) - 3
-    )  # -2 car on veut pas de 2 paramètre beta_surv, beta_long and alpha
+        jnp.arange(0, len(params) + DIM_COV - 1) < len(params) - 2
+    )  # -2 car on veut pas de 2 paramètre beta and alpha
     # ====================================================== #
 
     error_flag = False
@@ -30,7 +29,7 @@ def estim_solver(solver, niter, kwargs_run_GD, verbatim=False, **run_parameters)
         res, error_flag = solver.stochastic_gradient(
             jac_likelihood=jac_likelihood,
             fisher_mask=fisher_mask,
-            p=DIM_COV_SURV + DIM_COV_LONG,
+            p=DIM_COV,
             niter=niter,
             **kwargs_run_GD,
         )
@@ -49,55 +48,43 @@ def estim(
     return res, solver, error_flag, key
 
 
+# ============================== #
+# ============ TEST ============ #
+# ============================== #
 if __name__ == "__main__":
     from sample import get_params_star
     from time import time
 
-    DIM_COV = 4
-    N_IND = 100
-    params_star_stack, params_star, PRNGKey = get_params_star(
-        jrd.PRNGKey(0), DIM_COV
-    )  #
-
+    DIM_COV = 100
     params0_start = {
-        "mu1": 0.5,
-        "mu2": 0.5,
-        "gamma2_1": 0.1,
-        "gamma2_2": 0.1,
-        "sigma2": 0.001,
-        "alpha": 0.001,
-        "beta_surv": jnp.ones(
-            shape=(DIM_COV,)
-        ),  # jrd.uniform(jrd.PRNGKey(0), shape=(DIM_COV,), minval=-1, maxval=1),
-        "beta_long": -jnp.ones(
-            shape=(DIM_COV,)
-        ),  # jrd.uniform(jrd.PRNGKey(0), shape=(DIM_COV,), minval=-1, maxval=1),
+        "mu1": 5,  # 1
+        "mu2": 5,  # 2
+        "mu3": 30,  # 3
+        "gamma2_1": 0.01,  # 4
+        "gamma2_2": 0.01,  # 5
+        "sigma2": 0.0001,  # 6
+        "alpha": 0.01,  # 7
+        "beta": jrd.uniform(
+            jrd.PRNGKey(int(time())), shape=(DIM_COV,), minval=-1, maxval=1
+        ),
     }
 
-    params0_start["mu1"] = params_star.mu1
-    params0_start["mu2"] = params_star.mu2
-    params0_start["gamma2_1"] = params_star.gamma2_1
-    params0_start["gamma2_2"] = params_star.gamma2_2
-    params0_start["sigma2"] = params_star.sigma2
-    params0_start["alpha"] = params_star.alpha
-    params0_start["beta_long"] = params_star.beta_long
-    params0_start["beta_surv"] = params_star.beta_surv
+    params_star_stack, params_star_weibull, PRNGKey = get_params_star(
+        jrd.PRNGKey(int(time())), DIM_COV
+    )
 
-    data_set, sim, _ = sample(params_star, jrd.PRNGKey(0), N_IND=N_IND, J_OBS=5)
-
+    data_set, sim, PRNGKey = sample(
+        params_star_weibull, PRNGKey, 100, 5, weibull_censoring_loc=200
+    )
     ls = []
     lr = []
     for i in range(2):
         params0, PRNGKey = get_random_params0(
-            PRNGKey, params0_start, error=0.2, uniform_on=["beta_surv", "beta_long"]
-        )
-        params0 = params0_start
-        params0["beta_surv"] = jrd.uniform(
-            PRNGKey, shape=(DIM_COV,), minval=-1, maxval=1
+            PRNGKey, params0_start, error=0.2, uniform_on="beta"
         )
 
         kwargs_run_GD = {
-            "prox_regul": 0.5,
+            "prox_regul": 0.005,
             "proximal_operator": False,
         }
 
@@ -113,15 +100,15 @@ if __name__ == "__main__":
             lr=1e-8,
             # Grad
             plateau_grad=1000,
-            plateau_grad_size=10000,
+            plateau_grad_size=400,
             scale_grad=1,
             # Jac
             plateau_jac=1000,
-            plateau_jac_size=10000,
+            plateau_jac_size=1000,
             scale_jac=1,
             # Fim
             plateau_fim=1000,
-            plateau_fim_size=20000,
+            plateau_fim_size=2000,
             scale_fim=0.9,
         )
 
@@ -134,32 +121,27 @@ if __name__ == "__main__":
     fig, ax = sdgplt.plot_params(
         x=res.theta[:-1],
         x_star=np.array(params_star_stack),
-        p=DIM_COV * 2,
+        p=DIM_COV,
         names=solver.params_names,
         logscale=False,
     )
     for i in range(len(lr) - 1):
-        for k in range(lr[i].theta[:-1].shape[1] - DIM_COV * 2):
+        for k in range(lr[i].theta[:-1].shape[1] - DIM_COV):
             ax[k].plot(lr[i].theta[:-1][:, k])
 
-    beta = res.theta[:, 6:10]
+    beta = res.theta[:, 7:]
     fig, ax = sdgplt.plot_params(
         x=beta,
-        x_star=np.array(params_star_stack)[6:10],
+        x_star=np.array(params_star_stack)[7:],
         p=0,
         logscale=False,
     )
     for i in range(len(lr) - 1):
-        beta = lr[i].theta[:, 6:10]
+        beta = lr[i].theta[:, 7:]
         for k in range(beta.shape[1]):
             ax[k].plot(beta[:, k])
 
-    sdgplt.figure()
-    _ = sdgplt.plot(np.array([res.likelihood for res in lr]).T)
-
-    # _, _ = sdgplt.plot_params_hd(res.theta, p=2 * DIM_COV, location="right")
-
-    # _, _ = sdgplt.plot_params_hd(res.grad, p=2 * DIM_COV, location="right")
+    # _, _ = sdgplt.plot_params_hd(res.theta, p=DIM_COV, location="right")
 
     # for var in solver.latent_variables.values():
     #     sdgplt.plot_mcmc(var)
@@ -169,7 +151,7 @@ if __name__ == "__main__":
     def plot_beta(theta, threshold=0):
         fig = sdgplt.figure()
         ax = fig.add_subplot(1, 1, 1)
-        beta = theta[:, 6:]
+        beta = theta[:, 7:]
         # beta_support = beta.sum(axis=0) != 0
         num_support = (beta != 0).sum(axis=0)
         print(num_support)
@@ -181,27 +163,10 @@ if __name__ == "__main__":
         #
 
         ax.boxplot(beta[:, id])
-        ax.plot(xticks, params_star_stack[6:][id], "bs", label="true value")
+        ax.plot(xticks, params_star_stack[7:][id], "bs", label="true value")
         ax.set_xticks(xticks, id)
         ax.legend()
 
         return fig, ax
 
     plot_beta(theta)
-
-    thetahat = solver.params
-    print(solver.likelihood_marginal(1000, theta=solver.theta_reals1d))
-    solver.theta_reals1d = params0_start
-    print(solver.likelihood_marginal(1000, theta=solver.theta_reals1d))
-
-    sdgplt.figure()
-    _ = sdgplt.plot(
-        np.exp(
-            np.array(
-                [
-                    (solver.likelihood_kwargs["cov_long"] @ res.theta[i, 6:10])
-                    for i in range(2000)
-                ]
-            )
-        )
-    )

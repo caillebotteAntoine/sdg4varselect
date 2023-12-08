@@ -56,6 +56,8 @@ if __name__ == "__main__":
     from time import time
 
     DIM_COV = 5
+    N_IND = 100
+    J_OBS = 5
     params0_start = {
         "mu1": 0.5,  # 1
         "mu2": 50.0,  # 2
@@ -74,18 +76,17 @@ if __name__ == "__main__":
     )
 
     data_set, sim, PRNGKey = sample(
-        params_star_weibull, PRNGKey, 100, 20, CENSORING=0.2
+        params_star_weibull, PRNGKey, N_IND, J_OBS, weibull_censoring_loc=2000
     )
+
+    print(f'censoring = {int((1-data_set["delta"].mean())*100)}%')
+
     ls = []
     lr = []
-    for i in range(5):
-        params0, PRNGKey = get_random_params0(PRNGKey, params0_start)
-
-        solver, PRNGKey = get_solver(
-            jrd.PRNGKey(int(time())), params0, data_set, likelihood, likelihood_array
+    for i in range(2):
+        params0, PRNGKey = get_random_params0(
+            PRNGKey, params0_start, error=0.2, uniform_on="beta"
         )
-
-        # print(data_set)
 
         kwargs_run_GD = {
             "prox_regul": 0.005,
@@ -122,19 +123,30 @@ if __name__ == "__main__":
     from work import sdgplt
     import numpy as np
 
-    solver = ls[0]
-
-    _, _ = sdgplt.plot_params(
+    fig, ax = sdgplt.plot_params(
         x=res.theta[:-1],
         x_star=np.array(params_star_stack),
-        p=0,  # DIM_COV * 2,
+        p=DIM_COV,
         names=solver.params_names,
         logscale=False,
     )
+    for i in range(len(lr) - 1):
+        for k in range(lr[i].theta[:-1].shape[1] - DIM_COV):
+            ax[k].plot(lr[i].theta[:-1][:, k])
 
-    _, _ = sdgplt.plot_params_hd(res.theta, p=DIM_COV, location="right")
+    beta = res.theta[:, 7:]
+    fig, ax = sdgplt.plot_params(
+        x=beta,
+        x_star=np.array(params_star_stack)[7:],
+        p=0,
+        logscale=False,
+    )
+    for i in range(len(lr) - 1):
+        beta = lr[i].theta[:, 7:]
+        for k in range(beta.shape[1]):
+            ax[k].plot(beta[:, k])
 
-    _, _ = sdgplt.plot_params_hd(res.grad, p=DIM_COV, location="right")
+    # _, _ = sdgplt.plot_params_hd(res.theta, p=DIM_COV, location="right")
 
     # for var in solver.latent_variables.values():
     #     sdgplt.plot_mcmc(var)

@@ -8,7 +8,7 @@ from joint_model.one_run import get_random_params0
 from joint_model.one_res import method
 
 from time import time
-from sdg4varselect import jrd
+from sdg4varselect import jrd, jnp
 
 
 # ====================================================== #
@@ -21,15 +21,13 @@ def multi_run(
     CENSORING,
     nrun,
     seed=None,
-    beta_type="normal",
-    percentage=None,
 ):
     if not isinstance(CENSORING, list):
         CENSORING = [CENSORING]
 
     for censoring in CENSORING:
         msg = f"n = {N_IND}, p = {DIM_COV}, J = {J_OBS}, C = {censoring}"
-        msg = "\n" + "=" * len(msg) + msg + "\n" + "=" * len(msg)
+        msg = "\n" + "=" * len(msg) + "\n" + msg + "\n" + "=" * len(msg)
         print(msg)
 
         if seed is None:
@@ -40,7 +38,7 @@ def multi_run(
         print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
         # ====================================================== #
         params_star_stack, params_star_weibull, prng_key = get_params_star(
-            prng_key, DIM_COV, beta_type, percentage
+            prng_key, DIM_COV
         )
         # ====================================================== #
 
@@ -50,6 +48,7 @@ def multi_run(
         lbic = []
         lebic = []
         ltheta_reg = []
+        lcensoring_rate = []
 
         for i in range(nrun):
             print("\nrun = " + step_message(i, nrun), end="\n")
@@ -60,6 +59,8 @@ def multi_run(
             data_set, _, prng_key = sample(
                 params_star_weibull, prng_key, N_IND, J_OBS, censoring
             )
+            censoring_rate = 1 - data_set["delta"].mean()
+            print(f"censoring = {int(censoring_rate*100)}%")
 
             # ================ ESTIMATION ================= #
             params_start, prng_key = get_random_params0(prng_key, params0, error=0.2)
@@ -81,6 +82,7 @@ def multi_run(
                 lbic.append(bic)
                 lebic.append(ebic)
                 ltheta_reg.append(theta_reg)
+                lcensoring_rate.append(censoring_rate)
 
         print("\nrun = " + step_message(nrun, nrun), end="\n")
 
@@ -100,14 +102,13 @@ def multi_run(
             "lebic": lebic,
             "ltheta_reg": ltheta_reg,
             "lbd_set": lbd_set,
+            "lcensoring_rate": lcensoring_rate,
             "seed": seed,
         }
 
         filename = f"{int(seed)}_multi_N{N_IND}_P{DIM_COV}"
-        if percentage is not None:
-            filename += f"_{int(percentage*100)}"
 
-        filename += f"_J{J_OBS}_C{int(censoring*100)}"
+        filename += f"_J{J_OBS}_C{int(jnp.array(lcensoring_rate).mean()*100)}"
 
         with open(f"results/{filename}.pkl", "wb") as f:
             pickle.dump(data, f)

@@ -2,10 +2,8 @@
 from time import time
 from datetime import datetime
 from sdg4varselect.miscellaneous import time2string, list_to_BIC, step_message
-
-import numpy as np
-
 from sdg4varselect.solver import shrink_support
+
 
 from joint_model.one_run import estim, estim_solver
 
@@ -118,7 +116,7 @@ def final_estim(solver, parameters0, prox_regul, verbatim=False):
         lr=1e-8,
         # Grad
         plateau_grad=1000,
-        plateau_grad_size=100,
+        plateau_grad_size=400,
         scale_grad=1,
         # Jac
         plateau_jac=1000,
@@ -170,7 +168,7 @@ def method(
     # ============================================ #
     # ================ INFERENCE ================= #
     # ============================================ #
-    bic_argmin = np.argmin(bic)
+    bic_argmin = jnp.argmin(bic)
     res_selection = lr[bic_argmin]
     solver_selection = ls[bic_argmin]
     lbd_selection = path[bic_argmin]
@@ -198,167 +196,131 @@ def method(
 
 
 if __name__ == "__main__":
-    # from joint_model.sample import get_params_star
+    from sample import get_params_star, sample
+    from sdg4varselect import jrd
+    from sdg4varselect.gradient import get_random_params0
 
-    pass
-    # from work import sdgplt
-
-    # # ====================================================== #
-    # print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
-
-    # seed = 1697807204  #
-    # seed = int(time())  #
-    # print(f"seed = {seed}")
-    # prng_key = jrd.PRNGKey(seed)
-    # # ====================================================== #
-
-    # DIM_COV = 10
-    # N_IND = 20
-    # J_OBS = 5
-    # CENSORING = 0
-
-    # params_star_stack, params_star_weibull = get_params_star(DIM_COV)
-
-    # params0 = {
-    #     "mu1": 0.5,  # 1
-    #     "mu2": 50.0,  # 2
-    #     "mu3": 3.0,  # 3
-    #     "gamma2_1": 0.00025,  # 4
-    #     "gamma2_2": 2.0,  # 5
-    #     "sigma2": 0.0001,  # 6
-    #     "alpha": 5.0,  # 7
-    #     "beta": np.random.uniform(-1, 1, size=DIM_COV),
-    # }
-    # lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
-    # # lbd_set = [0.25]
-    # # ====================================================== #
-
-    # res = method(
-    #     params0,
-    #     params_star_weibull,
-    #     lbd_set,
-    #     N_IND,
-    #     DIM_COV,
-    #     J_OBS,
-    #     CENSORING,
-    #     prng_key=prng_key,
-    #     verbatim=True,
-    # )
-
-    # if res != -1:
-    #     (
-    #         final_res,
-    #         final_solver,
-    #         solver_selection,
-    #         res_selection,
-    #         bic,
-    #         ebic,
-    #         theta_reg,
-    #         lbd_selection,
-    #         ls,
-    #         lr,
-    #     ) = res
-
-    #     # ====================================================== #
-    #     # fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
-
-    #     # ax, ax_bic = axs
-    #     # ax_ebic = ax.twinx()
-    #     # ax_ebic.plot(lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC")
-    #     # id_min = np.nanargmin(ebic)
-    #     # sdgplt.plot_axvline(ax_ebic, lbd_set, ebic, id_min, color="g", msg="min(eBIC)")
-    #     # ax_ebic.legend(loc="upper right")
-
-    #     # for res in lr[0]:
-    #     #     _, _ = sdgplt.plot_params(
-    #     #         x=res.theta,
-    #     #         x_star=np.array(params_star_stack),
-    #     #         p=DIM_COV,
-    #     #         names=final_solver.params_names,
-    #     #         logscale=False,
-    #     #     )
-
-    #     # ====================================================== #
-    #     params_names = solver_selection.params_names
-
-    #     fig = sdgplt.figure()
-    #     solver_selection.step_size.plot(label="Jac step size")
-    #     solver_selection.step_size_fisher.plot(label="FIM step size")
-    #     solver_selection.step_size_grad.plot(label="gradient step size")
-    #     sdgplt.plt.legend()
-
-    #     _, _ = sdgplt.plot_params_grad(
-    #         res_selection.theta,
-    #         res_selection.grad_precond,
-    #         np.array(params_star_stack),
-    #         p=DIM_COV,
-    #         names=params_names,
-    #         logscale=False,
-    #     )
-
-    #     _, _ = sdgplt.plot_params_hd(res_selection.theta, p=DIM_COV, location="right")
-
-    #     print(res_selection.theta[-1][:DIM_COV])
-
-    #     # =========================#
-    #     _, _ = sdgplt.plot_params_grad(
-    #         final_res.theta,
-    #         final_res.grad_precond,
-    #         np.array(params_star_stack),
-    #         p=DIM_COV,
-    #         names=params_names,
-    #         logscale=False,
-    #     )
-
-    #     _, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
-
-    #     print(final_res.theta[-1][:DIM_COV])
-
-    #     print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+    from work import sdgplt
 
     # ====================================================== #
-    # def extract_data(res, solver):
-    #     latent_variables = ls[np.argmin(bic)].latent_variables
-    #     for var in latent_variables.values():
-    #         var.likelihood = None
+    print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
-    #     data = {
-    #         "theta": res.theta,
-    #         "grad_precond": res.grad_precond,
-    #         "likelihood": res.likelihood,
-    #         "latent_variables": latent_variables,
-    #         "jac_min": [res.jac[i].min() for i in range(len(res.jac))],
-    #         "jac_max": [res.jac[i].max() for i in range(len(res.jac))],
-    #         "fim_det": [jnp.linalg.det(x) for x in res.fisher_info],
-    #         "fim_vp": np.array([jnp.linalg.eigvalsh(x) for x in res.fisher_info]),
-    #     }
-    #     return data
+    seed = int(time())
+    print(f"seed = {seed}")
+    prng_key = jrd.PRNGKey(seed)
+    # ================ DATA SET GENERATION ================= #
+    DIM_COV = 5
+    N_IND = 100
+    J_OBS = 5
+    CENSORING = 2000
 
-    # data_selection = extract_data(res_selection, ls[np.argmin(bic)])
+    params_star_stack, params_star_weibull, PRNGKey = get_params_star(
+        jrd.PRNGKey(int(time())), DIM_COV
+    )
 
-    # data_final = extract_data(final_res, final_solver) if final_res != -1 else -1
+    data_set, _, prng_key = sample(
+        params_star_weibull, prng_key, N_IND, J_OBS, weibull_censoring_loc=CENSORING
+    )
+    print(f'censoring = {int((1-data_set["delta"].mean())*100)}%')
 
-    # step_size = {
-    #     "jac": final_solver.step_size,
-    #     "fisher": final_solver.step_size_fisher,
-    #     "gradient": final_solver.step_size_grad,
-    # }
+    # ================ ESTIMATION ================= #
+    params0 = {
+        "mu1": 0.5,  # 1
+        "mu2": 50.0,  # 2
+        "mu3": 3.0,  # 3
+        "gamma2_1": 0.00025,  # 4
+        "gamma2_2": 2.0,  # 5
+        "sigma2": 0.0001,  # 6
+        "alpha": 0.01,  # 7
+        "beta": jrd.uniform(
+            jrd.PRNGKey(int(time())), shape=(DIM_COV,), minval=-1, maxval=1
+        ),
+    }
 
-    # data = {
-    #     "res_selection": data_selection,
-    #     "res_final": data_final,
-    #     "bic": bic,
-    #     "ebic": ebic,
-    #     "theta_reg": theta_reg,
-    #     "lbd_set": lbd_set,
-    #     "params_names": ls[0].params_names,
-    #     "step_size": step_size,
-    #     "DIM_COV": DIM_COV,
-    #     "N_IND": N_IND,
-    #     "params_star_stack": params_star_stack,
-    # }
+    params_start, prng_key = get_random_params0(
+        prng_key, params0, error=0.2, uniform_on="beta"
+    )
+    lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
+    # lbd_set = [0.25]
+    # ====================================================== #
 
-    # with open("res_selection.pkl", "wb") as f:
-    #     pickle.dump(data, f)
+    res = method(
+        params_start,
+        data_set,
+        lbd_set,
+        N_IND,
+        DIM_COV,
+        prng_key=prng_key,
+        verbatim=False,
+    )
 
-    # print("RESULT SAVED !")
+    if res != -1:
+        (
+            final_res,
+            final_solver,
+            solver_selection,
+            res_selection,
+            bic,
+            ebic,
+            theta_reg,
+            lbd_selection,
+            ls,
+            lr,
+        ) = res
+
+        # ====================================================== #
+        fig, axs = sdgplt.plot_regularization_path(theta_reg, lbd_set, bic)
+
+        # ax, ax_bic = axs
+        # ax_ebic = ax.twinx()
+        # ax_ebic.plot(lbd_set, ebic, color="r", linewidth=2, linestyle="--", label="eBIC")
+        # id_min = np.nanargmin(ebic)
+        # sdgplt.plot_axvline(ax_ebic, lbd_set, ebic, id_min, color="g", msg="min(eBIC)")
+        # ax_ebic.legend(loc="upper right")
+
+        # for res in lr[0]:
+        #     _, _ = sdgplt.plot_params(
+        #         x=res.theta,
+        #         x_star=np.array(params_star_stack),
+        #         p=DIM_COV,
+        #         names=final_solver.params_names,
+        #         logscale=False,
+        #     )
+
+        # ====================================================== #
+        params_names = solver_selection.params_names
+
+        fig = sdgplt.figure()
+        solver_selection.step_size.plot(label="Jac step size")
+        solver_selection.step_size_fisher.plot(label="FIM step size")
+        solver_selection.step_size_grad.plot(label="gradient step size")
+        sdgplt.plt.legend()
+
+        _, _ = sdgplt.plot_params_grad(
+            res_selection.theta,
+            res_selection.grad_precond,
+            jnp.array(params_star_stack),
+            p=DIM_COV,
+            names=params_names,
+            logscale=False,
+        )
+
+        _, _ = sdgplt.plot_params_hd(res_selection.theta, p=DIM_COV, location="right")
+
+        print(res_selection.theta[-1][:DIM_COV])
+
+        # =========================#
+        _, _ = sdgplt.plot_params_grad(
+            final_res.theta,
+            final_res.grad_precond,
+            jnp.array(params_star_stack),
+            p=DIM_COV,
+            names=params_names,
+            logscale=False,
+        )
+
+        _, _ = sdgplt.plot_params_hd(final_res.theta, p=DIM_COV, location="right")
+
+        print(final_res.theta[-1][:DIM_COV])
+
+        print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')

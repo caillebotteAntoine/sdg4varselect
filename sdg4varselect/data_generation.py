@@ -3,76 +3,96 @@
 from scipy.optimize import brenth
 import numpy as np
 from warnings import warn
-from collections import namedtuple
 
 from sdg4varselect import jnp, jrd
-from sdg4varselect.logistic_model import (
-    logistic_curve,
-    logistic_curve_float,
-)
 
-# ============================================================= #
-# ====================== PARAMIETRIZATION ===================== #
-# ============================================================= #
-params_weibull = namedtuple(
-    "params_weibull",
-    ("mu1", "mu2", "mu3", "gamma2_1", "gamma2_2", "sigma2", "a", "b", "alpha", "beta"),
-)
+
+# ======== TUTO FCT PYTHON PYTEST======== #
+def f(a, b, *args, **kwargs):
+    """args is list, kwargs is a dict"""
+    if len(args) != 0 and len(kwargs) == 0:
+        return a * b + args[0]
+    if "d" in kwargs:
+        return a * b + args[0] * kwargs["d"]
+
+    return a * b
+
+
+def test_f():
+    assert f(2, 3) == 6
+    # etc
+
 
 # ======================================================= #
 # ====================== SIMULATION ===================== #
 # ======================================================= #
+def cov_simulation(PRNGKey, min, max, shape):
+    key, PRNGKey = jrd.split(PRNGKey, num=2)
+
+    cov = jrd.uniform(key, minval=min, maxval=max, shape=shape)
+    cov = cov - cov.mean(axis=0)[None, :]
+    cov = jnp.array(cov, dtype=jnp.float32)
+
+    return cov, PRNGKey
 
 
-def nlmem_simulation(params, key, N_IND, J_OBS, t_min, t_max):
-    """return longitudinal and survival simulation
-    and latente variable simulation in the two dict"""
-    key1, key2, key3, key_out = jrd.split(key, num=4)
+def mem_simulation(
+    params,
+    PRNGKey,
+    N_IND,
+    noise_variance,  # = sigma2
+    fct,  # = logistic_curve
+    random_effects,  # = { "phi1":("mu1", "gamma2_1"), "phi2" }
+    fixed_effets,  # = { "phi3":("mu3")}
+    fct_kwargs,  # other parameters, example = [time]
+):
+    """return simulation following mixed effect model
+    Y = fct(random_effects, fixed_effects,kwargs) + N(0, noise_variance^2)
+    """
 
-    eps = jnp.sqrt(params.sigma2) * jrd.normal(key1, shape=(N_IND, J_OBS))
-    time = jnp.linspace(t_min, t_max, num=J_OBS)
+    sim = {}
+    for name, value in random_effects.items():
+        key, PRNGKey = jrd.split(PRNGKey, num=2)
 
-    phi1 = params.mu1 + jnp.sqrt(params.gamma2_1) * jrd.normal(key2, shape=(N_IND,))
-    phi2 = params.mu2 + jnp.sqrt(params.gamma2_2) * jrd.normal(key3, shape=(N_IND,))
-    phi3 = jnp.array([params.mu3])
+        mean = getattr(params, value[0])
+        var = getattr(params, value[1])
+        # N(mean, var^2)
+        sim[name] = mean + jnp.sqrt(var) * jrd.normal(key, shape=(N_IND,))
+        fct_kwargs[name] = sim[name]
 
-    Y = (
-        logistic_curve(
-            time=time,
-            supremum=phi1,
-            midpoint=phi2,
-            growth_rate=phi3,
-        )
-        + eps
+    for name, value in fixed_effets.items():
+        sim[name] = jnp.array([getattr(params, value)])
+        fct_kwargs[name] = sim[name]
+
+    Y_without_noise = fct(**fct_kwargs)
+
+    key, PRNGKey = jrd.split(PRNGKey, num=2)
+    sim["eps"] = jnp.sqrt(getattr(params, noise_variance)) * jrd.normal(
+        key, shape=Y_without_noise.shape
     )
+
+    Y = Y_without_noise + sim["eps"]
 
     return (
-        {
-            "Y": Y,
-            "time": time,
-        },  # obs
-        {"phi1": phi1, "phi2": phi2, "eps": eps},  # sim
-        key_out,
+        {"Y": Y},  # obs
+        sim,
+        PRNGKey,
     )
 
 
-def data_simulation(
-    params,
-    key,
-    N_IND,
-    J_OBS,
-    t_min,
-    t_max,
-    censoring=0.0,
+def cox_simulation(
+    params, PRNGKey, beta_prod_cov, baseline_fct, baseline_kwargs, link_fct, link_kwargs
 ):
-    """return longitudinal and survival simulation
-    and latente variable simulation in the two dict"""
-    obs, sim, key = nlmem_simulation(params, key, N_IND, J_OBS, t_min, t_max)
+    """
+    lbd(t) = baseline_fct(t) * exp(beta^T U + linkfct(alpha, t, ...))
+    """
 
-    key1, key2, key_out = jrd.split(key, num=3)
+    (N_IND,) = beta_prod_cov.shape
 
-    def f(t, phi1, phi2, beta_prod_cov, uni):
+    def f(t, beta_prod_cov_ind, uni, *link_ind_args):
         """
+        example if baseline_fct = lbd_0 = weibull and linkfct = m the logistic function
+
         For data generation we seek t such that : P(T <= t ) = U([0,1])         # = 1 - S(t)
                                             ie : S(t) = 1 - U([0,1])
 
@@ -81,14 +101,14 @@ def data_simulation(
                                     with : lbd0(t) = b a^-b t^{b-1} = b /a * (t/a)^{b-1}
 
         so we seek t such that : - int_0^t lbd(s) ds = log(1 - U([0,1]))
-                            ie : int_0^t lbd(s) ds + log(1 - U([0,1])) = 0
+                            ie : int_0^t lbd(s) ds + log(1 - U([0,1])) = 0      # f(t) = 0
         """
 
-        def lbd(t):
-            lbd0 = params.b / params.a * (t / params.a) ** (params.b - 1)
+        def lbd(s):
+            """baseline_fct * exp[ beta^T U + linkfct(alpha, M(t, ...)) ]"""
+            lbd0 = baseline_fct(s, **baseline_kwargs)
             return lbd0 * jnp.exp(
-                beta_prod_cov
-                + params.alpha * logistic_curve_float(t, phi1, phi2, params.mu3)
+                beta_prod_cov_ind + link_fct(s, params.alpha, *link_ind_args)
             )
 
         t_linspace = jnp.linspace(0, t, num=100)
@@ -96,86 +116,29 @@ def data_simulation(
 
     f = jnp.vectorize(f)
 
-    DIM_COV = params.beta.shape[0]
-
-    cov = jrd.uniform(key1, minval=-1, maxval=1, shape=(N_IND, DIM_COV))
-    cov = cov - cov.mean(axis=0)[None, :]
-    cov = jnp.array(
-        cov,
-        dtype=jnp.float32,
-    )
-
-    beta_prod_cov_obs = cov @ params.beta
-
-    # print(f"beta^T cov = {beta_prod_cov_obs}")
-
     tmp = [0 for i in range(N_IND)]
-    uni = jrd.uniform(key2, shape=(N_IND,))
+    key, PRNGKey = jrd.split(PRNGKey, num=2)
+    # rem : c'est pas pratique si uni est très très petit le log explose ...
+    uni = jrd.uniform(key, shape=(N_IND,))
 
     for i in range(N_IND):
+        args = [beta_prod_cov[i], uni[i]]
+
+        # extract individual argument for the link function
+        for value in link_kwargs.values():
+            if isinstance(value, (np.ndarray, jnp.ndarray)) and value.shape != ():
+                args.append(value[i])
+            else:
+                args.append(value)
+
         # Find a root of a function in the interval [a,b]
-        args = (
-            sim["phi1"][i],
-            sim["phi2"][i],
-            beta_prod_cov_obs[i],
-            uni[i],
-        )
-        tmp[i] = brenth(f, a=0, b=10 * params.a, args=args)
+        tmp[i] = brenth(f, a=0, b=1000, args=tuple(args))
 
     Tstar = jnp.array(tmp)
+    sim = {"T uncensored": Tstar}
 
-    C = (
-        Tstar.sort()[int(N_IND * (1 - censoring))]
-        if censoring != 0.0
-        else Tstar.max() * 2
-    )
-    T = np.array([min(Tstar[i], C) for i in range(N_IND)])
-    delta = Tstar <= C
-
-    if (obs["time"] < C).sum() < J_OBS:
-        J_NEW = int((obs["time"] < C).sum())
-        warn(
-            f"censuring implies to shrink the longitudinal data to {J_NEW} observations ! \n censuring starting at {C}"
-        )
-
-    id = [i for i in range(J_OBS) if obs["time"][i] < C]
-    obs["Y"] = obs["Y"][:, id]
-    obs["time"] = obs["time"][obs["time"] < C]
-
-    obs.update({"T": T, "delta": delta, "cov": cov})
-    sim.update({"T uncensored": Tstar})
-    return obs, sim, key_out
+    return {}, sim, PRNGKey
 
 
 if __name__ == "__main__":
-    from matplotlib import pyplot as plt
-
-    DIM_COV = 10
-    N_IND = 500
-
-    params_star = params_weibull(
-        mu1=0.3,
-        mu2=90.0,
-        mu3=7.5,
-        gamma2_1=0.0025,
-        gamma2_2=20,
-        sigma2=0.001,
-        a=80.0,
-        b=35,
-        alpha=11.11,
-        beta=jnp.concatenate(
-            [jnp.array([-2, -1, 1, 2]), jnp.zeros(shape=(DIM_COV - 4,))]
-        ),
-    )
-
-    obs, sim, _ = data_simulation(
-        params_star, jrd.PRNGKey(0), N_IND, 50, t_min=60, t_max=135, censoring=0.0
-    )
-    print(obs)
-
-    plt.plot(obs["time"].T, obs["Y"].T, "o-")
-
-    plt.figure()
-    plt.hist(obs["T"], bins=20)
-
-    print(f'censoring = {int((1-obs["delta"].mean())*100)}%')
+    pass

@@ -82,8 +82,14 @@ def gradient_descent_fisher_preconditionner_with_mask(
     # Gradient
     grad = jac.mean(axis=0)
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
-    for i in range(0, 6):
-        grad = grad.at[i].set(0)
+    # for i in range(0, 5):
+    #     grad = grad.at[i].set(0)
+
+    # for i in range(0, 6):
+    #     grad = grad.at[i].set(0)
+
+    # for i in range(10, 14):
+    #     grad = grad.at[i].set(0)
 
     # grad = grad.at[6].set(0)
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
@@ -330,7 +336,11 @@ def get_random_params0(prng_key, params0, error=0.2, uniform_on=None):
         p[key] *= float(jrd.uniform(key_new, minval=1.0 - error))
 
     if uniform_on is not None:
-        for key in uniform_on:
+        if isinstance(uniform_on, list):
+            for key in uniform_on:
+                key_new, prng_key = jrd.split(prng_key, 2)
+                p[key] = jrd.uniform(prng_key, shape=p[key].shape, minval=-1, maxval=1)
+        else:
             key_new, prng_key = jrd.split(prng_key, 2)
             p[uniform_on] = jrd.uniform(
                 prng_key, shape=p[uniform_on].shape, minval=-1, maxval=1
