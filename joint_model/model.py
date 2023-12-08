@@ -38,8 +38,7 @@ def log_hazard(
     logistic_value = logistic_curve(time, phi1, phi2, jnp.array([mu3]))
     assert logistic_value.shape == time.shape
 
-    log_h_0 = jnp.log(b / a)
-    log_h_0 += (b - 1) * jnp.log(time / a)
+    log_h_0 = jnp.log(b / a) + (b - 1) * jnp.log(time / a)
     assert log_h_0.shape == time.shape
 
     beta_prod_cov = (cov @ beta)[:, None]
@@ -75,8 +74,8 @@ def likelihood_survival_without_prior(
         "phi1": phi1,
         "phi2": phi2,
         "mu3": params.mu3,
-        "a": 80,  # params_star_weibull.a,params.a,  #
-        "b": 35,  # params_star_weibull.b,params.b,  #
+        "a": 130,  # params_star_weibull.a,  #
+        "b": 35,  # params_star_weibull.b,  #
         "alpha": params.alpha,
         "beta": params.beta,
         "cov": cov,

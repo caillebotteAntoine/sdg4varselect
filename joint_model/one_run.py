@@ -76,7 +76,11 @@ if __name__ == "__main__":
     )
 
     data_set, sim, PRNGKey = sample(
-        params_star_weibull, PRNGKey, N_IND, J_OBS, weibull_censoring_loc=2000
+        params_star_weibull,
+        PRNGKey,
+        N_IND,
+        J_OBS,
+        CENSORING=0,  # weibull_censoring_loc=2000
     )
 
     print(f'censoring = {int((1-data_set["delta"].mean())*100)}%')
@@ -105,7 +109,7 @@ if __name__ == "__main__":
             lr=1e-8,
             # Grad
             plateau_grad=1000,
-            plateau_grad_size=200,
+            plateau_grad_size=400,
             scale_grad=1,
             # Jac
             plateau_jac=1000,

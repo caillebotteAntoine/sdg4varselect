@@ -93,6 +93,29 @@ def cox_weibull_simulation(params, PRNGKey, N_IND, logistic_sim):
 
 def sample(
     params0_weibull,
+    prng_key,
+    N_IND,
+    J_OBS,
+    CENSORING,
+):
+    from test import data_simulation
+
+    """return data_set, sim, prng_key"""
+    # ====== DATA GENERATION ====== #
+    data_set, sim, prng_key = data_simulation(
+        params=params0_weibull,
+        key=prng_key,
+        N_IND=N_IND,
+        J_OBS=J_OBS,
+        t_min=60,
+        t_max=135,
+        censoring=CENSORING,
+    )
+    return data_set, sim, prng_key
+
+
+def sample2(
+    params0_weibull,
     PRNGKey,
     N_IND,
     J_OBS,
@@ -188,7 +211,7 @@ def get_parametrization(PRNGKey, DIM_COV):
         mu2=pc.Real(scale=100),
         mu3=pc.RealPositive(scale=5),
         gamma2_1=pc.RealPositive(scale=0.001),
-        gamma2_2=pc.RealPositive(scale=1),
+        gamma2_2=pc.RealPositive(scale=10),
         # a=pc.Real(scale=100),
         # b=pc.Real(scale=50),
         sigma2=pc.RealPositive(scale=0.001),
@@ -241,7 +264,7 @@ if __name__ == "__main__":
     from matplotlib import pyplot as plt
     from time import time
 
-    N_IND = 100
+    N_IND = 10
     J_OBS = 5
 
     _, params_star, PRNGKey = get_parametrization(jrd.PRNGKey(int(time())), 10)
@@ -295,10 +318,10 @@ if __name__ == "__main__":
         return obs, sim, PRNGKey
 
     obs, sim, PRNGKey = test_censoring_loc(1000, PRNGKey)
-    obs, sim, PRNGKey = test_censoring_loc(128, PRNGKey)  # ~20%
-    obs, sim, PRNGKey = test_censoring_loc(122, PRNGKey)  # ~40%
-    obs, sim, PRNGKey = test_censoring_loc(116, PRNGKey)  # ~60%
-    obs, sim, PRNGKey = test_censoring_loc(110, PRNGKey)  # ~80%
+    # obs, sim, PRNGKey = test_censoring_loc(128, PRNGKey)  # ~20%
+    # obs, sim, PRNGKey = test_censoring_loc(122, PRNGKey)  # ~40%
+    # obs, sim, PRNGKey = test_censoring_loc(116, PRNGKey)  # ~60%
+    # obs, sim, PRNGKey = test_censoring_loc(110, PRNGKey)  # ~80%
 
 
 if __name__ == " zut":
