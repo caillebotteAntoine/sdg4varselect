@@ -2,3 +2,4 @@
 
 *.out
 .mypy_cache/
+*.pyc

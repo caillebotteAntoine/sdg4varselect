@@ -160,7 +160,7 @@ def get_solver(PRNGKey, params0, data_set, likelihood, likelihood_array):
     solver.latent_variables["phi1"].adaptative_sd = True
     solver.add_mcmc(
         float(mu2),
-        sd=5,
+        sd=2,
         size=N_IND,
         likelihood=likelihood_array,
         name="phi2",
@@ -186,9 +186,9 @@ def get_parametrization(PRNGKey, DIM_COV):
     parametrization = pc.NamedTuple(
         mu1=pc.RealPositive(scale=0.5),
         mu2=pc.Real(scale=100),
-        mu3=pc.RealPositive(scale=10),
+        mu3=pc.RealPositive(scale=5),
         gamma2_1=pc.RealPositive(scale=0.001),
-        gamma2_2=pc.RealPositive(scale=10),
+        gamma2_2=pc.RealPositive(scale=1),
         # a=pc.Real(scale=100),
         # b=pc.Real(scale=50),
         sigma2=pc.RealPositive(scale=0.001),

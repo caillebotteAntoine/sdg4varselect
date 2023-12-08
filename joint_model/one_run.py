@@ -148,8 +148,8 @@ if __name__ == "__main__":
 
     # _, _ = sdgplt.plot_params_hd(res.theta, p=DIM_COV, location="right")
 
-    # for var in solver.latent_variables.values():
-    #     sdgplt.plot_mcmc(var)
+    for var in solver.latent_variables.values():
+        sdgplt.plot_mcmc(var)
 
     theta = np.array([res.theta[-1] for res in lr])
 
