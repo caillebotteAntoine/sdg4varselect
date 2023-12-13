@@ -52,10 +52,10 @@ def estim(
 # ============ TEST ============ #
 # ============================== #
 if __name__ == "__main__":
-    from sample import get_params_star
+    from sample import get_params_star, plot_sample
     from time import time
 
-    DIM_COV = 5
+    DIM_COV = 10
     N_IND = 100
     J_OBS = 5
     params0_start = {
@@ -76,13 +76,9 @@ if __name__ == "__main__":
     )
 
     data_set, sim, PRNGKey = sample(
-        params_star_weibull,
-        PRNGKey,
-        N_IND,
-        J_OBS,
-        CENSORING=0,  # weibull_censoring_loc=2000
+        params_star_weibull, PRNGKey, N_IND, J_OBS, weibull_censoring_loc=2000
     )
-
+    plot_sample(data_set, sim, params_star_weibull, 2000)
     print(f'censoring = {int((1-data_set["delta"].mean())*100)}%')
 
     ls = []
@@ -110,7 +106,7 @@ if __name__ == "__main__":
             # Grad
             plateau_grad=1000,
             plateau_grad_size=400,
-            scale_grad=1,
+            scale_grad=0.9,
             # Jac
             plateau_jac=1000,
             plateau_jac_size=1000,

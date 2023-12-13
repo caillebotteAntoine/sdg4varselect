@@ -33,12 +33,12 @@ def multi_run(
         if seed is None:
             seed = int(time())  #
         print(f"seed = {seed}")
-        prng_key = jrd.PRNGKey(seed)
+        PRNGKey = jrd.PRNGKey(seed)
 
         print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
         # ====================================================== #
-        params_star_stack, params_star_weibull, prng_key = get_params_star(
-            prng_key, DIM_COV
+        params_star_stack, params_star_weibull, PRNGKey = get_params_star(
+            PRNGKey, DIM_COV
         )
         # ====================================================== #
 
@@ -53,17 +53,17 @@ def multi_run(
         for i in range(nrun):
             print("\nrun = " + step_message(i, nrun), end="\n")
 
-            print(f"prng_key = {prng_key}")
+            print(f"PRNGKey = {PRNGKey}")
 
             # ================ DATA SET GENERATION ================= #
-            data_set, _, prng_key = sample(
-                params_star_weibull, prng_key, N_IND, J_OBS, censoring
+            data_set, _, PRNGKey = sample(
+                params_star_weibull, PRNGKey, N_IND, J_OBS, censoring
             )
             censoring_rate = 1 - data_set["delta"].mean()
             print(f"censoring = {int(censoring_rate*100)}%")
 
             # ================ ESTIMATION ================= #
-            params_start, prng_key = get_random_params0(prng_key, params0, error=0.2)
+            params_start, PRNGKey = get_random_params0(PRNGKey, params0, error=0.2)
 
             res = method(
                 params_start,
@@ -71,7 +71,7 @@ def multi_run(
                 lbd_set,
                 N_IND,
                 DIM_COV,
-                prng_key=prng_key,
+                PRNGKey=PRNGKey,
                 verbatim=False,
             )
             if res != -1:

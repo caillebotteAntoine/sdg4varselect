@@ -74,7 +74,7 @@ def likelihood_survival_without_prior(
         "phi1": phi1,
         "phi2": phi2,
         "mu3": params.mu3,
-        "a": 130,  # params_star_weibull.a,  #
+        "a": 80,  # params_star_weibull.a,  #
         "b": 35,  # params_star_weibull.b,  #
         "alpha": params.alpha,
         "beta": params.beta,
@@ -104,7 +104,7 @@ def likelihood_nlmem_without_prior(
 ) -> jnp.ndarray:
     """return likelihood without the gaussian prior"""
     N, J = Y.shape
-    assert time.shape == (J,)
+    assert time.shape == (N, J)
     assert phi1.shape == (N,)
     assert phi2.shape == (N,)
 

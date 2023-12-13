@@ -39,8 +39,9 @@ def nlmem_simulation(params, PRNGKey, N_IND, J_OBS, t_min, t_max):
     fixed_effets = {"phi3": "mu3"}
 
     time = jnp.linspace(60, 135, num=J_OBS)
-    # time = jnp.concatenate(jnp.array([[time]] * N_IND), axis=0)
-    # time += jrd.uniform(jrd.PRNGKey(0), minval=-2, maxval=2, shape=time.shape)
+    time = jnp.concatenate(jnp.array([[time]] * N_IND), axis=0)
+    PRNGKey, key = jrd.split(PRNGKey, num=2)
+    time += jrd.uniform(key, minval=-2, maxval=2, shape=time.shape)
 
     obs = {"time": time}
 
@@ -91,7 +92,7 @@ def cox_weibull_simulation(params, PRNGKey, N_IND, logistic_sim):
     return {"cov": cov}, sim, PRNGKey
 
 
-def sample(
+def sampl2(
     params0_weibull,
     prng_key,
     N_IND,
@@ -114,7 +115,7 @@ def sample(
     return data_set, sim, prng_key
 
 
-def sample2(
+def sample(
     params0_weibull,
     PRNGKey,
     N_IND,
@@ -226,7 +227,7 @@ def get_parametrization(PRNGKey, DIM_COV):
         gamma2_1=0.0025,
         gamma2_2=20,
         sigma2=0.001,
-        a=130.0,
+        a=80.0,
         b=35,
         alpha=11.11,
         beta=jnp.concatenate(
@@ -260,11 +261,50 @@ def get_params_star(PRNGKey, DIM_COV):
     return params_star_stack, params_star_weibull, PRNGKey
 
 
+def plot_sample(obs, sim, params_star, censoring_loc):
+    from matplotlib import pyplot as plt
+
+    fig = plt.figure()
+    fig.set_figheight(7)
+    fig.set_figwidth(7)
+
+    ax = fig.add_subplot(211)
+    ax.plot(obs["time"].T, obs["Y"].T, "o-")
+
+    ax = fig.add_subplot(212)
+    ax.hist(
+        [obs["T"], sim["T uncensored"]],  # , sim["C"]],
+        bins=20,
+        density=True,
+        label=["censored survival time", "survival time"],  # , "censuring time"],
+    )
+
+    def weibull_fct(t, a, b):
+        return b / a * (t / a) ** (b - 1) * np.exp(-((t / a) ** b))
+
+    t = np.linspace(
+        obs["T"].min(), max(obs["T"].max(), sim["T uncensored"].max()), num=100
+    )
+    ax.plot(t, weibull_fct(t, params_star.a, params_star.b), label="weibull baseline")
+
+    ax.plot(
+        t,
+        weibull_fct(t, censoring_loc, 35),
+        label="censured time weibull distribution",
+    )
+    ax.legend()
+
+    print(f'censoring = {int((1-obs["delta"].mean())*100)}%')
+
+    fig.suptitle(f'Simulation with {int((1-obs["delta"].mean())*100)}% censored data')
+    return fig, ax
+
+
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
     from time import time
 
-    N_IND = 10
+    N_IND = 100
     J_OBS = 5
 
     _, params_star, PRNGKey = get_parametrization(jrd.PRNGKey(int(time())), 10)
@@ -277,47 +317,17 @@ if __name__ == "__main__":
             J_OBS=J_OBS,
             weibull_censoring_loc=censoring_loc,
         )
+        _, _ = plot_sample(obs, sim, params_star, censoring_loc)
 
-        fig = plt.figure()
-        fig.set_figheight(7)
-        fig.set_figwidth(7)
-
-        ax = fig.add_subplot(211)
-        ax.plot(obs["time"].T, obs["Y"].T, "o-")
-
-        ax = fig.add_subplot(212)
-        ax.hist(
-            [obs["T"], sim["T uncensored"]],  # , sim["C"]],
-            bins=20,
-            density=True,
-            label=["censored survival time", "survival time"],  # , "censuring time"],
-        )
-
-        def weibull_fct(t, a, b):
-            return b / a * (t / a) ** (b - 1) * np.exp(-((t / a) ** b))
-
-        t = np.linspace(
-            obs["T"].min(), max(obs["T"].max(), sim["T uncensored"].max()), num=100
-        )
-        ax.plot(
-            t, weibull_fct(t, params_star.a, params_star.b), label="weibull baseline"
-        )
-
-        ax.plot(
-            t,
-            weibull_fct(t, censoring_loc, 35),
-            label="censured time weibull distribution",
-        )
-        ax.legend()
-
-        print(f'censoring = {int((1-obs["delta"].mean())*100)}%')
-
-        fig.suptitle(
-            f'Simulation with {int((1-obs["delta"].mean())*100)}% censored data'
-        )
         return obs, sim, PRNGKey
 
-    obs, sim, PRNGKey = test_censoring_loc(1000, PRNGKey)
+    obs, sim, PRNGKey = test_censoring_loc(1000, PRNGKey)  # a = 80
+    obs, sim, PRNGKey = test_censoring_loc(85, PRNGKey)  # ~20%
+    obs, sim, PRNGKey = test_censoring_loc(80.5, PRNGKey)  # ~40%
+    obs, sim, PRNGKey = test_censoring_loc(77, PRNGKey)  # ~60%
+    obs, sim, PRNGKey = test_censoring_loc(73, PRNGKey)  # ~80%
+
+    # obs, sim, PRNGKey = test_censoring_loc(1000, PRNGKey) # a = 130
     # obs, sim, PRNGKey = test_censoring_loc(128, PRNGKey)  # ~20%
     # obs, sim, PRNGKey = test_censoring_loc(122, PRNGKey)  # ~40%
     # obs, sim, PRNGKey = test_censoring_loc(116, PRNGKey)  # ~60%

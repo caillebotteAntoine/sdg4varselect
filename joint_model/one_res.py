@@ -20,7 +20,7 @@ def one_res(
     parameters0,
     data_set,
     lbd,
-    prng_key,
+    PRNGKey,
     verbatim=False,
 ):
     kwargs_run_GD["prox_regul"] = lbd
@@ -29,7 +29,7 @@ def one_res(
     res, solver, error_flag, key = estim(
         data_set,
         parameters0,
-        prng_key,
+        PRNGKey,
         niter=2000,
         kwargs_run_GD=kwargs_run_GD,
         verbatim=verbatim,
@@ -38,7 +38,7 @@ def one_res(
         lr=1e-8,
         # Grad
         plateau_grad=1000,
-        plateau_grad_size=200,
+        plateau_grad_size=400,
         scale_grad=1,
         # Jac
         plateau_jac=1000,
@@ -58,7 +58,7 @@ def regularization_path(
     data_set,
     path,
     DIM_COV,
-    prng_key,
+    PRNGKey,
     verbatim=False,
 ):
     list_res = []
@@ -67,7 +67,7 @@ def regularization_path(
     for i in range(len(path)):
         print(step_message(i, len(path)), end="\r" if not verbatim else "\n")
         solver, res, error_flag, key = one_res(
-            parameters0, data_set, path[i], prng_key, verbatim
+            parameters0, data_set, path[i], PRNGKey, verbatim
         )
 
         if error_flag:
@@ -95,8 +95,7 @@ def regularization_path(
     return list_solver, list_res, key
 
 
-def final_estim(solver, parameters0, prox_regul, verbatim=False):
-    kwargs_run_GD["prox_regul"] = prox_regul
+def final_estim(solver, parameters0, verbatim=False):
     kwargs_run_GD["proximal_operator"] = False
     p0 = parameters0.copy()
     (DIM_COV,) = p0["beta"].shape
@@ -141,7 +140,7 @@ def method(
     path,
     N_IND,
     DIM_COV,
-    prng_key,
+    PRNGKey,
     verbatim=True,
 ):
     # ====================================================== #
@@ -153,13 +152,13 @@ def method(
         data_set,
         path,
         DIM_COV,
-        prng_key=prng_key,
+        PRNGKey=PRNGKey,
         verbatim=verbatim,
     )
     print(f"REGULARIZATION PATH TIME: {time2string(time() - time_start)}")
 
     if res != -1:
-        ls, lr, prng_key = res
+        ls, lr, PRNGKey = res
     else:
         return -1
 
@@ -173,7 +172,7 @@ def method(
     solver_selection = ls[bic_argmin]
     lbd_selection = path[bic_argmin]
 
-    res = final_estim(solver_selection, params0, lbd_selection, verbatim=verbatim)
+    res = final_estim(solver_selection, params0, verbatim=verbatim)
 
     if res != -1:
         final_res = res[0]
@@ -195,36 +194,18 @@ def method(
     )
 
 
-if __name__ == "__main__":
-    from sample import get_params_star, sample
+# ============================== #
+# ============ TEST ============ #
+# ============================== #
+if __name__ == "_main__":
+    from sample import sample, get_params_star, plot_sample
     from sdg4varselect import jrd
     from sdg4varselect.gradient import get_random_params0
 
-    from work import sdgplt
-
-    # ====================================================== #
-    print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
-
-    seed = int(time())
-    print(f"seed = {seed}")
-    prng_key = jrd.PRNGKey(seed)
-    # ================ DATA SET GENERATION ================= #
-    DIM_COV = 5
+    DIM_COV = 10
     N_IND = 100
     J_OBS = 5
-    CENSORING = 2000
-
-    params_star_stack, params_star_weibull, PRNGKey = get_params_star(
-        jrd.PRNGKey(int(time())), DIM_COV
-    )
-
-    data_set, _, prng_key = sample(
-        params_star_weibull, prng_key, N_IND, J_OBS, weibull_censoring_loc=CENSORING
-    )
-    print(f'censoring = {int((1-data_set["delta"].mean())*100)}%')
-
-    # ================ ESTIMATION ================= #
-    params0 = {
+    params0_start = {
         "mu1": 0.5,  # 1
         "mu2": 50.0,  # 2
         "mu3": 3.0,  # 3
@@ -237,23 +218,103 @@ if __name__ == "__main__":
         ),
     }
 
-    params_start, prng_key = get_random_params0(
-        prng_key, params0, error=0.2, uniform_on="beta"
+    params_star_stack, params_star_weibull, PRNGKey = get_params_star(
+        jrd.PRNGKey(int(time())), DIM_COV
     )
+
+    data_set, sim, PRNGKey = sample(
+        params_star_weibull, PRNGKey, N_IND, J_OBS, weibull_censoring_loc=2000
+    )
+    plot_sample(data_set, sim, params_star_weibull, 2000)
+    print(f'censoring = {int((1-data_set["delta"].mean())*100)}%')
+
+    params0, PRNGKey = get_random_params0(
+        PRNGKey, params0_start, error=0.2, uniform_on="beta"
+    )
+    res_r = method(params0, data_set, [0.25], 100, 10, PRNGKey)
+    solver = res_r[2]
+    res = res_r[3]
+
+    from work import sdgplt
+    import numpy as np
+
+    fig, ax = sdgplt.plot_params(
+        x=res.theta[:-1],
+        x_star=np.array(params_star_stack),
+        p=DIM_COV,
+        names=solver.params_names,
+        logscale=False,
+    )
+
+    beta = res.theta[:, 7:]
+    fig, ax = sdgplt.plot_params(
+        x=beta,
+        x_star=np.array(params_star_stack)[7:],
+        p=0,
+        logscale=False,
+    )
+
+    for var in solver.latent_variables.values():
+        sdgplt.plot_mcmc(var)
+
+
+if __name__ == "__main__":
+    from joint_model.sample import get_params_star, sample, plot_sample
+    from sdg4varselect import jrd
+    from sdg4varselect.gradient import get_random_params0
+
+    from work import sdgplt
+    import numpy as np
+
+    # ====================================================== #
+    print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+
+    seed = int(time())
+    print(f"seed = {seed}")
+    PRNGKey = jrd.PRNGKey(seed)
+    # ================ DATA SET GENERATION ================= #
+    DIM_COV = 20
+    N_IND = 100
+    J_OBS = 5
+    CENSORING = 2000
+
+    params_star_stack, params_star_weibull, PRNGKey = get_params_star(PRNGKey, DIM_COV)
+
+    data_set, sim, PRNGKey = sample(
+        params_star_weibull, PRNGKey, N_IND, J_OBS, weibull_censoring_loc=CENSORING
+    )
+    plot_sample(data_set, sim, params_star_weibull, CENSORING)
+
+    # ================ ESTIMATION ================= #
+    params0_start = {
+        "mu1": 0.5,  # 1
+        "mu2": 50.0,  # 2
+        "mu3": 3.0,  # 3
+        "gamma2_1": 0.00025,  # 4
+        "gamma2_2": 2.0,  # 5
+        "sigma2": 0.0001,  # 6
+        "alpha": 0.01,  # 7
+        "beta": jnp.zeros(shape=(DIM_COV,)),
+    }
+
     lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
     # lbd_set = [0.25]
     # ====================================================== #
-
+    params0, PRNGKey = get_random_params0(
+        PRNGKey, params0_start, error=0.2, uniform_on="beta"
+    )
+    _, PRNGKey = jrd.split(PRNGKey, 2)
     res = method(
-        params_start,
+        params0,
         data_set,
         lbd_set,
         N_IND,
         DIM_COV,
-        prng_key=prng_key,
+        PRNGKey=PRNGKey,
         verbatim=False,
     )
 
+    # ====================================================== #
     if res != -1:
         (
             final_res,
@@ -323,4 +384,5 @@ if __name__ == "__main__":
 
         print(final_res.theta[-1][:DIM_COV])
 
-        print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+        for var in solver_selection.latent_variables.values():
+            sdgplt.plot_mcmc(var)

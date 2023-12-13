@@ -329,11 +329,11 @@ def set_gradient_run_parameters(
     return solver
 
 
-def get_random_params0(prng_key, params0, error=0.2, uniform_on=None):
+def get_random_params0(prng_key, params0, error=0.2, var_error=0.01, uniform_on=None):
     p = params0.copy()
     for key in p:
         key_new, prng_key = jrd.split(prng_key, 2)
-        p[key] *= float(jrd.uniform(key_new, minval=1.0 - error))
+        p[key] *= 1.0 - error + var_error * float(jrd.normal(key_new))
 
     if uniform_on is not None:
         if isinstance(uniform_on, list):

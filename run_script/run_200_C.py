@@ -1,12 +1,11 @@
-import numpy as np
 from sdg4varselect import jnp
 from multi_run import multi_run
 
 # ====================================================== #
-DIM_COV = 200
+DIM_COV = 100
 N_IND = 100
 J_OBS = 5
-CENSORING = [0.0, 0.2, 0.4, 0.6, 0.8]
+CENSORING = [1000, 85, 80.5, 77, 73]  # [0.0, 0.2, 0.4, 0.6, 0.8]
 
 params0 = {
     "mu1": 0.5,  # 1
@@ -16,9 +15,9 @@ params0 = {
     "gamma2_2": 2.0,  # 5
     "sigma2": 0.0001,  # 6
     "alpha": 5.0,  # 7
-    "beta": np.random.uniform(-1, 1, size=DIM_COV),
+    "beta": jnp.zeros(shape=(DIM_COV,)),
 }
-lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
+lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
 # lbd_set = [0.19]
 
-multi_run(params0, lbd_set, N_IND, DIM_COV, J_OBS, CENSORING, nrun=50)
+multi_run(params0, lbd_set, N_IND, DIM_COV, J_OBS, CENSORING, nrun=2)

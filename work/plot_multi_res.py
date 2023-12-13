@@ -10,7 +10,7 @@ folder = "images"
 with open("../run_script/results/1702027630_multi_N100_P5_J5_C0.pkl", "rb") as f:
     data = pickle.load(f)
 
-with open("../run_script/results/1699870656_multi_N100_P200_J5_C0.pkl", "rb") as f:
+with open("../run_script/results/1702459134_multi_N100_P15_J5_C78.pkl", "rb") as f:
     data = pickle.load(f)
 # 50 full random beta0
 # with open("../run_script/1699274542_multi_100_50_30_5_0.pkl", "rb") as f:
