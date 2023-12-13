@@ -20,4 +20,4 @@ params0 = {
 lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
 # lbd_set = [0.19]
 
-multi_run(params0, lbd_set, N_IND, DIM_COV, J_OBS, CENSORING, nrun=2)
+multi_run(params0, lbd_set, N_IND, DIM_COV, J_OBS, CENSORING, nrun=50)
