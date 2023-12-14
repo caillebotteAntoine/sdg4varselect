@@ -7,53 +7,117 @@ import sdgplt
 
 folder = "images"
 
-with open("../run_script/results/1702027630_multi_N100_P5_J5_C0.pkl", "rb") as f:
-    data = pickle.load(f)
 
-with open("../run_script/results/1702459134_multi_N100_P15_J5_C78.pkl", "rb") as f:
-    data = pickle.load(f)
-# 50 full random beta0
-# with open("../run_script/1699274542_multi_100_50_30_5_0.pkl", "rb") as f:
-#     data = pickle.load(f)
+def get_data(filename):
+    with open(f"../run_script/results/{filename}.pkl", "rb") as f:
+        data = pickle.load(f)
+    # 50 full random beta0
+    # with open("../run_script/1699274542_multi_100_50_30_5_0.pkl", "rb") as f:
+    #     data = pickle.load(f)
 
-# 200 + censure 20%
-# with open("../run_script/1699246117_multi_100_200_5_20.pkl", "rb") as f:
-#     data = pickle.load(f)
+    # 200 + censure 20%
+    # with open("../run_script/1699246117_multi_100_200_5_20.pkl", "rb") as f:
+    #     data = pickle.load(f)
 
-params_star_stack = data["params_star_stack"]
-params_names = data["params_names"]
-lbd_set = data["lbd_set"]
-theta = np.array(data["theta"])
-n_run_base = theta.shape[0]
-theta_biais = np.array(data["theta_biais"])
+    params_star_stack = data["params_star_stack"]
+    params_names = data["params_names"]
+    lbd_set = data["lbd_set"]
+    theta = np.array(data["theta"])
+    n_run_base = theta.shape[0]
+    theta_biais = np.array(data["theta_biais"])
 
-id = [i for i in range(len(theta)) if not np.isnan(theta[i]).any()]
-theta = theta[id]
+    id = [i for i in range(len(theta)) if not np.isnan(theta[i]).any()]
+    theta = theta[id]
 
-theta_biais = theta_biais[id]
-theta_reg = [data["ltheta_reg"][i] for i in id]
-bic = [data["lbic"][i] for i in id]
-ebic = [data["lebic"][i] for i in id]
+    theta_biais = theta_biais[id]
+    theta_reg = [data["ltheta_reg"][i] for i in id]
+    bic = [data["lbic"][i] for i in id]
+    # ebic = [data["lebic"][i] for i in id]
 
-bic = data["lbic"]
-id = [i for i in range(len(bic)) if not np.isinf(bic[i]).any()]
-theta_reg = [data["ltheta_reg"][i] for i in id]
-bic = [data["lbic"][i] for i in id]
-ebic = [data["lebic"][i] for i in id]
-theta = theta[id]
-theta_biais = theta_biais[id]
+    bic = data["lbic"]
+    id = [i for i in range(len(bic)) if not np.isinf(bic[i]).any()]
+    theta_reg = [data["ltheta_reg"][i] for i in id]
+    bic = [data["lbic"][i] for i in id]
+    # ebic = [data["lebic"][i] for i in id]
+    theta = theta[id]
+    theta_biais = theta_biais[id]
 
-n_run = theta.shape[0]
-print(f"p = {theta.shape[1]-7}, nrun = {n_run} (remove {n_run_base-n_run})")
+    n_run = theta.shape[0]
+    print(f"p = {theta.shape[1]-7}, nrun = {n_run} (remove {n_run_base-n_run})")
+    return (
+        params_star_stack,
+        params_names,
+        lbd_set,
+        bic,
+        theta_reg,
+        bic,
+        theta,
+        theta_biais,
+    )
 
+
+(
+    params_star_stack,
+    params_names,
+    lbd_set,
+    bic,
+    theta_reg,
+    bic,
+    theta,
+    theta_biais,
+) = get_data("1702459134_multi_N100_P15_J5_C78")
 
 # from sdg4varselect import jrd
 # from joint_model.sample import get_params_star
 
 # params_star_stack, _, prng_key = get_params_star(jrd.PRNGKey(0), theta.shape[1] - 7)
 
-# ====================================================== #
 
+# ====================================================== #
+def rmse(x, x_star):
+    return np.sqrt(((x - x_star) ** 2).mean(axis=1))
+
+
+def rrmse(x, x_star):
+    return rmse(x, x_star) / np.sqrt((x**2).sum(axis=1))
+
+
+filenames = ["0", "21", "42", "58", "78"]
+
+lrmse_beta = []
+lrmse_nu = []
+for f in filenames:
+    (
+        params_star_stack,
+        params_names,
+        lbd_set,
+        bic,
+        theta_reg,
+        bic,
+        theta,
+        theta_biais,
+    ) = get_data(f"1702459134_multi_N100_P15_J5_C{f}")
+
+    lrmse_beta.append(rrmse(theta[:, 7:], params_star_stack[7:]))
+    lrmse_nu.append(rrmse(theta[:, :7], params_star_stack[:7]))
+
+lrmse_beta = np.array(lrmse_beta)
+lrmse_nu = np.array(lrmse_nu)
+
+
+fig = sdgplt.figure()
+ax = fig.add_subplot(2, 1, 1)
+ax.boxplot(lrmse_beta.T, labels=[f"{c}%" for c in filenames])
+ax.set_xlabel("censorship")
+ax.set_title("rrmse of beta")
+
+ax = fig.add_subplot(2, 1, 2)
+ax.boxplot(lrmse_nu.T, labels=[f"{c}%" for c in filenames])
+ax.set_xlabel("censorship")
+ax.set_title("rrmse of nu")
+
+
+# ====================================================== #
 
 for i in range(len(bic) // 10):
     fig, axs = sdgplt.plot_regularization_path(theta_reg[i], lbd_set, bic[i])
@@ -77,7 +141,6 @@ for i in range(7):
 
     ax.legend()
     ax.set_title(f"{params_names[i]} biased")
-
 
 # ====================================================== #
 fig = sdgplt.figure()
@@ -144,9 +207,9 @@ def plot_beta(theta, threshold=0):
     return fig, ax
 
 
-fig, ax = plot_beta(theta_biais, n_run / 10)
+fig, ax = plot_beta(theta_biais, theta.shape[0] / 10)
 ax.set_title("biaised beta")
 
-fig, ax = plot_beta(theta, n_run / 10)
+fig, ax = plot_beta(theta, theta.shape[0] / 10)
 ax.set_title("EMV beta")
 # ====================================================== #
