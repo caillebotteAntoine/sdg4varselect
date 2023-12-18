@@ -9,6 +9,7 @@ folder = "images"
 
 
 def get_data(filename):
+    print(f"====== open file {filename} ======")
     with open(f"../run_script/results/{filename}.pkl", "rb") as f:
         data = pickle.load(f)
     # 50 full random beta0
@@ -25,20 +26,21 @@ def get_data(filename):
     theta = np.array(data["theta"])
     n_run_base = theta.shape[0]
     theta_biais = np.array(data["theta_biais"])
-
-    id = [i for i in range(len(theta)) if not np.isnan(theta[i]).any()]
-    theta = theta[id]
-
-    theta_biais = theta_biais[id]
-    theta_reg = [data["ltheta_reg"][i] for i in id]
-    bic = [data["lbic"][i] for i in id]
-    # ebic = [data["lebic"][i] for i in id]
-
     bic = data["lbic"]
-    id = [i for i in range(len(bic)) if not np.isinf(bic[i]).any()]
-    theta_reg = [data["ltheta_reg"][i] for i in id]
+
+    id = [
+        [i for i in range(len(theta)) if np.isnan(theta[i]).any()],
+        [i for i in range(len(bic)) if np.isinf(bic[i]).any()],
+        [i for i in range(len(theta)) if theta[i, 7:].mean() == 0],
+    ]
+
+    id = np.unique(np.concatenate(id))
+    id = [i for i in range(len(theta)) if i not in id]
+
     bic = [data["lbic"][i] for i in id]
-    # ebic = [data["lebic"][i] for i in id]
+    ebic = [data["lebic"][i] for i in id]
+    theta_reg = [data["ltheta_reg"][i] for i in id]
+
     theta = theta[id]
     theta_biais = theta_biais[id]
 
@@ -50,22 +52,11 @@ def get_data(filename):
         lbd_set,
         bic,
         theta_reg,
-        bic,
+        ebic,
         theta,
         theta_biais,
     )
 
-
-(
-    params_star_stack,
-    params_names,
-    lbd_set,
-    bic,
-    theta_reg,
-    bic,
-    theta,
-    theta_biais,
-) = get_data("1702459134_multi_N100_P15_J5_C78")
 
 # from sdg4varselect import jrd
 # from joint_model.sample import get_params_star
@@ -83,6 +74,8 @@ def rrmse(x, x_star):
 
 
 filenames = ["0", "21", "42", "58", "78"]
+filenames = ["0", "19", "41", "60", "79"]
+main = "1702481006_multi_N100_P100_J5_C"
 
 lrmse_beta = []
 lrmse_nu = []
@@ -93,28 +86,42 @@ for f in filenames:
         lbd_set,
         bic,
         theta_reg,
-        bic,
+        ebic,
         theta,
         theta_biais,
-    ) = get_data(f"1702459134_multi_N100_P15_J5_C{f}")
+    ) = get_data(f"{main}{f}")
 
     lrmse_beta.append(rrmse(theta[:, 7:], params_star_stack[7:]))
     lrmse_nu.append(rrmse(theta[:, :7], params_star_stack[:7]))
 
-lrmse_beta = np.array(lrmse_beta)
-lrmse_nu = np.array(lrmse_nu)
+# lrmse_beta = np.array(lrmse_beta)
+# lrmse_nu = np.array(lrmse_nu)
 
 
 fig = sdgplt.figure()
 ax = fig.add_subplot(2, 1, 1)
-ax.boxplot(lrmse_beta.T, labels=[f"{c}%" for c in filenames])
+ax.boxplot(lrmse_beta, labels=[f"{c}%" for c in filenames])
+ax.axhline(y=0.05, color="k")
 ax.set_xlabel("censorship")
 ax.set_title("rrmse of beta")
 
 ax = fig.add_subplot(2, 1, 2)
-ax.boxplot(lrmse_nu.T, labels=[f"{c}%" for c in filenames])
+ax.boxplot(lrmse_nu, labels=[f"{c}%" for c in filenames])
+ax.axhline(y=0.05, color="k")
 ax.set_xlabel("censorship")
 ax.set_title("rrmse of nu")
+
+# ====================================================== #
+(
+    params_star_stack,
+    params_names,
+    lbd_set,
+    bic,
+    theta_reg,
+    ebic,
+    theta,
+    theta_biais,
+) = get_data(f"{main}{filenames[-1]}")
 
 
 # ====================================================== #
