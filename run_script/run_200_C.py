@@ -2,7 +2,7 @@ from sdg4varselect import jnp
 from multi_run import multi_run
 
 # ====================================================== #
-DIM_COV = 100
+DIM_COV = 200
 N_IND = 100
 J_OBS = 5
 CENSORING = [1000, 85, 80.5, 77, 73]  # [0.0, 0.2, 0.4, 0.6, 0.8]
@@ -17,7 +17,7 @@ params0 = {
     "alpha": 5.0,  # 7
     "beta": jnp.zeros(shape=(DIM_COV,)),
 }
-lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 # lbd_set = [0.19]
 
 multi_run(params0, lbd_set, N_IND, DIM_COV, J_OBS, CENSORING, nrun=50)
