@@ -32,6 +32,7 @@ def get_data(filename):
         [i for i in range(len(theta)) if np.isnan(theta[i]).any()],
         [i for i in range(len(bic)) if np.isinf(bic[i]).any()],
         [i for i in range(len(theta)) if theta[i, 7:].mean() == 0],
+        # [i for i in range(len(theta)) if np.abs(theta[i, 1] - 90) > 10],
     ]
 
     id = np.unique(np.concatenate(id))
@@ -73,9 +74,11 @@ def rrmse(x, x_star):
     return rmse(x, x_star) / np.sqrt((x**2).sum(axis=1))
 
 
-filenames = ["0", "21", "42", "58", "78"]
 filenames = ["0", "19", "41", "60", "79"]
 main = "1702481006_multi_N100_P100_J5_C"
+
+filenames = ["0", "19", "40", "59", "80"]
+main = "1702551174_multi_N100_P200_J5_C"
 
 lrmse_beta = []
 lrmse_nu = []
@@ -121,52 +124,47 @@ ax.set_title("rrmse of nu")
     ebic,
     theta,
     theta_biais,
-) = get_data(f"{main}{filenames[-1]}")
+) = get_data(f"{main}{filenames[0]}")
 
+id = np.abs(theta[:, 1] - 90) < 10
+theta[id, 1]
 
 # ====================================================== #
 
 for i in range(len(bic) // 10):
     fig, axs = sdgplt.plot_regularization_path(theta_reg[i], lbd_set, bic[i])
     ax, ax_bic = axs
+    ax.set_title(f"{i}")
+
 
 # ====================================================== #
-fig = sdgplt.figure()
+def boxplot(t):
+    fig = sdgplt.figure()
 
-for i in range(7):
-    ax = fig.add_subplot(3, 3, 1 + i)
-    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-    bp = ax.boxplot(theta_biais[:, i], patch_artist=True)
+    for i in range(7):
+        ax = fig.add_subplot(3, 3, 1 + i)
+        ax.ticklabel_format(style="sci", scilimits=(-3, 3))
+        bp = ax.boxplot(t[:, i], patch_artist=True)
 
-    for patch in bp["boxes"]:
-        patch.set(facecolor=f"C{i}")
+        for patch in bp["boxes"]:
+            patch.set(facecolor=f"C{i}")
 
-    for median in bp["medians"]:
-        median.set_color("black")
+        for median in bp["medians"]:
+            median.set_color("black")
 
-    ax.axhline(y=params_star_stack[i], color="k", label="true value")
+        ax.axhline(y=params_star_stack[i], color="k", label="true value")
 
-    ax.legend()
+        ax.legend()
+    return fig, ax
+
+    fig, ax = boxplot(theta_biais)
     ax.set_title(f"{params_names[i]} biased")
 
+
 # ====================================================== #
-fig = sdgplt.figure()
 
-for i in range(7):
-    ax = fig.add_subplot(3, 3, 1 + i)
-    ax.ticklabel_format(style="sci", scilimits=(-3, 3))
-    bp = ax.boxplot(theta[:, i], patch_artist=True)
-
-    for patch in bp["boxes"]:
-        patch.set(facecolor=f"C{i}")
-
-    for median in bp["medians"]:
-        median.set_color("black")
-
-    ax.axhline(y=params_star_stack[i], color="k", label="true value")
-
-    ax.legend()
-    ax.set_title(f"EMV of {params_names[i]}")
+fig, ax = boxplot(theta)
+ax.set_title(f"EMV of {params_names[i]}")
 
 # ====================================================== #
 fig = sdgplt.figure()
