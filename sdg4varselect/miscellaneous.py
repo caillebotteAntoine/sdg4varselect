@@ -1,129 +1,222 @@
 import numpy as np
 import jax.numpy as jnp
 
+from warnings import warn
+
+
+class Chain:
+    def __init__(self, x0: float, size: int = 1, name="NA"):
+        """Constructor of chain."""
+        self._name = name
+
+        if isinstance(x0, (list, np.ndarray)):
+            if len(x0) > 1:
+                warn(
+                    "an array has been given as initial value, only the first component is taken into account"
+                )
+
+            x0 = x0[0]
+
+        if not isinstance(x0, (int, float, np.floating, np.integer)):
+            raise TypeError("x0 must be an integer or a float")
+
+        if not isinstance(size, (int, float, np.floating, np.integer)):
+            raise TypeError("size must be an integer or a float")
+
+        self._data = np.array([float(x0) for i in range(size)])
+        self._size = size
+
+        self._chain: list[np.ndarray] = []
+        self.update_chain()  # append x0 to the chain
+
+    def __repr__(self) -> str:
+        prefix = self._type
+        if self._name != "NA":
+            prefix += "[" + self._name + "]"
+        prefix += "("
+        msg = np.array2string(self._data, prefix=prefix, suffix=")")
+        return prefix + msg + ")"
+
+    def print(self) -> str:
+        msg_add = "\n previous values = "
+        msg_add += str(np.array(self._chain)).replace("\n", ", ")
+
+        msg = str(self) + msg_add
+        print(msg)
+        return msg
+
+    def reset(self):
+        x0 = self._chain[0][0]
+        self._data = np.array([float(x0) for i in range(self._size)])
+        self._chain = []
+        self.update_chain()
+
+    # at 25/12
+    # def init(self, x0):
+    #     for i in range(self._size):
+    #         self._data[i] = x0
+
+    def __len__(self) -> int:
+        return self._size
+
+    def update_chain(self):
+        """append to the chain a copy of the current value of data"""
+        self._chain.append(self._data.copy())
+
+    @property
+    def data(self) -> np.ndarray:
+        """returns the current value of data"""
+        return self._data
+
+    @property
+    def chain(self) -> list[np.ndarray]:
+        """returns the data chain"""
+        return self._chain
+
+    @property
+    def name(self) -> str:
+        """returns chain's name"""
+        return self._name
+
+
+if __name__ == "__main__":
+    x = Chain(0, 3)
+    print(x)
+
+    y = x.data
+    print(y)
+
+    y[0] = 2
+
+    print(y)
+    print(x)
+
+
+# ============================================================== #
+
 # from warnings import warn
 
-np.set_printoptions(precision=3, threshold=10)
+# np.set_printoptions(precision=3, threshold=10)
+
+# 25/12
+# def list_to_BIC(list_solver, list_res, N, p, verbatim=False):
+#     beta = [list_solver[i].theta_nonzero_support(p=p) for i in range(len(list_solver))]
+
+#     id_out = [0]
+#     chosen_model = [0]
+#     for i in range(len(beta) - 1):
+#         if (beta[i + 1] == beta[i]).all():
+#             id_out.append(id_out[i])
+#         else:
+#             id_out.append(id_out[i] + 1)
+#             chosen_model.append(i + 1)
+
+#     if verbatim:
+#         print(id_out)
+
+#     chosen_bic = np.array([list_solver[i].BIC(N, p, size=1000) for i in chosen_model])
+#     chosen_ebic = np.array([list_solver[i].eBIC(N, p, size=1000) for i in chosen_model])
+
+#     if verbatim:
+#         print(chosen_model)
+
+#     theta_regularization = np.array([x.theta_reals1d[-p:] for x in list_solver])
+#     bic = np.array([chosen_bic[i] for i in id_out])
+#     ebic = np.array([chosen_ebic[i] for i in id_out])
+
+#     return bic, ebic, theta_regularization
 
 
-def list_to_BIC(list_solver, list_res, N, p, verbatim=False):
-    beta = [list_solver[i].theta_nonzero_support(p=p) for i in range(len(list_solver))]
+# def default_arg(dec):
+#     def new_dec(func=None, *args, **kwargs):
+#         if func is None:
 
-    id_out = [0]
-    chosen_model = [0]
-    for i in range(len(beta) - 1):
-        if (beta[i + 1] == beta[i]).all():
-            id_out.append(id_out[i])
-        else:
-            id_out.append(id_out[i] + 1)
-            chosen_model.append(i + 1)
+#             def inner_dec(func):
+#                 return dec(func, *args, **kwargs)
 
-    if verbatim:
-        print(id_out)
+#             return inner_dec
 
-    chosen_bic = np.array([list_solver[i].BIC(N, p, size=1000) for i in chosen_model])
-    chosen_ebic = np.array([list_solver[i].eBIC(N, p, size=1000) for i in chosen_model])
+#         return dec(func, *args, **kwargs)
 
-    if verbatim:
-        print(chosen_model)
-
-    theta_regularization = np.array([x.theta_reals1d[-p:] for x in list_solver])
-    bic = np.array([chosen_bic[i] for i in id_out])
-    ebic = np.array([chosen_ebic[i] for i in id_out])
-
-    return bic, ebic, theta_regularization
+#     return new_dec
 
 
-def default_arg(dec):
-    def new_dec(func=None, *args, **kwargs):
-        if func is None:
-
-            def inner_dec(func):
-                return dec(func, *args, **kwargs)
-
-            return inner_dec
-
-        return dec(func, *args, **kwargs)
-
-    return new_dec
+# def time2string(x: float, format="{:4.3f}"):
+#     unit = np.array([1e-1, 1e-4, 1e-7, 1e-10])
+#     r = x >= unit
+#     unit_txt = ["s", "ms", "µs", "ns"]
+#     i = r.argmax()
+#     out = format.format(x / unit[i] / 10) + unit_txt[i]
+#     return out
 
 
-def time2string(x: float, format="{:4.3f}"):
-    unit = np.array([1e-1, 1e-4, 1e-7, 1e-10])
-    r = x >= unit
-    unit_txt = ["s", "ms", "µs", "ns"]
-    i = r.argmax()
-    out = format.format(x / unit[i] / 10) + unit_txt[i]
-    return out
+# def difftime2saving(nloop, difftime, unit="s"):
+#     if difftime < 0:
+#         return difftime2saving(nloop, -difftime, unit)
+
+#     units = {"s": 1, "ms": 1e-3, "µs": 1e-6, "ns": 1e-9}
+
+#     msg = (
+#         "An acceleration of "
+#         + time2string(difftime * units[unit])
+#         + " in a "
+#         + str(nloop)
+#         + " iteration loops will allow a gain of "
+#         + time2string(difftime * nloop * units[unit])
+#     )
+#     return msg
 
 
-def difftime2saving(nloop, difftime, unit="s"):
-    if difftime < 0:
-        return difftime2saving(nloop, -difftime, unit)
+# @default_arg
+# def time_profiler(func=None, nrun=10, running_time_max=60):
+#     from jaxlib.xla_extension import CompiledFunction
+#     import time
 
-    units = {"s": 1, "ms": 1e-3, "µs": 1e-6, "ns": 1e-9}
+#     def new_func(*args, **kwargs):
+#         # ensure that the function has been compiled before measuring the computation time
+#         if isinstance(func, CompiledFunction):
+#             # warn("the function was compiled before timing")
+#             func(*args, **kwargs)
 
-    msg = (
-        "An acceleration of "
-        + time2string(difftime * units[unit])
-        + " in a "
-        + str(nloop)
-        + " iteration loops will allow a gain of "
-        + time2string(difftime * nloop * units[unit])
-    )
-    return msg
+#         elasped_time = [time.time()]
+#         while (
+#             len(elasped_time) < nrun + 1
+#             and time.time() - elasped_time[0] < running_time_max
+#         ):
+#             out = func(*args, **kwargs)
+#             elasped_time.append(time.time())
 
+#         elasped_time = np.array(elasped_time)
+#         elasped_time = elasped_time[1:] - elasped_time[:-1]
 
-@default_arg
-def time_profiler(func=None, nrun=10, running_time_max=60):
-    from jaxlib.xla_extension import CompiledFunction
-    import time
+#         msg = time2string(elasped_time.mean()) + " per loop"
 
-    def new_func(*args, **kwargs):
-        # ensure that the function has been compiled before measuring the computation time
-        if isinstance(func, CompiledFunction):
-            # warn("the function was compiled before timing")
-            func(*args, **kwargs)
+#         if elasped_time.var() > 1e-3:
+#             msg += " [sd = " + time2string(np.sqrt(elasped_time.var())) + "]"
+#         print(str(len(elasped_time)) + " loops: " + msg)
+#         return out, elasped_time.mean()
 
-        elasped_time = [time.time()]
-        while (
-            len(elasped_time) < nrun + 1
-            and time.time() - elasped_time[0] < running_time_max
-        ):
-            out = func(*args, **kwargs)
-            elasped_time.append(time.time())
-
-        elasped_time = np.array(elasped_time)
-        elasped_time = elasped_time[1:] - elasped_time[:-1]
-
-        msg = time2string(elasped_time.mean()) + " per loop"
-
-        if elasped_time.var() > 1e-3:
-            msg += " [sd = " + time2string(np.sqrt(elasped_time.var())) + "]"
-        print(str(len(elasped_time)) + " loops: " + msg)
-        return out, elasped_time.mean()
-
-    return new_func
+#     return new_func
 
 
-def difftime(*funcs, nloop=100, nrun=20):
-    def func(*args, **kwargs):
-        func_time = np.array([0.0 for i in range(len(funcs))])
-        for i in range(len(funcs)):
-            print("[ " + funcs[i].__name__ + " ] ", end="")
-            out, tmp = time_profiler(funcs[i], nrun=nrun)(*args, **kwargs)
-            func_time[i] = tmp
+# def difftime(*funcs, nloop=100, nrun=20):
+#     def func(*args, **kwargs):
+#         func_time = np.array([0.0 for i in range(len(funcs))])
+#         for i in range(len(funcs)):
+#             print("[ " + funcs[i].__name__ + " ] ", end="")
+#             out, tmp = time_profiler(funcs[i], nrun=nrun)(*args, **kwargs)
+#             func_time[i] = tmp
 
-        loop_times_msg = (
-            " out of a total of " + time2string(nloop * func_time.min()) + ".\n"
-        )
-        print(
-            difftime2saving(nloop, func_time.max() - func_time.min()),
-            end=loop_times_msg,
-        )
-        print("The fastest function is " + funcs[func_time.argmin()].__name__)
+#         loop_times_msg = (
+#             " out of a total of " + time2string(nloop * func_time.min()) + ".\n"
+#         )
+#         print(
+#             difftime2saving(nloop, func_time.max() - func_time.min()),
+#             end=loop_times_msg,
+#         )
+#         print("The fastest function is " + funcs[func_time.argmin()].__name__)
 
-    return func
+#     return func
 
 
 def loadbar(
@@ -172,17 +265,18 @@ if __name__ == "__main__":
         print(step_message(i, 1000), end="\r")
     print("HELLO WORLD")
 
-    x = np.arange(0, 1e6)
+    # 25/12
+    # x = np.arange(0, 1e6)
 
-    def np_sum(x):
-        np.sum(x)
+    # def np_sum(x):
+    #     np.sum(x)
 
-    def mysum(x):
-        res = 0
-        for v in x:
-            res += v
-        return res
+    # def mysum(x):
+    #     res = 0
+    #     for v in x:
+    #         res += v
+    #     return res
 
-    difftime(np_sum, sum, mysum)(x)
+    # difftime(np_sum, sum, mysum)(x)
 
-    print([time2string(x) for x in [2.5, 0.6, 2.3e-4, 2.3e-3, 2.2e-7, 2.2e-6, 2.1e-10]])
+    # print([time2string(x) for x in [2.5, 0.6, 2.3e-4, 2.3e-3, 2.2e-7, 2.2e-6, 2.1e-10]])

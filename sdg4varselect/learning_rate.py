@@ -4,35 +4,37 @@ import numpy as np
 class learning_rate:
     def __init__(
         self,
-        step_heat: int = 0,
-        coef_heat: float = 1,
-        step_burnin: int = None,
-        coef_burnin: float = 1,
-        scale: float = 1,
+        preheating: int = 0,
+        coef_preheating: float = 1,
+        heating: int = None,
+        coef_heating: float = 1,
+        max: float = 1,
         step_flat: int = 0,
+        *args,
+        **kwargs
     ):
-        if not isinstance(step_heat, int):
-            raise TypeError("step_heat must be int")
-        self._step_heat = step_heat
+        if not isinstance(preheating, int):
+            raise TypeError("preheating must be int")
+        self._preheating = preheating
 
-        if not isinstance(coef_heat, (int, float)):
-            raise TypeError("coef_heat must be int or float")
-        self._coef_heat = coef_heat
+        if not isinstance(coef_preheating, (int, float)):
+            raise TypeError("coef_preheating must be int or float")
+        self._coef_preheating = coef_preheating
 
-        if step_burnin is None:
-            self._step_burnin = None
+        if heating is None:
+            self._heating = None
         else:
-            if not isinstance(step_burnin, int):
-                raise TypeError("step_burnin must be int")
-            self._step_burnin = step_burnin - 1
+            if not isinstance(heating, int):
+                raise TypeError("heating must be int")
+            self._heating = heating - 1
 
-        if not isinstance(coef_burnin, (int, float)):
-            raise TypeError("coef_burnin must be int or float")
-        self._coef_burnin = coef_burnin
+        if not isinstance(coef_heating, (int, float)):
+            raise TypeError("coef_heating must be int or float")
+        self._coef_heating = coef_heating
 
-        if not isinstance(scale, (int, float)):
-            raise TypeError("scale must be int or float")
-        self._scale = scale
+        if not isinstance(max, (int, float)):
+            raise TypeError("max must be int or float")
+        self._max = max
 
         if not isinstance(step_flat, (int, float)):
             raise TypeError("step_flat must be int or float")
@@ -40,29 +42,29 @@ class learning_rate:
 
     # === PROPERTY === #
     @property
-    def step_heat(self):
-        """return step_heat"""
-        return self._step_heat
+    def preheating(self):
+        """return preheating"""
+        return self._preheating
 
     @property
-    def coef_heat(self):
-        """return coef_heat"""
-        return self._coef_heat
+    def coef_preheating(self):
+        """return coef_preheating"""
+        return self._coef_preheating
 
     @property
-    def step_burnin(self):
-        """return step_burnin"""
-        return self._step_burnin
+    def heating(self):
+        """return heating"""
+        return self._heating
 
     @property
-    def coef_burnin(self):
-        """return step_heat"""
-        return self._coef_burnin
+    def coef_heating(self):
+        """return preheating"""
+        return self._coef_heating
 
     @property
-    def scale(self):
-        """return scale"""
-        return self._scale
+    def max(self):
+        """return max"""
+        return self._max
 
     @property
     def step_flat(self):
@@ -72,60 +74,60 @@ class learning_rate:
     # === STATIC METHOD === #
     @staticmethod
     def zero():
-        return learning_rate(step_heat=1000, scale=0)
+        return learning_rate(preheating=1000, max=0)
 
     @staticmethod
     def one():
-        return learning_rate(step_heat=0, scale=1)
+        return learning_rate(preheating=0, max=1)
 
     @staticmethod
-    def from_0_to_1(heat, coef_heat):
-        return learning_rate(heat, coef_heat, 10**10, 1)
+    def from_0_to_1(heat, coef_preheating):
+        return learning_rate(heat, coef_preheating, 10**10, 1)
 
     @staticmethod
-    def from_1_to_0(burnin, coef_burnin):
-        return learning_rate(0, 1, burnin, coef_burnin)
+    def from_1_to_0(burnin, coef_heating):
+        return learning_rate(0, 1, burnin, coef_heating)
 
     def __call__(self, iter: int) -> float:
         if iter < self._step_flat:  # ensures zero value before growth
             return 0
 
-        if iter < self._step_heat:  # before exp(coeff *(1-iter/step_heat))
-            return self._scale * np.exp(
-                self._coef_heat * (1 - float(iter) / self._step_heat)
+        if iter < self._preheating:  # before exp(coeff *(1-iter/preheating))
+            return self._max * np.exp(
+                self._coef_preheating * (1 - float(iter) / self._preheating)
             )
 
-        if self._step_burnin is not None:
-            if iter >= 1 + self._step_burnin:  # after (iter - step_burnin)^-coef
-                return self._scale * pow(iter - self._step_burnin, -self._coef_burnin)
+        if self._heating is not None:
+            if iter >= 1 + self._heating:  # after (iter - heating)^-coef
+                return self._max * pow(iter - self._heating, -self._coef_heating)
 
-        return self._scale
+        return self._max
 
     def __repr__(self) -> str:
-        scale_msg = str(self._scale) + "*"
-        if self._scale == 1:
-            scale_msg = ""
+        max_msg = str(self._max) + "*"
+        if self._max == 1:
+            max_msg = ""
         out = (
             self.__class__.__name__
             + " :"
             + "\n\t i ->\t | "
-            + scale_msg
+            + max_msg
             + "exp("
-            + str(self._coef_heat)
+            + str(self._coef_preheating)
             + "*(1-i/"
-            + str(self._step_heat)
+            + str(self._preheating)
             + "))\t if i < "
-            + str(self._step_heat)
+            + str(self._preheating)
             + "\n\t\t | "
-            + scale_msg
+            + max_msg
             + "( i - "
-            + str(self._coef_burnin)
+            + str(self._coef_heating)
             + ")^"
-            + str(-self._coef_burnin)
+            + str(-self._coef_heating)
             + "\t if i >= "
-            + str(self._step_burnin)
+            + str(self._heating)
             + "\n\t\t | "
-            + str(self._scale)
+            + str(self._max)
             + "\t otherwise"
         )
 
@@ -134,19 +136,49 @@ class learning_rate:
     def plot(self, label=None):
         import matplotlib.pyplot as plt
 
-        if self.step_burnin is None:
-            if self.step_heat == 0:
+        if self.heating is None:
+            if self.preheating == 0:
                 x = np.linspace(0, 200)
             else:
-                x = np.linspace(0, 2 * self.step_heat, num=4 * self.step_heat)
+                x = np.linspace(0, 2 * self.preheating, num=4 * self.preheating)
         else:
-            x = np.linspace(0, 2 * self.step_burnin, num=4 * self.step_burnin)
+            x = np.linspace(0, 2 * self.heating, num=4 * self.heating)
 
         y = [self.__call__(i) for i in x]
 
         if label is None:
             return plt.plot(x, y)
         return plt.plot(x, y, label=label)
+
+
+def create_multi_step_size(settings, num_step_size=3):
+    # !! check if setting is list of settings set !!
+    if not isinstance(settings, list):
+        raise TypeError("settings must be a list of dict !")
+
+    if len(settings) < 0:
+        raise TypeError(
+            "settings must contain at least one parameter set to define a step sequence !"
+        )
+
+    default_keys = ["learning_rate", "preheating", "heating", "max"]
+
+    for setting in settings:
+        if not all([x in setting for x in default_keys]):
+            raise TypeError(
+                "settings set must contain this four keys : learning_rate, preheating, heating, max"
+            )
+
+    while len(settings) < num_step_size:
+        settings.append(settings[0])
+
+    step_size = []
+    for setting in settings:
+        setting["coef_burnin"] = 0.65
+        setting["coef_preheating"] = float(np.log(setting["learning_rate"]))
+        step_size.append(learning_rate(**setting))
+
+    return step_size
 
 
 if __name__ == "__main__":

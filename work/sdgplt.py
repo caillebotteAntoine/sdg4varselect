@@ -17,6 +17,45 @@ def plot(*args, **kwargs):
     return plt.plot(*args, **kwargs)
 
 
+def plot_sample(obs, sim, params_star, censoring_loc, a, b):
+    from matplotlib import pyplot as plt
+
+    fig = plt.figure()
+    fig.set_figheight(7)
+    fig.set_figwidth(7)
+
+    ax = fig.add_subplot(211)
+    ax.plot(obs["time"].T, obs["Y"].T, "o-")
+
+    ax = fig.add_subplot(212)
+    ax.hist(
+        [obs["T"], sim["T uncensored"]],  # , sim["C"]],
+        bins=20,
+        density=True,
+        label=["censored survival time", "survival time"],  # , "censuring time"],
+    )
+
+    def weibull_fct(t, a, b):
+        return b / a * (t / a) ** (b - 1) * np.exp(-((t / a) ** b))
+
+    t = np.linspace(
+        obs["T"].min(), max(obs["T"].max(), sim["T uncensored"].max()), num=100
+    )
+    ax.plot(t, weibull_fct(t, a, b), label="weibull baseline")
+
+    ax.plot(
+        t,
+        weibull_fct(t, censoring_loc, 35),
+        label="censured time weibull distribution",
+    )
+    ax.legend()
+
+    print(f'censoring = {int((1-obs["delta"].mean())*100)}%')
+
+    fig.suptitle(f'Simulation with {int((1-obs["delta"].mean())*100)}% censored data')
+    return fig, ax
+
+
 def dec_figsize(func):
     @wraps(func)
     def new_func(*args, figsize=15, **kwargs):
@@ -75,9 +114,9 @@ def plot_mcmc(x, id_max=None):
     """plot an MCMC_chain"""
     import matplotlib.pyplot as plt
     from sdg4varselect.MCMC import MCMC_chain
-    from sdg4varselect.solver import Solver
+    from sdg4varselect.data_handler import Data_handler
 
-    if isinstance(x, Solver):
+    if isinstance(x, Data_handler):
         return [plot_mcmc(mcmc) for mcmc in x.latent_variables.values()]
 
     if isinstance(x, MCMC_chain):

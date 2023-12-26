@@ -55,7 +55,7 @@ if __name__ == "__main__":
     from sample import get_params_star, plot_sample
     from time import time
 
-    DIM_COV = 10
+    DIM_COV = 4
     N_IND = 100
     J_OBS = 5
     params0_start = {
@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     ls = []
     lr = []
-    for i in range(2):
+    for i in range(1):
         params0, PRNGKey = get_random_params0(
             PRNGKey, params0_start, error=0.2, uniform_on="beta"
         )

@@ -5,20 +5,19 @@ import numpy as np
 from jax import jit
 from jax import random as jrd
 
-from sdg4varselect.chain import chain
+from sdg4varselect.miscellaneous import Chain
 
 
 @partial(
     jit,
-    static_argnums=(1, 3, 5),
+    static_argnums=(1, 3),
 )
 def gibbs_sampler(
     key,  # 0
     data_name,  # 1
     standard_deviation,  # 2
     loglikelihood,  # 3
-    theta_reals1d,  # 4
-    parametrization,  # 5
+    theta_reals1d,
     **kwargs
 ):
     key1, key2, key_out = jrd.split(key, num=3)
@@ -26,11 +25,11 @@ def gibbs_sampler(
     shape = kwargs[data_name].shape
     old_data = kwargs[data_name].copy()
 
-    current_score = loglikelihood(theta_reals1d, parametrization, **kwargs)
+    current_score = loglikelihood(theta_reals1d, **kwargs)
 
     # === proposal value ===
     kwargs[data_name] += standard_deviation * jrd.normal(key1, shape=shape)
-    proposal_score = loglikelihood(theta_reals1d, parametrization, **kwargs)
+    proposal_score = loglikelihood(theta_reals1d, **kwargs)
 
     # choose the new value
     rd = jnp.log(jrd.uniform(key2, shape=shape))
@@ -42,7 +41,7 @@ def gibbs_sampler(
     return key_out, out, nacceptance
 
 
-class MCMC_chain(chain):
+class MCMC_chain(Chain):
     def __init__(
         self,
         x0: float,
@@ -52,7 +51,7 @@ class MCMC_chain(chain):
         name: str,
     ):
         """Constructor of MCMC chain with a gibbs sampler method."""
-        super().__init__(x0, size, name, "mcmc")
+        super().__init__(x0, size, name)
 
         self.__acceptance = [0]
         self.__sd = [sd]

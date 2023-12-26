@@ -2,25 +2,11 @@
 
 from scipy.optimize import brenth
 import numpy as np
-from warnings import warn
-
-from sdg4varselect import jnp, jrd
 
 
-# ======== TUTO FCT PYTHON PYTEST======== #
-def f(a, b, *args, **kwargs):
-    """args is list, kwargs is a dict"""
-    if len(args) != 0 and len(kwargs) == 0:
-        return a * b + args[0]
-    if "d" in kwargs:
-        return a * b + args[0] * kwargs["d"]
-
-    return a * b
-
-
-def test_f():
-    assert f(2, 3) == 6
-    # etc
+import jax.numpy as jnp
+import jax.random as jrd
+from jax import jit
 
 
 # ======================================================= #
@@ -140,5 +126,8 @@ def cox_simulation(
     return {}, sim, PRNGKey
 
 
-if __name__ == "__main__":
-    pass
+@jit
+def gaussian_prior(data, mean, variance) -> jnp.ndarray:
+    """Computation of the current target distribution score"""
+    out = jnp.log(2 * jnp.pi * variance) + jnp.power(data - mean, 2) / variance
+    return -out / 2
