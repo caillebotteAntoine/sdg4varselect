@@ -1,5 +1,6 @@
 from jax import jit
 import jax.numpy as jnp
+import jax.random as jrd
 import numpy as np
 
 import itertools
@@ -8,6 +9,7 @@ from collections import namedtuple
 from sdg4varselect.data_handler import Data_handler
 from sdg4varselect.learning_rate import create_multi_step_size
 from sdg4varselect.miscellaneous import step_message
+from copy import deepcopy
 
 
 @jit
@@ -98,30 +100,46 @@ def proximal_operator(
     )
 
 
+class NanError(Exception):
+    pass
+
+
 class SPG_FIM:
     def __init__(self, PRNGKey, dh: Data_handler, settings, lbd=None, alpha=1.0):
-        self._data_handler = dh
+        self._data_handler = deepcopy(dh)
 
         self.PRNGKey = PRNGKey
 
         self._lbd = lbd
         self._alpha = alpha
 
+        step_size_settings = [
+            settings.step_size_grad,
+            settings.step_size_approx_sto,
+            settings.step_size_fisher,
+        ]
         (
             self._step_size_grad,
             self._step_size_approx_sto,
             self._step_size_fisher,
-        ) = create_multi_step_size(settings, num_step_size=3)
+        ) = create_multi_step_size(step_size_settings, num_step_size=3)
 
     @property
     def data(self):
         return self._data_handler.data
 
     @property
-    def mcmc(self):
-        return self._data_handler.latent_variables.values()
+    def latent_variables(self):
+        return self._data_handler.latent_variables
 
-    estim_res = namedtuple("estim_res", ("theta", "FIM", "grad"))
+    settings = namedtuple(
+        "settings",
+        ("step_size_grad", "step_size_approx_sto", "step_size_fisher"),
+    )
+    estim_res = namedtuple("estim_res", ("theta", "FIM", "grad", "likelihood"))
+    variable_selection_res = namedtuple(
+        "variable_selection_res", ("estim_res", "theta", "regularization_path", "bic")
+    )
 
     @classmethod
     def labelswitch(self, res_estim):
@@ -131,9 +149,39 @@ class SPG_FIM:
         ]
 
         res = self.estim_res(
-            theta=jnp.array(res[0]), FIM=res[2], grad=jnp.array(res[4])
+            theta=jnp.array(res[0]),
+            FIM=res[2],
+            grad=jnp.array(res[4]),
+            likelihood=jnp.nan,
         )
         return res
+
+    def add_mcmc(self, *args, **kwargs) -> None:
+        """create a new mcmc chain and add it to the latent variable"""
+        self._data_handler.add_mcmc(*args, **kwargs)
+
+    # ============================================================== #
+    def likelihood_marginal(self, model, PRNGKey, theta, size=1000):
+        var_lat_sample = {}
+        for var in self.latent_variables:
+            var_lat_sample[var] = self.latent_variables[var].sample(
+                PRNGKey,
+                theta,
+                size=size - 1,
+                **self.data,
+            )
+
+        likelihood_kwargs = deepcopy(self.data)
+        out = model.likelihood(theta, **likelihood_kwargs)
+        for k in range(size - 1):
+            for var in self.latent_variables:
+                likelihood_kwargs[var] = var_lat_sample[var][k]
+
+            out += model.likelihood(theta, **likelihood_kwargs)
+
+        return out / size
+
+    # ============================================================== #
 
     # @functools.partial(jit, static_argnums=0)
     def simulation(self, theta_reals1d):
@@ -158,10 +206,6 @@ class SPG_FIM:
 
         # Gradient descent
         jac_current = jac_likelihood(theta_reals1d, **self.data)
-
-        if jnp.any(jnp.isnan(jac_current)):
-            print("there is an nan in jac_current, stoping the algorithm !")
-            return -1
 
         (
             jac,
@@ -232,19 +276,8 @@ class SPG_FIM:
                 step_size,
             )
 
-            isnan = {
-                "grad": jnp.any(jnp.isnan(grad)),
-                "jac": jnp.any(jnp.isnan(jac)),
-                "grad_precond": jnp.any(jnp.isnan(grad_precond)),
-                "fisher_info": jnp.any(jnp.isnan(fisher_info)),
-                "theta_reals1d": jnp.any(jnp.isnan(theta_reals1d)),
-            }
-
-            if True in isnan.values():
-                print(
-                    f"there is an nan in {[key for x, key in enumerate(isnan) if x ]}, stoping the algorithm !"
-                )
-                yield -1
+            if jnp.isnan(theta_reals1d).any():
+                yield NanError("nan detected in theta or jac")
                 break
 
             yield (
@@ -262,6 +295,8 @@ class SPG_FIM:
         niter,
         DIM_HD,
         theta0_reals1d: jnp.ndarray,
+        ntry=1,
+        partial_fit=False,
     ):
         (DIM_THETA,) = theta0_reals1d.shape
 
@@ -273,7 +308,7 @@ class SPG_FIM:
         # c'est pas un iterator
 
         jac_shape = jac_likelihood(theta0_reals1d, **self.data).shape
-        return list(
+        out = list(
             itertools.islice(
                 self.algorithm(
                     jac_likelihood,
@@ -286,3 +321,58 @@ class SPG_FIM:
                 niter,
             )
         )
+        flag = out[-1]
+        if isinstance(flag, NanError):
+            if ntry > 1:
+                return self.fit(
+                    jac_likelihood,
+                    niter,
+                    DIM_HD,
+                    theta0_reals1d,
+                    ntry=ntry - 1,
+                    partial_fit=partial_fit,
+                )
+            # ie all attempts have failed
+            if partial_fit:
+                out.pop()  # remove error
+                return out
+            else:
+                raise flag
+        return out
+
+
+def BIC(theta_HD, log_likelihood, n):
+    """
+    BIC = k*ln(n) - 2*ln(L)
+
+    where :
+        - k is the number of parameter estimated (ie non zero parameter in HD parameter)
+        - n is the sample size
+        - L the maximzed value of the likelihood function
+    """
+    k = (theta_HD != 0).sum(axis=1)
+    assert k.shape == log_likelihood.shape
+
+    return -2 * log_likelihood + k * jnp.log(n)
+
+
+def regularization_path(one_estim, PRNGKey, model, dh, algo_settings, lbd_set):
+    DIM_LD = model.DIM_LD
+    PRNGKey_list = jrd.split(PRNGKey, num=len(lbd_set))
+
+    def iter_estim():
+        for i in range(len(lbd_set)):
+            res_estim = one_estim(
+                PRNGKey_list[i], model, dh, algo_settings, lbd=lbd_set[i]
+            )
+            if res_estim == NanError:
+                raise NanError
+
+            if (res_estim.theta[DIM_LD:] != 0).sum() == 0:
+                for k in range(len(lbd_set) - i):
+                    yield res_estim
+                break
+            else:
+                yield res_estim
+
+    return [res for res in iter_estim()]

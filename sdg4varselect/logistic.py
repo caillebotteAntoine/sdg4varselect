@@ -6,14 +6,12 @@ import numpy as np
 
 import jax.numpy as jnp
 import jax.random as jrd
-from jax import jit, jacfwd
+from jax import jit
 import functools
 
-from collections import namedtuple
-
-
 from sdg4varselect.data_handler import Data_handler
-from sdg4varselect.simulation import (
+from sdg4varselect.Joint_model import (
+    JointModel,
     mem_simulation,
     cov_simulation,
     cox_simulation,
@@ -24,6 +22,8 @@ from sdg4varselect.simulation import (
 # ===================================================== #
 # ====================== LOGISTIC ===================== #
 # ===================================================== #
+
+
 @jit
 def logistic_curve_float(x, supremum: float, midpoint: float, growth_rate: float):
     return supremum / (1 + jnp.exp(-(x - midpoint) / growth_rate))
@@ -41,114 +41,41 @@ def logistic_curve(
     )
 
 
-@jit
-def log_hazard(
-    time: jnp.ndarray,  # shape = (N,num)
-    phi1: jnp.ndarray,  # shape = (N,)
-    phi2: jnp.ndarray,  # shape = (N,)
-    mu3: jnp.ndarray,  # shape = (1,)
+# ============================================================== #
+
+
+def mixed_effect_function(
+    times,  # shape = (N,num)
+    phi1,  # shape = (N,)
+    phi2,  # shape = (N,)
+    mu3,
+    **kwargs,
+):
+    out = logistic_curve(times, phi1, phi2, jnp.array([mu3]))
+    assert out.shape == times.shape
+    return out
+
+
+def log_baseline_hazard(
+    times,  # shape = (N,num)
     a: jnp.ndarray,  # shape = (1,)
     b: jnp.ndarray,  # shape = (1,)
-    beta: jnp.ndarray,  # shape = (p,)
-    alpha: jnp.ndarray,  # shape = (1,)
-    cov: jnp.ndarray,  # shape = (N,p)
-) -> jnp.ndarray:  # shape = (N, num)
-    """hazard(t) = h0(t) * exp(beta^T U  + alpha*m(t))
-    with : h0(t) = b a^-b t^{b-1} = b /a * (t/a)^{b-1}
-
-    return : log(b/a) + (b-1)*log(t/a) + beta^T U + alpha*m(t)
-    """
-
-    logistic_value = logistic_curve(time, phi1, phi2, jnp.array([mu3]))
-    assert logistic_value.shape == time.shape
-
-    log_h_0 = jnp.log(b / a) + (b - 1) * jnp.log(time / a)
-    assert log_h_0.shape == time.shape
-
-    beta_prod_cov = (cov @ beta)[:, None]
-    assert beta_prod_cov.shape[0] == log_h_0.shape[0]
-
-    out = log_h_0 + alpha * logistic_value
-    return beta_prod_cov + out
+    **kwargs,
+):
+    out = jnp.log(b / a) + (b - 1) * jnp.log(times / a)
+    assert out.shape == times.shape
+    return out
 
 
-@jit
-def likelihood_survival_without_prior(
-    params, phi1, phi2, T, delta, cov, **kwargs
-) -> jnp.ndarray:
-    """return likelihood without the gaussian prior"""
-    (N,) = T.shape
-    (p,) = params.beta.shape
-    assert T.shape == (N,)
-    assert delta.shape == (N,)
-    assert phi1.shape == (N,)
-    assert phi2.shape == (N,)
-    assert cov.shape == (N, p)
-    # ===================== #
-    # === survival_likelihood === #
-    # ===================== #
-    # survival_likelihood = log(survival_fct) + log(hazard_fct)
+class Logistic_JM(JointModel):
+    def __init__(self, N=1, J=1, DIM_HD=1):
+        super().__init__(
+            N, J, DIM_HD, log_baseline_hazard, mixed_effect_function, a=80, b=35
+        )
 
-    # ================= survival_fct ================= #
-    # log_survival_fct = - int_0^T hazard(s) ds
-    time_s = jnp.linspace(0, T, num=100)[1:].T
-
-    hazard_kwargs = {
-        "time": time_s,
-        "phi1": phi1,
-        "phi2": phi2,
-        "mu3": params.mu3,
-        "a": 80,  # params_star_weibull.a,  #
-        "b": 35,  # params_star_weibull.b,  #
-        "alpha": params.alpha,
-        "beta": params.beta,
-        "cov": cov,
-    }
-    log_hazard_value = log_hazard(**hazard_kwargs)
-    assert time_s.shape == log_hazard_value.shape
-
-    log_survival_fct = -jnp.trapz(jnp.exp(log_hazard_value), time_s)
-    assert log_survival_fct.shape == (N,)
-    # =============== end survival_fct =============== #
-
-    # ================= hazard_fct ================= #
-    # log_hazard_fct = delta * log(b*a^-b * T^{b-1}) + beta^T U + alpha*m(T, phi_g)
-    # Comme time_s[:,-1] == T, on peut faire :
-    log_hazard_fct = log_hazard_value[:, -1]
-    assert log_hazard_fct.shape == (N,)
-    # =============== end hazard_fct =============== #
-
-    return delta * log_hazard_fct + log_survival_fct
-
-
-# ============================================================== #
-@jit
-def likelihood_nlmem_without_prior(
-    params, Y, time, phi1, phi2, **kwargs
-) -> jnp.ndarray:
-    """return likelihood without the gaussian prior"""
-    N, J = Y.shape
-    assert time.shape == (N, J)
-    assert phi1.shape == (N,)
-    assert phi2.shape == (N,)
-
-    pred = logistic_curve(
-        time, supremum=phi1, midpoint=phi2, growth_rate=jnp.array([params.mu3])
-    )  # shape = (N,J)
-
-    likelihood_nlmem = -J / 2 * jnp.log(2 * jnp.pi * params.sigma2) - jnp.nansum(
-        (Y - pred) ** 2, axis=1
-    ) / (2 * params.sigma2)
-
-    assert likelihood_nlmem.shape == (N,)
-    return likelihood_nlmem
-
-
-class Logistic_model:
-    def __init__(self, DIM_HD):
         self._parametrization = pc.NamedTuple(
             mu1=pc.RealPositive(scale=0.5),
-            mu2=pc.Real(scale=100),
+            mu2=pc.RealPositive(scale=100),
             mu3=pc.RealPositive(scale=5),
             gamma2_1=pc.RealPositive(scale=0.001),
             gamma2_2=pc.RealPositive(scale=10),
@@ -156,17 +83,6 @@ class Logistic_model:
             alpha=pc.Real(scale=10),
             beta=pc.Real(scale=1, shape=(DIM_HD,)),
         )
-
-    @property
-    def parametrization(self):
-        return self._parametrization
-
-    def reals1d_to_hstack_params(self, theta_reals1d):
-        return jnp.hstack(list(self._parametrization.reals1d_to_params(theta_reals1d)))
-
-    def new_params(self, **kwargs):
-        theta_reals1d = self._parametrization.params_to_reals1d(**kwargs)
-        return self._parametrization.reals1d_to_params(theta_reals1d)
 
     # ============================================================== #
 
@@ -187,19 +103,12 @@ class Logistic_model:
 
         return (
             latent_prior
-            + likelihood_nlmem_without_prior(params, **kwargs)
-            + likelihood_survival_without_prior(params, **kwargs)
+            + self.likelihood_mem_without_prior(params, mu3=params.mu3, **kwargs)
+            + self.likelihood_survival_without_prior(params, **kwargs)
         )
 
-    @functools.partial(jit, static_argnums=0)
-    def likelihood(self, theta_reals1d, **kwargs):
-        return self.likelihood_array(theta_reals1d, **kwargs).sum()
 
-    @functools.partial(jit, static_argnums=0)
-    def jac_likelihood(self, theta_reals1d, **kwargs):
-        return jacfwd(self.likelihood_array)(theta_reals1d, **kwargs)
-
-    # ============================================================== #
+# ============================================================== #
 
 
 # ===================================================== #
@@ -220,12 +129,7 @@ def sample_logistic_model(
         and latente variable simulation in the two dict"""
 
         def logistic_fct(time, phi1, phi2, phi3):
-            return logistic_curve(
-                time=time,
-                supremum=phi1,
-                midpoint=phi2,
-                growth_rate=phi3,
-            )
+            return logistic_curve(time, phi1, phi2, phi3)
 
         random_effects = {"phi1": ("mu1", "gamma2_1"), "phi2": ("mu2", "gamma2_2")}
         fixed_effets = {"phi3": "mu3"}
@@ -235,7 +139,7 @@ def sample_logistic_model(
         PRNGKey, key = jrd.split(PRNGKey, num=2)
         time += jrd.uniform(key, minval=-2, maxval=2, shape=time.shape)
 
-        obs = {"time": time}
+        obs = {"mem_obs_time": time}
 
         obs2, sim, PRNGKey = mem_simulation(
             params,
@@ -245,7 +149,7 @@ def sample_logistic_model(
             logistic_fct,
             random_effects,
             fixed_effets,
-            fct_kwargs={"time": obs["time"]},
+            fct_kwargs={"time": obs["mem_obs_time"]},
         )
 
         obs.update(obs2)
@@ -316,7 +220,7 @@ def sample_logistic_model(
 
 
 def get_params_star(DIM_HD):
-    model = Logistic_model(DIM_HD)
+    model = Logistic_JM(DIM_HD=DIM_HD)
     params_star = model.new_params(
         mu1=0.3,
         mu2=90.0,
@@ -332,14 +236,14 @@ def get_params_star(DIM_HD):
     return params_star
 
 
-def sample_one(PRNGKey, N_IND, J_OBS, DIM_HD, weibull_censoring_loc):
-    params_star = get_params_star(DIM_HD)
+def sample_one(PRNGKey, model, weibull_censoring_loc):
+    params_star = get_params_star(model.DIM_HD)
 
     obs, _, _ = sample_logistic_model(
         params_star,
         PRNGKey,
-        N_IND,
-        J_OBS,
+        model.N,
+        model.J,
         weibull_censoring_loc,
     )
 
@@ -353,13 +257,9 @@ def sample_one(PRNGKey, N_IND, J_OBS, DIM_HD, weibull_censoring_loc):
 
 
 if __name__ == "__main__":
-    N_IND = 100
-    J_OBS = 5
-    DIM_COV = 4
-
     from work import sdgplt
 
-    model = Logistic_model(DIM_COV)
+    model = Logistic_JM(N=100, J=5, DIM_HD=4)
 
     params_star = model.new_params(
         mu1=0.3,
@@ -380,8 +280,8 @@ if __name__ == "__main__":
         obs, sim, PRNGKey = sample_logistic_model(
             params_star,
             PRNGKey=PRNGKey,
-            N_IND=N_IND,
-            J_OBS=J_OBS,
+            N_IND=model.N,
+            J_OBS=model.J,
             weibull_censoring_loc=censoring_loc,
         )
         _, _ = sdgplt.plot_sample(obs, sim, params_star, censoring_loc, 80, 35)
