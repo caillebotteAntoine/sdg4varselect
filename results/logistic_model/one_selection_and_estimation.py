@@ -6,7 +6,6 @@ from sdg4varselect.algo import (
     regularization_path,
     NanError,
     variable_selection_res,
-    estim_res,
 )
 import sdg4varselect.logistic as modelisation
 

@@ -87,10 +87,15 @@ def dec_log_yscale(func):
 
 
 def dim_standardize(list_x: list):
-    max_length = max([x.shape[0] for x in list_x])
+    max_row = max([x.shape[0] for x in list_x])
+    max_col = max([x.shape[1] for x in list_x])
     return jnp.array(
         [
-            jnp.pad(x, ((0, max_length - x.shape[0]), (0, 0)), constant_values=None)
+            jnp.pad(
+                x,
+                ((0, max_row - x.shape[0]), (0, max_col - x.shape[1])),
+                constant_values=None,
+            )
             for x in list_x
         ]
     )

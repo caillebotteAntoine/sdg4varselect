@@ -75,6 +75,7 @@ def estim(PRNGKey, model, dh, theta0, lbd=None, alpha=1.0):
         model.jac_likelihood,
         DIM_HD=model.DIM_HD,
         theta0_reals1d=theta0,
+        ntry=5,
         # partial_fit=True,
     )
 

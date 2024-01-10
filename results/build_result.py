@@ -13,29 +13,39 @@ from sdg4varselect.plot import (
     figure,
 )
 
-model = Logistic_JM(N=100, J=5, DIM_HD=10)
-filename = f"testN_s{0}_N{model.N}_P{model.DIM_HD}_J{model.J}"
 
-R = pickle.load(gzip.open(f"files/{filename}.pkl.gz", "rb"))
-res = R["res"]
-lbd_set = R["lbd_set"]
+def read(N):
+    model = Logistic_JM(N=N, J=5, DIM_HD=20)
+    filename = f"testN_s{0}_N{model.N}_P{model.DIM_HD}_J{model.J}"
+
+    R = pickle.load(gzip.open(f"files/{filename}.pkl.gz", "rb"))
+    res = R["res"][0]
+    lbd_set = R["lbd_set"]
+    return res, lbd_set
+
+
+results = [read(20), read(30)]
+lbd_set = results[0][1]
+results = [r[0] for r in results]
 
 
 # === PLOT === #
+res = results[0]
 
-selection_res = res[0][0]
-reg_path = selection_res.regularization_path
+# selection_res = res[0][0]
+# reg_path = selection_res.regularization_path
 
 
+model = Logistic_JM(N=20, J=5, DIM_HD=20)
 params_star = get_params_star(model.DIM_HD)
 params_names = model.params_names
 
-plot_theta(reg_path, model.DIM_LD, params_star, params_names)
-plot_reg_path(lbd_set, reg_path, selection_res.bic, model.DIM_HD)
+# plot_theta(reg_path, model.DIM_LD, params_star, params_names)
+# plot_reg_path(lbd_set, reg_path, selection_res.bic, model.DIM_HD)
 
-estim_res = [r.estim_res for r in res[0]]
-theta = jnp.array([r.theta for r in res[0]])
-theta_biased = jnp.array([r.theta_biased for r in res[0]])
+estim_res = [r.estim_res for r in res]
+theta = jnp.array([r.theta for r in res])
+theta_biased = jnp.array([r.theta_biased for r in res])
 
 plot_theta(estim_res, model.DIM_LD, params_star, params_names)
 plot_theta_HD(estim_res, model.DIM_LD, params_star, params_names)

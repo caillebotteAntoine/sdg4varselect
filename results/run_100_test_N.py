@@ -12,7 +12,7 @@ lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 
 
 def testN(N):
-    model = Logistic_JM(N=N, J=5, DIM_HD=20)
+    model = Logistic_JM(N=N, J=5, DIM_HD=200)
 
     seed = 0
     R = multi_estim_with_selection(
@@ -27,7 +27,6 @@ def testN(N):
     print(f"{filename} SAVED !")
 
 
-testN(5)
-testN(10)
-testN(20)
-testN(30)
+# testN(5)
+for i in (300, 200, 100, 50):
+    testN(i)
