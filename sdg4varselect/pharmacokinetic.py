@@ -10,7 +10,7 @@ from jax import jit
 import functools
 
 from sdg4varselect.data_handler import Data_handler
-from sdg4varselect.Joint_model import (
+from sdg4varselect.joint_model import (
     JointModel,
     mem_simulation,
     cov_simulation,

@@ -1,7 +1,7 @@
 import jax.random as jrd
 import jax.numpy as jnp
 
-from sdg4varselect.algo import SPG_FIM, NanError
+from sdg4varselect.algo import SPG_FIM, NanError, estim_res
 
 algo_settings = SPG_FIM.settings(
     step_size_grad={
@@ -22,10 +22,33 @@ algo_settings = SPG_FIM.settings(
         "heating": 2000,
         "max": 0.9,
     },
+    max_iter=2000,
+)
+
+algo_settings = SPG_FIM.settings(
+    step_size_grad={
+        "learning_rate": 1e-8,
+        "preheating": 200,
+        "heating": 250,
+        "max": 0.9,
+    },
+    step_size_approx_sto={
+        "learning_rate": 1e-8,
+        "preheating": 200,
+        "heating": None,
+        "max": 1,
+    },
+    step_size_fisher={
+        "learning_rate": 1e-8,
+        "preheating": 200,
+        "heating": None,
+        "max": 0.9,
+    },
+    max_iter=1000,
 )
 
 
-def estim(PRNGKey, model, dh, theta0, algo_settings, lbd=None, alpha=1.0):
+def estim(PRNGKey, model, dh, theta0, lbd=None, alpha=1.0):
     # _, _ = sdgplt.plot_sample(data_set, sim, params_star, 2000, 80, 35)
 
     params0 = model.parametrization.reals1d_to_params(theta0)
@@ -50,7 +73,6 @@ def estim(PRNGKey, model, dh, theta0, algo_settings, lbd=None, alpha=1.0):
     # ==================== END configuration ==================== #
     res = algo.fit(
         model.jac_likelihood,
-        niter=2000,
         DIM_HD=model.DIM_HD,
         theta0_reals1d=theta0,
         # partial_fit=True,
@@ -59,20 +81,18 @@ def estim(PRNGKey, model, dh, theta0, algo_settings, lbd=None, alpha=1.0):
     return res, algo
 
 
-def one_estim(PRNGKey, model, dh, algo_settings, lbd=None, alpha=1.0):
+def one_estim(PRNGKey, model, dh, lbd=None, alpha=1.0):
     PRNGKey_theta, PRNGKey_estim, PRNGKey_likelihoohd = jrd.split(PRNGKey, 3)
     theta0 = 0.2 * jrd.normal(PRNGKey_theta, shape=(model.parametrization.size,))
 
     try:
-        res_estim, algo = estim(
-            PRNGKey_estim, model, dh, theta0, algo_settings, lbd=lbd, alpha=alpha
-        )
+        res_estim, algo = estim(PRNGKey_estim, model, dh, theta0, lbd=lbd, alpha=alpha)
     except NanError as err:
         print(err)
         return NanError
 
     res = algo.labelswitch(res_estim)
-    return algo.estim_res(
+    return estim_res(
         theta=jnp.array([model.reals1d_to_hstack_params(t) for t in res.theta]),
         FIM=res.FIM,
         grad=res.grad,
@@ -83,14 +103,11 @@ def one_estim(PRNGKey, model, dh, algo_settings, lbd=None, alpha=1.0):
 if __name__ == "__main__":
     from sdg4varselect.logistic import Logistic_JM, sample_one, get_params_star
 
-    model = Logistic_JM(N=100, J=5, DIM_HD=5)
+    model = Logistic_JM(N=100, J=5, DIM_HD=100)
 
     dh = sample_one(jrd.PRNGKey(0), model, weibull_censoring_loc=2000)
 
-    multi_estim = [
-        one_estim(jrd.PRNGKey(key), model, dh, algo_settings, lbd=None)
-        for key in range(20)
-    ]
+    multi_estim = [one_estim(jrd.PRNGKey(key), model, dh, lbd=None) for key in range(1)]
     while NanError in multi_estim:
         multi_estim.remove(NanError)
 
@@ -102,7 +119,7 @@ if __name__ == "__main__":
 
     params_star = get_params_star(model.DIM_HD)
 
-    plot_theta(multi_estim, model.DIM_HD, params_star, model.params_names)
-    plot_theta_HD(multi_estim, model.DIM_HD, params_star, model.params_names)
+    plot_theta(multi_estim, model.DIM_LD, params_star, model.params_names)
+    plot_theta_HD(multi_estim, model.DIM_LD, params_star, model.params_names)
 
     # sdgplt.plot_mcmc(algo.mcmc)

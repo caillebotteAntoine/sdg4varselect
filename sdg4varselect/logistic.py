@@ -10,7 +10,7 @@ from jax import jit
 import functools
 
 from sdg4varselect.data_handler import Data_handler
-from sdg4varselect.Joint_model import (
+from sdg4varselect.joint_model import (
     JointModel,
     mem_simulation,
     cov_simulation,
@@ -31,31 +31,23 @@ def logistic_curve_float(x, supremum: float, midpoint: float, growth_rate: float
 
 @jit
 def logistic_curve(
-    time: jnp.ndarray,  # shape = (J,) [None, :]
-    supremum: jnp.ndarray,  # shape = (N,) [:,None]
-    midpoint: jnp.ndarray,  # shape = (N,) [:,None]
-    growth_rate: jnp.ndarray,  # shape = (N,) [:,None]
-) -> jnp.ndarray:  # shape = (N,J)
-    return supremum[:, None] / (
-        1 + jnp.exp(-(time - midpoint[:, None]) / growth_rate[:, None])
-    )
-
-
-# ============================================================== #
-
-
-def mixed_effect_function(
-    times,  # shape = (N,num)
-    phi1,  # shape = (N,)
-    phi2,  # shape = (N,)
-    mu3,
+    times: jnp.ndarray,  # shape = (J,) [None, :]
+    phi1: jnp.ndarray,  # shape = (N,) [:,None]
+    phi2: jnp.ndarray,  # shape = (N,) [:,None]
+    mu3: jnp.ndarray,  # shape = ()
     **kwargs,
-):
-    out = logistic_curve(times, phi1, phi2, jnp.array([mu3]))
+) -> jnp.ndarray:  # shape = (N,J)
+    """
+    phi1 = supremum
+    phi2 = midpoint
+    mu3 = growth_rate
+    """
+    out = phi1[:, None] / (1 + jnp.exp(-(times - phi2[:, None]) / mu3))
     assert out.shape == times.shape
     return out
 
 
+# ============================================================== #
 def log_baseline_hazard(
     times,  # shape = (N,num)
     a: jnp.ndarray,  # shape = (1,)
@@ -69,9 +61,7 @@ def log_baseline_hazard(
 
 class Logistic_JM(JointModel):
     def __init__(self, N=1, J=1, DIM_HD=1):
-        super().__init__(
-            N, J, DIM_HD, log_baseline_hazard, mixed_effect_function, a=80, b=35
-        )
+        super().__init__(N, J, DIM_HD, log_baseline_hazard, logistic_curve, a=80, b=35)
 
         self._parametrization = pc.NamedTuple(
             mu1=pc.RealPositive(scale=0.5),
@@ -117,104 +107,71 @@ class Logistic_JM(JointModel):
 def sample_logistic_model(
     params_star,
     PRNGKey,
-    N_IND,
-    J_OBS,
+    model,
     weibull_censoring_loc,
 ):
     """return longitudinal and survival simulation
     and latente variable simulation in the two dict"""
 
-    def nlmem_simulation(params, PRNGKey, N_IND, J_OBS, t_min, t_max):
-        """return longitudinal simulation
-        and latente variable simulation in the two dict"""
+    (PRNGKey_time, PRNGKey_mem, PRNGKey_cov, PRNGKey_cox, PRNGKey_weibull) = jrd.split(
+        PRNGKey, num=5
+    )
 
-        def logistic_fct(time, phi1, phi2, phi3):
-            return logistic_curve(time, phi1, phi2, phi3)
+    # === nlmem_simulation() === #
+    time = jnp.repeat(jnp.linspace(60, 135, num=model.J)[None, :], model.N, axis=0)
+    time += jrd.uniform(PRNGKey_time, minval=-2, maxval=2, shape=time.shape)
 
-        random_effects = {"phi1": ("mu1", "gamma2_1"), "phi2": ("mu2", "gamma2_2")}
-        fixed_effets = {"phi3": "mu3"}
+    obs = {"mem_obs_time": time}
 
-        time = jnp.linspace(60, 135, num=J_OBS)
-        time = jnp.concatenate(jnp.array([[time]] * N_IND), axis=0)
-        PRNGKey, key = jrd.split(PRNGKey, num=2)
-        time += jrd.uniform(key, minval=-2, maxval=2, shape=time.shape)
+    obs_mem, sim = mem_simulation(
+        params_star,
+        PRNGKey_mem,
+        N_IND=model.N,
+        noise_variance="sigma2",
+        fct=lambda time, phi1, phi2, phi3: logistic_curve(time, phi1, phi2, phi3),
+        random_effects={
+            "phi1": ("mu1", "gamma2_1"),
+            "phi2": ("mu2", "gamma2_2"),
+        },
+        fixed_effets={"phi3": "mu3"},
+        fct_kwargs={"time": obs["mem_obs_time"]},
+    )
 
-        obs = {"mem_obs_time": time}
+    obs.update(obs_mem)
 
-        obs2, sim, PRNGKey = mem_simulation(
-            params,
-            PRNGKey,
-            N_IND,
-            "sigma2",
-            logistic_fct,
-            random_effects,
-            fixed_effets,
-            fct_kwargs={"time": obs["mem_obs_time"]},
-        )
+    # === cox_weibull_simulation === #
+    link_kwargs = {
+        "phi1": sim["phi1"],
+        "phi2": sim["phi2"],
+        "mu3": params_star.mu3,
+    }
 
-        obs.update(obs2)
+    cov = cov_simulation(PRNGKey_cov, min=-1, max=1, shape=(model.N, model.DIM_HD))
 
-        return obs, sim, PRNGKey
+    _, sim_cox = cox_simulation(
+        params_star,
+        PRNGKey_cox,
+        cov @ params_star.beta,
+        baseline_fct=lambda t, a, b: b / a * (t / a) ** (b - 1),
+        baseline_kwargs={"a": 80, "b": 35},
+        link_fct=lambda t, alpha, phi1, phi2, mu3: alpha
+        * logistic_curve_float(t, phi1, phi2, mu3),
+        link_kwargs=link_kwargs,
+    )
 
-    def cox_weibull_simulation(params, PRNGKey, N_IND, logistic_sim):
-        baseline_kwargs = {"a": 80, "b": 35}
-
-        def baseline_fct(t, a, b):
-            return b / a * (t / a) ** (b - 1)
-
-        link_kwargs = {
-            "phi1": logistic_sim["phi1"],
-            "phi2": logistic_sim["phi2"],
-            "mu3": params.mu3,
-        }
-
-        def link_fct(t, alpha, phi1, phi2, mu3):
-            return alpha * logistic_curve_float(t, phi1, phi2, mu3)
-
-        DIM_COV = params.beta.shape[0]
-        cov, PRNGKey = cov_simulation(PRNGKey, min=-1, max=1, shape=(N_IND, DIM_COV))
-
-        _, sim, PRNGKey = cox_simulation(
-            params,
-            PRNGKey,
-            cov @ params.beta,
-            baseline_fct,
-            baseline_kwargs,
-            link_fct,
-            link_kwargs,
-        )
-
-        return {"cov": cov}, sim, PRNGKey
+    obs.update({"cov": cov})
+    sim.update(sim_cox)
 
     # ============================================================== #
-
-    obs, sim, PRNGKey = nlmem_simulation(
-        params_star, PRNGKey, N_IND, J_OBS, t_min=60, t_max=135
+    C = jrd.weibull_min(
+        PRNGKey_weibull, weibull_censoring_loc, 35, shape=sim["T uncensored"].shape
     )
-
-    obs2, sim2, PRNGKey = cox_weibull_simulation(
-        params_star, PRNGKey, N_IND, logistic_sim=sim
-    )
-
-    obs.update(obs2)
-    sim.update(sim2)
-
-    rng = np.random.default_rng()
-    C = weibull_censoring_loc * rng.weibull(35, len(sim["T uncensored"]))
-    # C = np.minimum(C, obs["time"].max() + 1)
 
     T = np.minimum(sim["T uncensored"], C)
     delta = sim["T uncensored"] < C
 
     obs.update({"T": T, "delta": delta})
     sim["C"] = C
-
-    # obs["Y"] = np.array(
-    #     [np.where(obs["time"][i] < T[i], obs["Y"][i], np.nan) for i in range(len(T))]
-    # )
-    # obs["time"] = np.array(
-    #     [np.where(obs["time"][i] < T[i], obs["time"][i], np.nan) for i in range(len(T))]
-    # )
 
     return obs, sim, PRNGKey
 
@@ -240,11 +197,7 @@ def sample_one(PRNGKey, model, weibull_censoring_loc):
     params_star = get_params_star(model.DIM_HD)
 
     obs, _, _ = sample_logistic_model(
-        params_star,
-        PRNGKey,
-        model.N,
-        model.J,
-        weibull_censoring_loc,
+        params_star, PRNGKey, model, weibull_censoring_loc
     )
 
     dh = Data_handler()
@@ -257,7 +210,7 @@ def sample_one(PRNGKey, model, weibull_censoring_loc):
 
 
 if __name__ == "__main__":
-    from work import sdgplt
+    from sdg4varselect.plot import plot_sample
 
     model = Logistic_JM(N=100, J=5, DIM_HD=4)
 
@@ -270,7 +223,7 @@ if __name__ == "__main__":
         sigma2=0.001,
         alpha=11.11,
         beta=jnp.concatenate(
-            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(DIM_COV - 4,))]
+            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(model.DIM_HD - 4,))]
         ),
     )
 
@@ -278,13 +231,9 @@ if __name__ == "__main__":
 
     def test_censoring_loc(censoring_loc, PRNGKey):
         obs, sim, PRNGKey = sample_logistic_model(
-            params_star,
-            PRNGKey=PRNGKey,
-            N_IND=model.N,
-            J_OBS=model.J,
-            weibull_censoring_loc=censoring_loc,
+            params_star, PRNGKey, model, weibull_censoring_loc=censoring_loc
         )
-        _, _ = sdgplt.plot_sample(obs, sim, params_star, censoring_loc, 80, 35)
+        _, _ = plot_sample(obs, sim, params_star, censoring_loc, 80, 35)
 
         return obs, sim, PRNGKey
 

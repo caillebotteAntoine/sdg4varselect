@@ -11,6 +11,12 @@ from sdg4varselect.learning_rate import create_multi_step_size
 from sdg4varselect.miscellaneous import step_message
 from copy import deepcopy
 
+variable_selection_res = namedtuple(
+    "variable_selection_res",
+    ("estim_res", "theta", "theta_biased", "regularization_path", "bic"),
+)
+estim_res = namedtuple("estim_res", ("theta", "FIM", "grad", "likelihood"))
+
 
 @jit
 def gradient_descent_fisher_preconditionner_with_mask(
@@ -112,6 +118,7 @@ class SPG_FIM:
 
         self._lbd = lbd
         self._alpha = alpha
+        self._max_iter = settings.max_iter
 
         step_size_settings = [
             settings.step_size_grad,
@@ -124,6 +131,18 @@ class SPG_FIM:
             self._step_size_fisher,
         ) = create_multi_step_size(step_size_settings, num_step_size=3)
 
+        heating_list = [
+            settings.step_size_approx_sto["heating"],
+            settings.step_size_fisher["heating"],
+            settings.step_size_grad["heating"],
+        ]
+
+        self._heating = (
+            jnp.inf
+            if len(heating_list) == 0
+            else max([h for h in heating_list if h is not None])
+        )
+
     @property
     def data(self):
         return self._data_handler.data
@@ -134,11 +153,7 @@ class SPG_FIM:
 
     settings = namedtuple(
         "settings",
-        ("step_size_grad", "step_size_approx_sto", "step_size_fisher"),
-    )
-    estim_res = namedtuple("estim_res", ("theta", "FIM", "grad", "likelihood"))
-    variable_selection_res = namedtuple(
-        "variable_selection_res", ("estim_res", "theta", "regularization_path", "bic")
+        ("step_size_grad", "step_size_approx_sto", "step_size_fisher", "max_iter"),
     )
 
     @classmethod
@@ -148,7 +163,7 @@ class SPG_FIM:
             for j in range(len(res_estim[0]))
         ]
 
-        res = self.estim_res(
+        res = estim_res(
             theta=jnp.array(res[0]),
             FIM=res[2],
             grad=jnp.array(res[4]),
@@ -220,7 +235,8 @@ class SPG_FIM:
             step_size_fisher=step_size[2],
         )
 
-        theta_reals1d += step_size[0] * grad_precond
+        grad_precond *= step_size[0]
+        theta_reals1d += grad_precond
 
         if self._lbd is not None:
             theta_reals1d = proximal_operator(
@@ -242,18 +258,15 @@ class SPG_FIM:
     def algorithm(
         self,
         jac_likelihood,
-        niter,
         theta_reals1d: jnp.ndarray,
         jac0,
         FIM_MASK,
         HD_MASK,
+        eps=1e-3,
     ):
         jac = jac0
-        iter = 0
-
-        for _ in itertools.count():
-            iter += 1
-            print(step_message(iter, niter), end="\r")
+        for iter in itertools.count():
+            print(step_message(iter, self._max_iter), end="\r")
 
             step_size = [
                 self._step_size_grad(iter),
@@ -280,23 +293,19 @@ class SPG_FIM:
                 yield NanError("nan detected in theta or jac")
                 break
 
-            yield (
-                theta_reals1d,
-                jac,
-                fisher_info,
-                grad,
-                grad_precond,
-                # likelihood(theta_reals1d, **dh.data),
-            )
+            yield (theta_reals1d, jac, fisher_info, grad, grad_precond)
+
+            if iter > self._heating and jnp.sqrt((grad_precond**2).sum()) < eps:
+                break
 
     def fit(
         self,
         jac_likelihood,
-        niter,
         DIM_HD,
         theta0_reals1d: jnp.ndarray,
         ntry=1,
         partial_fit=False,
+        eps=1e-3,
     ):
         (DIM_THETA,) = theta0_reals1d.shape
 
@@ -312,13 +321,13 @@ class SPG_FIM:
             itertools.islice(
                 self.algorithm(
                     jac_likelihood,
-                    niter,
                     theta0_reals1d,
                     jac0=jnp.zeros(shape=jac_shape),
                     FIM_MASK=FIM_MASK,
                     HD_MASK=HD_MASK,
+                    eps=eps,
                 ),
-                niter,
+                self._max_iter,
             )
         )
         flag = out[-1]
@@ -326,7 +335,6 @@ class SPG_FIM:
             if ntry > 1:
                 return self.fit(
                     jac_likelihood,
-                    niter,
                     DIM_HD,
                     theta0_reals1d,
                     ntry=ntry - 1,
@@ -356,15 +364,13 @@ def BIC(theta_HD, log_likelihood, n):
     return -2 * log_likelihood + k * jnp.log(n)
 
 
-def regularization_path(one_estim, PRNGKey, model, dh, algo_settings, lbd_set):
+def regularization_path(one_estim, PRNGKey, model, dh, lbd_set):
     DIM_LD = model.DIM_LD
     PRNGKey_list = jrd.split(PRNGKey, num=len(lbd_set))
 
     def iter_estim():
         for i in range(len(lbd_set)):
-            res_estim = one_estim(
-                PRNGKey_list[i], model, dh, algo_settings, lbd=lbd_set[i]
-            )
+            res_estim = one_estim(PRNGKey_list[i], model, dh, lbd=lbd_set[i])
             if res_estim == NanError:
                 raise NanError
 

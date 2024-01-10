@@ -1,19 +1,14 @@
 from datetime import datetime
-import pickle
 import jax.random as jrd
 import jax.numpy as jnp
 
-from sdg4varselect.logistic import Logistic_JM, sample_one, get_params_star
+from sdg4varselect.logistic import Logistic_JM, sample_one
 
-from results.logistic_model.one_estim import algo_settings
 from results.logistic_model.one_selection_and_estimation import one_estim_with_selection
-
-# import multiprocessing as mpc
-# from tqdm import tqdm
 
 
 # ====================================================== #
-def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, algo_settings, CENSORING):
+def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING):
     if not isinstance(CENSORING, list):
         CENSORING = [CENSORING]
 
@@ -37,10 +32,10 @@ def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, algo_settings, CEN
 if __name__ == "__main__":
     lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
 
-    model = Logistic_JM(N=50, J=5, DIM_HD=5)
+    model = Logistic_JM(N=100, J=5, DIM_HD=10)
 
     res = multi_estim_with_selection(
-        jrd.PRNGKey(0), lbd_set, model, 2, algo_settings, 2000
+        jrd.PRNGKey(0), lbd_set, model, nrun=2, CENSORING=2000
     )
 
     # === PLOT === #
@@ -53,6 +48,8 @@ if __name__ == "__main__":
 
     selection_res = res[0][0]
     reg_path = selection_res.regularization_path
+
+    from sdg4varselect.logistic import get_params_star
 
     params_star = get_params_star(model.DIM_HD)
 

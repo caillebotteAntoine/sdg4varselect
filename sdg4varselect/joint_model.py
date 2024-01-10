@@ -187,13 +187,11 @@ class JointModel:
 # ====================== SIMULATION ===================== #
 # ======================================================= #
 def cov_simulation(PRNGKey, min, max, shape):
-    key, PRNGKey = jrd.split(PRNGKey, num=2)
-
-    cov = jrd.uniform(key, minval=min, maxval=max, shape=shape)
+    cov = jrd.uniform(PRNGKey, minval=min, maxval=max, shape=shape)
     cov = cov - cov.mean(axis=0)[None, :]
     cov = jnp.array(cov, dtype=jnp.float32)
 
-    return cov, PRNGKey
+    return cov
 
 
 def mem_simulation(
@@ -236,7 +234,6 @@ def mem_simulation(
     return (
         {"Y": Y},  # obs
         sim,
-        PRNGKey,
     )
 
 
@@ -297,4 +294,4 @@ def cox_simulation(
     Tstar = jnp.array(tmp)
     sim = {"T uncensored": Tstar}
 
-    return {}, sim, PRNGKey
+    return {}, sim

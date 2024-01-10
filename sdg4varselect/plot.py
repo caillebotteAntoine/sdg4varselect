@@ -86,18 +86,30 @@ def dec_log_yscale(func):
     return new_func
 
 
+def dim_standardize(list_x: list):
+    max_length = max([x.shape[0] for x in list_x])
+    return jnp.array(
+        [
+            jnp.pad(x, ((0, max_length - x.shape[0]), (0, 0)), constant_values=None)
+            for x in list_x
+        ]
+    )
+
+
 # ===================================================== #
 def _plot_theta(multi_theta, DIM_LD, params_star, params_names):
+    dt = dim_standardize(multi_theta).T
+
     fig = figure()
-    ax = fig.add_subplot(DIM_LD, 1, 1)
-    ax.set_title("Parameter")
     for i in range(DIM_LD):
         ax = fig.add_subplot(DIM_LD, 1, i + 1)
 
-        ax.plot(multi_theta[i])
+        ax.plot(dt[i])
         ax.axhline(params_star[i], linestyle="--", label=params_names[i], color=f"C{i}")
         ax.legend(loc="center left")
 
+    ax = fig.axes[0]
+    ax.set_title("Parameter")
     return fig, ax
 
 
@@ -108,7 +120,7 @@ def plot_theta(multi_estim, DIM_LD, params_star, params_names):
     if not isinstance(multi_estim, list):
         multi_estim = [multi_estim]
 
-    multi_theta = jnp.array([res.theta for res in multi_estim]).T
+    multi_theta = [res.theta for res in multi_estim]
     return _plot_theta(multi_theta, DIM_LD, jnp.hstack(params_star), params_names)
 
 
@@ -119,11 +131,11 @@ def plot_theta_HD(multi_estim, DIM_LD, params_star, params_names):
     if not isinstance(multi_estim, list):
         multi_estim = [multi_estim]
 
-    multi_theta = jnp.array([res.theta[:, DIM_LD:] for res in multi_estim]).T
+    multi_theta = [res.theta[:, DIM_LD:] for res in multi_estim]
     params_star = jnp.hstack(params_star)[DIM_LD:]
 
     return _plot_theta(
-        multi_theta, multi_theta.shape[0], params_star, params_names[DIM_LD:]
+        multi_theta, multi_theta[0].shape[-1], params_star, params_names[DIM_LD:]
     )
 
 
@@ -151,8 +163,7 @@ def plot_axvline(ax, lbd_set, bic, id, color, msg=""):
 
 
 def plot_reg_path(lbd_set, reg_path, bic, DIM_HD):
-    multi_theta = jnp.array([res.theta for res in reg_path])
-    multi_theta_HD = multi_theta[:, -1, -DIM_HD:]
+    multi_theta_HD = [res.theta[-1, -DIM_HD:] for res in reg_path]
 
     fig = figure()
     ax = fig.add_subplot(1, 1, 1)
@@ -162,8 +173,6 @@ def plot_reg_path(lbd_set, reg_path, bic, DIM_HD):
     ax.set_xscale("log")
 
     ax.plot(lbd_set, multi_theta_HD)
-
-    jnp.array([multi_theta_HD != 0]).sum(axis=1)
 
     ax_bic = ax.twinx()
     ax_bic.plot(lbd_set, bic, color="k", linewidth=2, linestyle="--", label="BIC")
@@ -175,9 +184,9 @@ def plot_reg_path(lbd_set, reg_path, bic, DIM_HD):
     return fig, [ax, ax_bic]
 
 
-def plot_box_plot_HD(multi_estim, DIM_LD, params_star, threshold=0):
+def plot_box_plot_HD(theta, DIM_LD, params_star, threshold=0):
     params_star = jnp.hstack(params_star)[DIM_LD:]
-    multi_theta = jnp.array([res.theta[-1, DIM_LD:] for res in multi_estim]).T
+    multi_theta = jnp.array([t[DIM_LD:] for t in theta]).T
 
     fig = figure()
     ax = fig.add_subplot(1, 1, 1)
