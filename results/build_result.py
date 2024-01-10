@@ -15,16 +15,19 @@ from sdg4varselect.plot import (
 
 
 def read(N):
-    model = Logistic_JM(N=N, J=5, DIM_HD=20)
-    filename = f"testN_s{0}_N{model.N}_P{model.DIM_HD}_J{model.J}"
+    model = Logistic_JM(N=N, J=5, DIM_HD=200)
+    filename = f"f/testN_s{0}_N{model.N}_P{model.DIM_HD}_J{model.J}"
 
-    R = pickle.load(gzip.open(f"files/{filename}.pkl.gz", "rb"))
+    # R = pickle.load(gzip.open(f"files/{filename}.pkl.gz", "rb"))
+    with open(f"files/{filename}.pkl", "rb") as f:
+        R = pickle.load(f)
     res = R["res"][0]
     lbd_set = R["lbd_set"]
+    print(f"{filename} LOADED")
     return res, lbd_set
 
 
-results = [read(20), read(30)]
+results = [read(100)]  # , read(200), read(300)]
 lbd_set = results[0][1]
 results = [r[0] for r in results]
 

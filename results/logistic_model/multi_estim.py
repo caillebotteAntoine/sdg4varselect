@@ -8,7 +8,7 @@ from results.logistic_model.one_selection_and_estimation import one_estim_with_s
 
 
 # ====================================================== #
-def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING):
+def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING, save_all):
     if not isinstance(CENSORING, list):
         CENSORING = [CENSORING]
 
@@ -18,7 +18,15 @@ def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING):
     for censoring in CENSORING:
         dh = sample_one(PRNGKey, model, weibull_censoring_loc=censoring)
         args = (
-            (jrd.PRNGKey(i), model.N, model.J, model.DIM_HD, dh, lbd_set)
+            (
+                jrd.PRNGKey(i),
+                model.N,
+                model.J,
+                model.DIM_HD,
+                dh,
+                lbd_set,
+                save_all,
+            )
             for i in range(nrun)
         )
 

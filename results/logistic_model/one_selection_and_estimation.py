@@ -12,7 +12,7 @@ import sdg4varselect.logistic as modelisation
 from results.logistic_model.one_estim import one_estim
 
 
-def _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set):
+def _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set, save_all=True):
     PRNGKey_reg_path, PRNGKey_estim = jrd.split(PRNGKey)
     # === VARIABLE SELECTION === #
     reg_path = regularization_path(
@@ -48,7 +48,7 @@ def _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set):
     theta = theta.at[jnp.where(id)].set(res_estim.theta[-1, :])
 
     return variable_selection_res(
-        estim_res=res_estim,
+        estim_res=res_estim if save_all else None,
         theta=theta,
         theta_biased=theta_biased,
         regularization_path=reg_path,
@@ -57,10 +57,10 @@ def _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set):
 
 
 def one_estim_with_selection(args):
-    PRNGKey, N, J, DIM_HD, dh, lbd_set = args
+    PRNGKey, N, J, DIM_HD, dh, lbd_set, save_all = args
 
     model = modelisation.Logistic_JM(N, J, DIM_HD)
-    return _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set)
+    return _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set, save_all)
 
 
 if __name__ == "__main__":

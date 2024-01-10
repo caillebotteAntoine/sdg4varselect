@@ -16,9 +16,8 @@ def testN(N):
 
     seed = 0
     R = multi_estim_with_selection(
-        jrd.PRNGKey(seed), lbd_set, model, nrun=2, CENSORING=2000
+        jrd.PRNGKey(seed), lbd_set, model, nrun=100, CENSORING=2000, save_all=False
     )
-
     res = {"res": R, "lbd_set": lbd_set, "N": model.N, "J": model.J, "P": model.DIM_HD}
 
     filename = f"s{seed}_N{model.N}_P{model.DIM_HD}_J{model.J}"
@@ -27,6 +26,5 @@ def testN(N):
     print(f"{filename} SAVED !")
 
 
-# testN(5)
 for i in (300, 200, 100, 50):
     testN(i)

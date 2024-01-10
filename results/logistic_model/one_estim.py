@@ -44,7 +44,7 @@ algo_settings = SPG_FIM.settings(
         "heating": None,
         "max": 0.9,
     },
-    max_iter=1000,
+    max_iter=2000,
 )
 
 
