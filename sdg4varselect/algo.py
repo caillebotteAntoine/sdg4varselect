@@ -310,9 +310,10 @@ class SPG_FIM:
         (DIM_THETA,) = theta0_reals1d.shape
 
         # mask for proximal operator
-        HD_MASK = jnp.arange(DIM_THETA) >= DIM_THETA - DIM_HD
+        HD_MASK = jnp.arange(DIM_THETA) >= DIM_THETA
         # mask for fisher preconditionning
         FIM_MASK = np.invert(HD_MASK)
+        HD_MASK = jnp.arange(DIM_THETA) >= DIM_THETA - DIM_HD
 
         # c'est pas un iterator
 
@@ -333,6 +334,7 @@ class SPG_FIM:
         flag = out[-1]
         if isinstance(flag, NanError):
             if ntry > 1:
+                print(f"try again because of : {flag}")
                 return self.fit(
                     jac_likelihood,
                     DIM_HD,
@@ -342,7 +344,9 @@ class SPG_FIM:
                 )
             # ie all attempts have failed
             if partial_fit:
-                out.pop()  # remove error
+                print(f"{flag} : partial result returned !")
+                while isinstance(out[-1], NanError):
+                    out.pop()  # remove error
                 return out
             else:
                 raise flag
@@ -364,13 +368,20 @@ def BIC(theta_HD, log_likelihood, n):
     return -2 * log_likelihood + k * jnp.log(n)
 
 
-def regularization_path(one_estim, PRNGKey, model, dh, lbd_set):
+def regularization_path(
+    one_estim, PRNGKey, model, dh, lbd_set, save_all, verbatim=False
+):
     DIM_LD = model.DIM_LD
     PRNGKey_list = jrd.split(PRNGKey, num=len(lbd_set))
 
     def iter_estim():
         for i in range(len(lbd_set)):
-            res_estim = one_estim(PRNGKey_list[i], model, dh, lbd=lbd_set[i])
+            if verbatim:
+                print(step_message(i, len(lbd_set)), end="\r")
+
+            res_estim = one_estim(
+                PRNGKey_list[i], model, dh, lbd=lbd_set[i], save_FIM=save_all
+            )
             if res_estim == NanError:
                 raise NanError
 

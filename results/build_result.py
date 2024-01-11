@@ -15,7 +15,7 @@ from sdg4varselect.plot import (
 
 
 def read(N):
-    model = Logistic_JM(N=N, J=5, DIM_HD=10)
+    model = Logistic_JM(N=N, J=5, DIM_HD=200)
     filename = f"testN_s{0}_N{model.N}_P{model.DIM_HD}_J{model.J}"
 
     R = pickle.load(gzip.open(f"files/{filename}.pkl.gz", "rb"))
@@ -27,7 +27,7 @@ def read(N):
     return res, lbd_set
 
 
-N = (50, 100, 200, 300)
+N = (300,)
 results = [read(n) for n in N]
 lbd_set = results[0][1]
 results = [r[0] for r in results]

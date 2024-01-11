@@ -25,27 +25,27 @@ algo_settings = SPG_FIM.settings(
     max_iter=2000,
 )
 
-algo_settings = SPG_FIM.settings(
-    step_size_grad={
-        "learning_rate": 1e-8,
-        "preheating": 400,
-        "heating": 450,
-        "max": 0.9,
-    },
-    step_size_approx_sto={
-        "learning_rate": 1e-8,
-        "preheating": 400,
-        "heating": None,
-        "max": 1,
-    },
-    step_size_fisher={
-        "learning_rate": 1e-8,
-        "preheating": 400,
-        "heating": None,
-        "max": 0.9,
-    },
-    max_iter=2000,
-)
+# algo_settings = SPG_FIM.settings(
+#     step_size_grad={
+#         "learning_rate": 1e-8,
+#         "preheating": 400,
+#         "heating": 600,
+#         "max": 0.9,
+#     },
+#     step_size_approx_sto={
+#         "learning_rate": 1e-8,
+#         "preheating": 400,
+#         "heating": None,
+#         "max": 1,
+#     },
+#     step_size_fisher={
+#         "learning_rate": 1e-8,
+#         "preheating": 400,
+#         "heating": None,
+#         "max": 0.9,
+#     },
+#     max_iter=2000,
+# )
 
 
 def estim(PRNGKey, model, dh, theta0, lbd=None, alpha=1.0):
@@ -76,13 +76,13 @@ def estim(PRNGKey, model, dh, theta0, lbd=None, alpha=1.0):
         DIM_HD=model.DIM_HD,
         theta0_reals1d=theta0,
         ntry=5,
-        # partial_fit=True,
+        partial_fit=False,
     )
 
     return res, algo
 
 
-def one_estim(PRNGKey, model, dh, lbd=None, alpha=1.0):
+def one_estim(PRNGKey, model, dh, lbd=None, alpha=1.0, save_FIM=True):
     PRNGKey_theta, PRNGKey_estim, PRNGKey_likelihoohd = jrd.split(PRNGKey, 3)
     theta0 = 0.2 * jrd.normal(PRNGKey_theta, shape=(model.parametrization.size,))
 
@@ -93,9 +93,10 @@ def one_estim(PRNGKey, model, dh, lbd=None, alpha=1.0):
         return NanError
 
     res = algo.labelswitch(res_estim)
+
     return estim_res(
         theta=jnp.array([model.reals1d_to_hstack_params(t) for t in res.theta]),
-        FIM=res.FIM,
+        FIM=res.FIM if save_FIM else None,
         grad=res.grad,
         likelihood=algo.likelihood_marginal(model, PRNGKey_likelihoohd, res.theta[-1]),
     )
@@ -104,7 +105,7 @@ def one_estim(PRNGKey, model, dh, lbd=None, alpha=1.0):
 if __name__ == "__main__":
     from sdg4varselect.logistic import Logistic_JM, sample_one, get_params_star
 
-    model = Logistic_JM(N=100, J=5, DIM_HD=100)
+    model = Logistic_JM(N=50, J=5, DIM_HD=200)
 
     dh = sample_one(jrd.PRNGKey(0), model, weibull_censoring_loc=2000)
 

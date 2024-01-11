@@ -3,6 +3,7 @@ import jax.random as jrd
 import jax.numpy as jnp
 
 from sdg4varselect.logistic import Logistic_JM, sample_one
+from sdg4varselect.algo import NanError
 
 from sdg4varselect.miscellaneous import step_message
 from results.logistic_model.one_selection_and_estimation import one_estim_with_selection
@@ -33,8 +34,10 @@ def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING, save_al
                 lbd_set,
                 save_all,
             )
-
-            R[-1].append(one_estim_with_selection(args))
+            try:
+                R[-1].append(one_estim_with_selection(args))
+            except NanError as err:
+                print(f"{err} :  estimation cancelled !")
 
     print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 

@@ -21,6 +21,8 @@ def _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set, save_all=T
         model,
         dh,
         lbd_set,
+        save_all=save_all,
+        verbatim=False,
     )
     if reg_path is None:
         raise NanError
@@ -39,7 +41,9 @@ def _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set, save_all=T
     dh_shrink = dh.deepcopy()
     dh_shrink.data["cov"] = dh.data["cov"][:, selected_component]
 
-    res_estim = one_estim(PRNGKey_estim, model_shrink, dh_shrink, lbd=None)
+    res_estim = one_estim(
+        PRNGKey_estim, model_shrink, dh_shrink, lbd=None, save_FIM=save_all
+    )
 
     # === THETA RE CONSTRUCTION === #
     id = jnp.concatenate([jnp.repeat(True, model_shrink.DIM_LD), selected_component])
@@ -66,13 +70,13 @@ def one_estim_with_selection(args):
 if __name__ == "__main__":
     from sdg4varselect.logistic import sample_one, get_params_star
 
-    lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
-    model = modelisation.Logistic_JM(N=100, J=5, DIM_HD=10)
+    lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
+    model = modelisation.Logistic_JM(N=100, J=5, DIM_HD=100)
 
     dh = sample_one(jrd.PRNGKey(0), model, weibull_censoring_loc=2000)
 
     selection_res = _one_estim_with_selection_with_model(
-        jrd.PRNGKey(0), model, dh, lbd_set
+        jrd.PRNGKey(0), model, dh, lbd_set, save_all=False
     )
 
     # === PLOT === #
