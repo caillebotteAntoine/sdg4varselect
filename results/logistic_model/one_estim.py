@@ -28,19 +28,19 @@ algo_settings = SPG_FIM.settings(
 algo_settings = SPG_FIM.settings(
     step_size_grad={
         "learning_rate": 1e-8,
-        "preheating": 200,
-        "heating": 250,
+        "preheating": 400,
+        "heating": 450,
         "max": 0.9,
     },
     step_size_approx_sto={
         "learning_rate": 1e-8,
-        "preheating": 200,
+        "preheating": 400,
         "heating": None,
         "max": 1,
     },
     step_size_fisher={
         "learning_rate": 1e-8,
-        "preheating": 200,
+        "preheating": 400,
         "heating": None,
         "max": 0.9,
     },

@@ -266,7 +266,7 @@ class SPG_FIM:
     ):
         jac = jac0
         for iter in itertools.count():
-            print(step_message(iter, self._max_iter), end="\r")
+            # print(step_message(iter, self._max_iter), end="\r")
 
             step_size = [
                 self._step_size_grad(iter),

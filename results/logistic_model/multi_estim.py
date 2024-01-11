@@ -4,22 +4,28 @@ import jax.numpy as jnp
 
 from sdg4varselect.logistic import Logistic_JM, sample_one
 
+from sdg4varselect.miscellaneous import step_message
 from results.logistic_model.one_selection_and_estimation import one_estim_with_selection
+
+# import multiprocessing as mpc
 
 
 # ====================================================== #
-def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING, save_all):
+def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING, save_all=True):
     if not isinstance(CENSORING, list):
         CENSORING = [CENSORING]
 
     print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+    PRNGKey_list = jrd.split(PRNGKey, num=nrun)
 
     R = []
     for censoring in CENSORING:
-        dh = sample_one(PRNGKey, model, weibull_censoring_loc=censoring)
-        args = (
-            (
-                jrd.PRNGKey(i),
+        R.append([])
+        for k in range(nrun):
+            print(step_message(k, nrun), end="\r")
+            dh = sample_one(PRNGKey_list[k], model, weibull_censoring_loc=censoring)
+            args = (
+                PRNGKey_list[k],
                 model.N,
                 model.J,
                 model.DIM_HD,
@@ -27,10 +33,8 @@ def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING, save_al
                 lbd_set,
                 save_all,
             )
-            for i in range(nrun)
-        )
 
-        R.append([one_estim_with_selection(k) for k in args])
+            R[-1].append(one_estim_with_selection(args))
 
     print(f'end at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
@@ -70,4 +74,4 @@ if __name__ == "__main__":
     plot_theta_HD(
         [r.estim_res for r in res[0]], model.DIM_LD, params_star, model.params_names
     )
-    plot_box_plot_HD([r.estim_res for r in res[0]], model.DIM_LD, params_star)
+    plot_box_plot_HD(jnp.array([r.theta for r in res[0]]), model.DIM_LD, params_star)
