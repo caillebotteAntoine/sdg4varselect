@@ -97,83 +97,85 @@ class Logistic_JM(JointModel):
             + self.likelihood_survival_without_prior(params, **kwargs)
         )
 
-
-# ============================================================== #
-
-
-# ===================================================== #
-# ================== DATA GENERATION ================== #
-# ===================================================== #
-def sample_logistic_model(
-    params_star,
-    PRNGKey,
-    model,
-    weibull_censoring_loc,
-):
-    """return longitudinal and survival simulation
-    and latente variable simulation in the two dict"""
-
-    (PRNGKey_time, PRNGKey_mem, PRNGKey_cov, PRNGKey_cox, PRNGKey_weibull) = jrd.split(
-        PRNGKey, num=5
-    )
-
-    # === nlmem_simulation() === #
-    time = jnp.repeat(jnp.linspace(60, 135, num=model.J)[None, :], model.N, axis=0)
-    time += jrd.uniform(PRNGKey_time, minval=-2, maxval=2, shape=time.shape)
-
-    obs = {"mem_obs_time": time}
-
-    obs_mem, sim = mem_simulation(
-        params_star,
-        PRNGKey_mem,
-        N_IND=model.N,
-        noise_variance="sigma2",
-        fct=lambda time, phi1, phi2, phi3: logistic_curve(time, phi1, phi2, phi3),
-        random_effects={
-            "phi1": ("mu1", "gamma2_1"),
-            "phi2": ("mu2", "gamma2_2"),
-        },
-        fixed_effets={"phi3": "mu3"},
-        fct_kwargs={"time": obs["mem_obs_time"]},
-    )
-
-    obs.update(obs_mem)
-
-    # === cox_weibull_simulation === #
-    link_kwargs = {
-        "phi1": sim["phi1"],
-        "phi2": sim["phi2"],
-        "mu3": params_star.mu3,
-    }
-
-    cov = cov_simulation(PRNGKey_cov, min=-1, max=1, shape=(model.N, model.DIM_HD))
-
-    _, sim_cox = cox_simulation(
-        params_star,
-        PRNGKey_cox,
-        cov @ params_star.beta,
-        baseline_fct=lambda t, a, b: b / a * (t / a) ** (b - 1),
-        baseline_kwargs={"a": 80, "b": 35},
-        link_fct=lambda t, alpha, phi1, phi2, mu3: alpha
-        * logistic_curve_float(t, phi1, phi2, mu3),
-        link_kwargs=link_kwargs,
-    )
-
-    obs.update({"cov": cov})
-    sim.update(sim_cox)
-
     # ============================================================== #
-    C = jrd.weibull_min(
-        PRNGKey_weibull, weibull_censoring_loc, 35, shape=sim["T uncensored"].shape
-    )
 
-    T = np.minimum(sim["T uncensored"], C)
-    delta = sim["T uncensored"] < C
+    # ===================================================== #
+    # ================== DATA GENERATION ================== #
+    # ===================================================== #
+    def sample(
+        self,
+        params_star,
+        PRNGKey,
+        weibull_censoring_loc,
+    ):
+        """return longitudinal and survival simulation
+        and latente variable simulation in the two dict"""
 
-    obs.update({"T": T, "delta": delta})
-    sim["C"] = C
+        (
+            PRNGKey_time,
+            PRNGKey_mem,
+            PRNGKey_cov,
+            PRNGKey_cox,
+            PRNGKey_weibull,
+        ) = jrd.split(PRNGKey, num=5)
 
-    return obs, sim, PRNGKey
+        # === nlmem_simulation() === #
+        time = jnp.repeat(jnp.linspace(60, 135, num=self.J)[None, :], self.N, axis=0)
+        time += jrd.uniform(PRNGKey_time, minval=-2, maxval=2, shape=time.shape)
+
+        obs = {"mem_obs_time": time}
+
+        obs_mem, sim = mem_simulation(
+            params_star,
+            PRNGKey_mem,
+            N_IND=self.N,
+            noise_variance="sigma2",
+            fct=lambda time, phi1, phi2, phi3: logistic_curve(time, phi1, phi2, phi3),
+            random_effects={
+                "phi1": ("mu1", "gamma2_1"),
+                "phi2": ("mu2", "gamma2_2"),
+            },
+            fixed_effets={"phi3": "mu3"},
+            fct_kwargs={"time": obs["mem_obs_time"]},
+        )
+
+        obs.update(obs_mem)
+
+        # === cox_weibull_simulation === #
+        link_kwargs = {
+            "phi1": sim["phi1"],
+            "phi2": sim["phi2"],
+            "mu3": params_star.mu3,
+        }
+
+        cov = cov_simulation(PRNGKey_cov, min=-1, max=1, shape=(self.N, self.DIM_HD))
+
+        _, sim_cox = cox_simulation(
+            params_star,
+            PRNGKey_cox,
+            cov @ params_star.beta,
+            baseline_fct=lambda t, a, b: b / a * (t / a) ** (b - 1),
+            baseline_kwargs={"a": 80, "b": 35},
+            link_fct=lambda t, alpha, phi1, phi2, mu3: alpha
+            * logistic_curve_float(t, phi1, phi2, mu3),
+            link_kwargs=link_kwargs,
+        )
+
+        obs.update({"cov": cov})
+        sim.update(sim_cox)
+
+        # ============================================================== #
+        C = jrd.weibull_min(
+            PRNGKey_weibull, weibull_censoring_loc, 35, shape=sim["T uncensored"].shape
+        )
+
+        T = np.minimum(sim["T uncensored"], C)
+        delta = sim["T uncensored"] < C
+
+        obs.update({"T": T, "delta": delta})
+        sim["C"] = C
+
+        return obs, sim
 
 
 def get_params_star(DIM_HD):
@@ -196,9 +198,7 @@ def get_params_star(DIM_HD):
 def sample_one(PRNGKey, model, weibull_censoring_loc):
     params_star = get_params_star(model.DIM_HD)
 
-    obs, _, _ = sample_logistic_model(
-        params_star, PRNGKey, model, weibull_censoring_loc
-    )
+    obs, _ = model.sample(params_star, PRNGKey, weibull_censoring_loc)
 
     dh = Data_handler()
     dh.add_data(**obs)
@@ -230,8 +230,8 @@ if __name__ == "__main__":
     PRNGKey = jrd.PRNGKey(0)
 
     def test_censoring_loc(censoring_loc, PRNGKey):
-        obs, sim, PRNGKey = sample_logistic_model(
-            params_star, PRNGKey, model, weibull_censoring_loc=censoring_loc
+        obs, sim, PRNGKey = model.sample(
+            params_star, PRNGKey, weibull_censoring_loc=censoring_loc
         )
         _, _ = plot_sample(obs, sim, params_star, censoring_loc, 80, 35)
 

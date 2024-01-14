@@ -50,7 +50,7 @@ def plot_sample(obs, sim, params_star, censoring_loc, a, b):
     )
     ax.legend()
 
-    print(f'censoring = {int((1-obs["delta"].mean())*100)}%')
+    # print(f'censoring = {int((1-obs["delta"].mean())*100)}%')
 
     fig.suptitle(f'Simulation with {int((1-obs["delta"].mean())*100)}% censored data')
     return fig, ax
