@@ -3,3 +3,4 @@
 *.out
 .mypy_cache/
 *.pyc
+*.pkl.gz
