@@ -380,12 +380,12 @@ def regularization_path(
                 print(step_message(i, len(lbd_set)), end="\r")
 
             res_estim = one_estim(
-                PRNGKey_list[i], model, dh, lbd=lbd_set[i], save_FIM=save_all
+                PRNGKey_list[i], model, dh, lbd=lbd_set[i], save_all=save_all
             )
-            if res_estim == NanError:
+            if isinstance(res_estim, NanError):
                 raise NanError
 
-            if (res_estim.theta[DIM_LD:] != 0).sum() == 0:
+            if (res_estim.theta[-1, DIM_LD:] != 0).sum() == 0:
                 for k in range(len(lbd_set) - i):
                     yield res_estim
                 break

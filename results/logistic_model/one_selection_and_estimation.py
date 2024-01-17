@@ -22,7 +22,7 @@ def _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set, save_all=T
         dh,
         lbd_set,
         save_all=save_all,
-        verbatim=False,
+        verbatim=__name__ == "__main__",
     )
     if reg_path is None:
         raise NanError
@@ -42,7 +42,7 @@ def _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set, save_all=T
     dh_shrink.data["cov"] = dh.data["cov"][:, selected_component]
 
     res_estim = one_estim(
-        PRNGKey_estim, model_shrink, dh_shrink, lbd=None, save_FIM=save_all
+        PRNGKey_estim, model_shrink, dh_shrink, lbd=None, save_all=save_all
     )
 
     # === THETA RE CONSTRUCTION === #
@@ -52,7 +52,7 @@ def _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set, save_all=T
     theta = theta.at[jnp.where(id)].set(res_estim.theta[-1, :])
 
     return variable_selection_res(
-        estim_res=res_estim if save_all else None,
+        estim_res=res_estim,  # if save_all else None,
         theta=theta,
         theta_biased=theta_biased,
         regularization_path=reg_path,
@@ -70,8 +70,8 @@ def one_estim_with_selection(args):
 if __name__ == "__main__":
     from sdg4varselect.logistic import sample_one, get_params_star
 
-    lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
-    model = modelisation.Logistic_JM(N=100, J=5, DIM_HD=100)
+    lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+    model = modelisation.Logistic_JM(N=100, J=5, DIM_HD=10)
 
     dh = sample_one(jrd.PRNGKey(0), model, weibull_censoring_loc=2000)
 

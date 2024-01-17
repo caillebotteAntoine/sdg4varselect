@@ -82,7 +82,7 @@ def estim(PRNGKey, model, dh, theta0, lbd=None, alpha=1.0):
     return res, algo
 
 
-def one_estim(PRNGKey, model, dh, lbd=None, alpha=1.0, save_FIM=True):
+def one_estim(PRNGKey, model, dh, lbd=None, alpha=1.0, save_all=True):
     PRNGKey_theta, PRNGKey_estim, PRNGKey_likelihoohd = jrd.split(PRNGKey, 3)
     theta0 = 0.2 * jrd.normal(PRNGKey_theta, shape=(model.parametrization.size,))
 
@@ -94,10 +94,11 @@ def one_estim(PRNGKey, model, dh, lbd=None, alpha=1.0, save_FIM=True):
 
     res = algo.labelswitch(res_estim)
 
+    theta = jnp.array([model.reals1d_to_hstack_params(t) for t in res.theta])
     return estim_res(
-        theta=jnp.array([model.reals1d_to_hstack_params(t) for t in res.theta]),
-        FIM=res.FIM if save_FIM else None,
-        grad=res.grad,
+        theta=theta if save_all else jnp.array([theta[0], theta[-1]]),
+        FIM=res.FIM if save_all else None,
+        grad=res.grad if save_all else jnp.array([res.grad[0], res.grad[-1]]),
         likelihood=algo.likelihood_marginal(model, PRNGKey_likelihoohd, res.theta[-1]),
     )
 
