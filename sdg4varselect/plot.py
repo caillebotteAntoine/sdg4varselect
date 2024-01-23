@@ -5,11 +5,13 @@ import jax.numpy as jnp
 
 from functools import wraps
 
+FIGSIZE = 15
 
-def figure(figsize=15):
+
+def figure():
     fig = plt.figure()
-    fig.set_figheight(figsize)
-    fig.set_figwidth(figsize)
+    fig.set_figheight(FIGSIZE)
+    fig.set_figwidth(FIGSIZE)
     return fig
 
 
@@ -175,6 +177,7 @@ def plot_reg_path(lbd_set, reg_path, bic, DIM_HD):
     ax.set_title("Regularization path")
     ax.set_xlabel(r"Regularization penalty ($\lambda$)")
     ax.set_ylabel(r"HD Parameter ($\beta$)")
+
     ax.set_xscale("log")
 
     ax.plot(lbd_set, multi_theta_HD)
@@ -184,7 +187,7 @@ def plot_reg_path(lbd_set, reg_path, bic, DIM_HD):
 
     # minimum value of bic
     id_min = jnp.nanargmin(bic)
-    ax_bic = plot_axvline(ax_bic, lbd_set, bic, id_min, color="b", msg="min(BIC)")
+    ax_bic = plot_axvline(ax_bic, lbd_set, bic, id_min, color="b", msg=" = min(BIC)")
 
     return fig, [ax, ax_bic]
 

@@ -2,6 +2,7 @@ from jax import jit
 import jax.numpy as jnp
 import jax.random as jrd
 import numpy as np
+import scipy.special
 
 import itertools
 from collections import namedtuple
@@ -351,6 +352,24 @@ class SPG_FIM:
             else:
                 raise flag
         return out
+
+
+def eBIC(theta_HD, log_likelihood, n):
+    """
+    eBIC = k*ln(n) - 2*ln(L) + 2*ln(C^p_k)
+
+    where :
+        - k is the number of parameter estimated (ie non zero parameter in HD parameter)
+        - n is the sample size
+        - L the maximzed value of the likelihood function
+    """
+
+    k = (theta_HD != 0).sum(axis=1)
+    assert k.shape == log_likelihood.shape
+    ebic_pen = scipy.special.binom(theta_HD.shape[1], k)
+    assert ebic_pen.shape == log_likelihood.shape
+
+    return -2 * log_likelihood + k * jnp.log(n) + 2 * jnp.log(ebic_pen)
 
 
 def BIC(theta_HD, log_likelihood, n):

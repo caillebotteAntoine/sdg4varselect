@@ -9,11 +9,14 @@ from sdg4varselect.miscellaneous import step_message
 from results.logistic_model.one_selection_and_estimation import one_estim_with_selection
 
 # import multiprocessing as mpc
+from collections import namedtuple
+
+multi_estim_res = namedtuple("multi_estim_res", ("estim_res", "censoring_rate"))
 
 
 # ====================================================== #
 def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING, save_all=True):
-    if not isinstance(CENSORING, list):
+    if not isinstance(CENSORING, (list, tuple)):
         CENSORING = [CENSORING]
 
     print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
@@ -23,8 +26,9 @@ def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING, save_al
     for censoring in CENSORING:
         R.append([])
         for k in range(nrun):
-            print(step_message(k, nrun), end="\r")
+            print(step_message(k, nrun), end=f"{censoring}/{CENSORING}\r")
             dh = sample_one(PRNGKey_list[k], model, weibull_censoring_loc=censoring)
+
             args = (
                 PRNGKey_list[k],
                 model.N,
@@ -35,7 +39,12 @@ def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING, save_al
                 save_all,
             )
             try:
-                R[-1].append(one_estim_with_selection(args))
+                R[-1].append(
+                    multi_estim_res(
+                        estim_res=one_estim_with_selection(args),
+                        censoring_rate=1 - dh.data["delta"].mean(),
+                    )
+                )
             except NanError as err:
                 print(f"{err} :  estimation cancelled !")
 

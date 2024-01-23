@@ -230,7 +230,7 @@ if __name__ == "__main__":
     PRNGKey = jrd.PRNGKey(0)
 
     def test_censoring_loc(censoring_loc, PRNGKey):
-        obs, sim, PRNGKey = model.sample(
+        obs, sim = model.sample(
             params_star, PRNGKey, weibull_censoring_loc=censoring_loc
         )
         _, _ = plot_sample(obs, sim, params_star, censoring_loc, 80, 35)
