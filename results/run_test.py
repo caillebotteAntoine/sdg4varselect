@@ -8,8 +8,8 @@ import pickle
 from sdg4varselect.logistic import Logistic_JM
 from logistic_model.multi_estim import multi_estim_with_selection
 
-nrun = 2
-lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+nrun = 20
+lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 
 
 def testC(*censoring_loc):
