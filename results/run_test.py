@@ -64,11 +64,23 @@ def testP(P):
 
 # for i in (50,):
 #     testN(i)
+import jax
+import os
+
+
+print(jax.device_count(backend="cpu"))
+
+os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count=<1>"
+import os
+
+os.environ["XLA_FLAGS"] = "--xla_cpu_force_host_platform_device_count=4"
+
+print(jax.device_count(backend="cpu"))
 
 testC(1000, 85, 77)
 
-for i in (30, 100, 200, 400, 600):
-    testN(i)
+# for i in (30, 100, 200, 400, 600):
+#     testN(i)
 
-for i in (5, 200, 400, 600, 1000):
-    testP(i)
+# for i in (5, 200, 400, 600, 1000):
+#     testP(i)
