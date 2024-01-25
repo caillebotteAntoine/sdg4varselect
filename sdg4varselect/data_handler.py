@@ -1,26 +1,70 @@
-import jax.numpy as jnp
-import parametrization_cookbook.jax as pc
-from copy import deepcopy
+"""
+Module for DataHandler class.
 
+Create by antoine.caillebotte@inrae.fr
+"""
+from copy import deepcopy
 from sdg4varselect.MCMC import MCMC_chain
 
 
-class Data_handler:
+class DataHandler:
+    """
+    A class for handling data and latent variables in a algorithm.
+
+    Attributes:
+    ----------
+        _latent_variables (dict):
+            A dictionary storing MCMC chains as latent variables.
+        _data (dict):
+            A dictionary storing additional solver data.
+
+    Methods:
+    ----------
+        __init__(self):
+            Constructor method to initialize an instance of DataHandler.
+
+        deepcopy(self):
+            Creates a deep copy of the current DataHandler instance.
+
+        add_data(self,**kwargs):
+            Adds variables to the solver data.
+
+        update_data(self,**kwargs):
+            Updates variables in the solver data, excluding latent variables.
+
+        add_mcmc(self,*args, **kwargs):
+            Creates a new MCMC chain and adds it to the latent variables.
+
+    Properties:
+    ----------
+        latent_variables->dict[str, MCMC_chain]:
+            Returns the latent variables dictionary.
+
+        data->dict:
+            Returns the data dictionary.
+    """
+
     def __init__(self):
-        """Constructor of ."""
+        """
+        Constructor method for the DataHandler class.
+        Initializes _latent_variables and _data dictionaries.
+        """
         self._latent_variables: dict[str, MCMC_chain] = {}
         self._data = {}
 
     @property
-    def latent_variables(self):
+    def latent_variables(self) -> dict[str, MCMC_chain]:
+        """Returns the latent variables dictionary."""
         return self._latent_variables
 
     @property
-    def data(self):
+    def data(self) -> dict:
+        """Returns the data dictionary."""
         return self._data
 
     # ============================================================== #
     def deepcopy(self):
+        """Creates a deep copy of the current DataHandler instance."""
         return deepcopy(self)
 
     def add_data(self, **kwargs) -> None:
@@ -37,9 +81,6 @@ class Data_handler:
                 raise KeyError(
                     f"changing the value of a latent variable ({key}) is not allowed."
                 )
-
-            if key in self._likelihood_kwargs:
-                self._likelihood_kwargs[key] = item
 
             if key in self._data:
                 self._data[key] = item

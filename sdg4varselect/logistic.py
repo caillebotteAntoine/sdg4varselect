@@ -1,15 +1,15 @@
 # Create by antoine.caillebotte@inrae.fr
 
-import parametrization_cookbook.jax as pc
+import functools
 import numpy as np
+import parametrization_cookbook.jax as pc
 
 
 import jax.numpy as jnp
 import jax.random as jrd
 from jax import jit
-import functools
 
-from sdg4varselect.data_handler import Data_handler
+from sdg4varselect.data_handler import DataHandler
 from sdg4varselect.joint_model import (
     JointModel,
     mem_simulation,
@@ -200,7 +200,7 @@ def sample_one(PRNGKey, model, weibull_censoring_loc):
 
     obs, _ = model.sample(params_star, PRNGKey, weibull_censoring_loc)
 
-    dh = Data_handler()
+    dh = DataHandler()
     dh.add_data(**obs)
 
     return dh

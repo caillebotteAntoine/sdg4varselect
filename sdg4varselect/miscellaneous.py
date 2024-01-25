@@ -1,12 +1,64 @@
-import numpy as np
-import jax.numpy as jnp
+"""
+Module for utiliy functions and chain class.
 
+Create by antoine.caillebotte@inrae.fr
+"""
 from warnings import warn
+import numpy as np
 
 
 class Chain:
+    """
+    Represents a chain of values with history.
+
+    Attributes:
+    ----------
+        _name (str): Name of the chain.
+        _data (numpy.ndarray): Current value of the chain.
+        _size (int): Size of the chain.
+        _chain (list[numpy.ndarray]): List to store the history of the chain.
+
+    Methods:
+    ----------
+        __init__(self, x0: float, size: int = 1, name: str = "NA"):
+            Initializes a new Chain object with the given parameters.
+
+        __repr__(self) -> str:
+            Returns a string representation of the current value of the chain.
+
+        print(self) -> str:
+            Prints the current value of the chain along with its previous values.
+
+        reset(self):
+            Resets the chain to its initial state given when the object was created.
+
+        __len__(self) -> int:
+            Returns the size of the chain.
+
+        update_chain(self):
+            Appends a copy of the current value of the chain to the history.
+
+    Properties:
+    ----------
+        data(self) -> numpy.ndarray:
+            Returns the current value of the chain.
+
+        chain(self) -> list[numpy.ndarray]:
+            Returns the history of the chain.
+
+        name(self) -> str:
+            Returns the name of the chain.
+    """
+
     def __init__(self, x0: float, size: int = 1, name="NA"):
-        """Constructor of chain."""
+        """Initializes a new Chain object with the given parameters.
+
+        Parameters:
+        ----------
+            x0 (float): Initial value for the chain.
+            size (int, optional): Size of the chain. Default is 1.
+            name (str, optional): Name of the chain. Default is "NA".
+        """
         self._name = name
 
         if isinstance(x0, (list, np.ndarray)):
@@ -30,31 +82,25 @@ class Chain:
         self.update_chain()  # append x0 to the chain
 
     def __repr__(self) -> str:
-        prefix = self._type
-        if self._name != "NA":
-            prefix += "[" + self._name + "]"
-        prefix += "("
+        prefix = "" if self._name == "NA" else "[" + self._name + "]"
         msg = np.array2string(self._data, prefix=prefix, suffix=")")
-        return prefix + msg + ")"
+        return prefix + "(" + msg + ")"
 
     def print(self) -> str:
+        """Prints the current value of the chain along with its previous values."""
         msg_add = "\n previous values = "
-        msg_add += str(np.array(self._chain)).replace("\n", ", ")
+        msg_add += str(np.array(self._chain[1:])).replace("\n", ", ")
 
         msg = str(self) + msg_add
         print(msg)
         return msg
 
     def reset(self):
+        """Resets the chain to its initial state given when the object was created."""
         x0 = self._chain[0][0]
         self._data = np.array([float(x0) for i in range(self._size)])
         self._chain = []
         self.update_chain()
-
-    # at 25/12
-    # def init(self, x0):
-    #     for i in range(self._size):
-    #         self._data[i] = x0
 
     def __len__(self) -> int:
         return self._size
@@ -65,17 +111,17 @@ class Chain:
 
     @property
     def data(self) -> np.ndarray:
-        """returns the current value of data"""
+        """Returns the current value of the chain."""
         return self._data
 
     @property
     def chain(self) -> list[np.ndarray]:
-        """returns the data chain"""
+        """Returns the history of the chain."""
         return self._chain
 
     @property
     def name(self) -> str:
-        """returns chain's name"""
+        """Returns the name of the chain."""
         return self._name
 
 
@@ -93,47 +139,96 @@ if __name__ == "__main__":
 
 
 def loadbar(
-    os: str, progress: float, maxbar: int = 50, indicator: str = ">", **kwargs
+    os: str, progress: float, maxbar: int = 50, indicator: str = ">", **_kwargs
 ) -> str:
+    """
+    Generates a progress bar string based on the given parameters.
+
+    Parameters:
+        os (str): The initial string to which the progress bar is appended.
+        progress (float): The progress value (between 0 and 1).
+        maxbar (int, optional): The maximum length of the progress bar. Default is 50.
+        indicator (str, optional): The indicator character at the end of the progress bar. Default is ">".
+        **kwargs: Additional keyword arguments.
+
+    Returns:
+        str: The string with the appended progress bar.
+
+    Example:
+        loadbar("Loading: ", 0.6, 20, "*")
+        # "Loading: [===========*        ]"
+    """
     nbar = int(progress * maxbar)
     if nbar > maxbar:
         nbar = maxbar
 
     os += "["
-    for i in range(nbar):
+    for _ in range(nbar):
         os += "="
     os += indicator
-    for i in range(nbar, maxbar):
+    for _ in range(nbar, maxbar):
         os += " "
     os += "]"
     return os
 
 
-def loadnumber(os: str, number: int, max: int, unit: str = "", **kwargs) -> str:
+def loadnumber(
+    os: str, number: int, bigest_number: int, unit: str = "", **_kwargs
+) -> str:
+    """
+    Adds a formatted representation of a load number of type n/N to the given string.
+
+    Parameters:
+        os (str): The initial string to which the number representation is appended.
+        number (int): The current number.
+        bigest_number (int): The largest number for formatting.
+        unit (str, optional): The unit to be appended to the number. Default is an empty string.
+        **kwargs: Additional keyword arguments.
+
+    Returns:
+        str: The string with the appended number representation.
+
+    Example:
+        loadnumber("Progress: ", 25, 100, "%")
+        # "Progress: 25/100%"
+    """
     number_str = str(number)
-    max_str = str(max)
+    max_str = str(bigest_number)
 
     if len(number_str) < len(max_str):
         diff_len = len(max_str) - len(number_str)
-        for i in range(diff_len):
+        for _ in range(diff_len):
             os += " "
 
     os += number_str + "/" + max_str + unit
     return os
 
 
-def step_message(iter: int, max_iter: int, **kwargs) -> str:
+def step_message(iteration: int, max_iter: int, **kwargs) -> str:
+    """
+    Generates a step message with a progress bar and load number representation.
+    you should use `print(os, end="\r") with it.
+
+    Parameters:
+        iteration (int): The current iteration.
+        max_iter (int): The maximum number of iterations.
+        **kwargs: Additional keyword arguments.
+
+    Returns:
+        str: The generated step message.
+
+    Example:
+        result = step_message(3, 10)
+        # " 3/10 [=====>              ]"
+    """
     os = ""
-    os = loadnumber(os, iter, max_iter, **kwargs) + " "
-    os = loadbar(os, float(iter) / max_iter, **kwargs)
-    # if iter == max_iter - 1:
-    #     os += "\n"
-    return os  # you should use `print(os, end="\r")`
+    os = loadnumber(os, iteration, max_iter, **kwargs) + " "
+    os = loadbar(os, float(iteration) / max_iter, **kwargs)
+
+    return os
 
 
 if __name__ == "__main__":
-    import numpy as np
-
     for i in range(1000):
         print(step_message(i, 1000), end="\r")
     print("HELLO WORLD")

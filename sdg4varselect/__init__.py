@@ -1,4 +1,4 @@
-from .learning_rate import learning_rate
+from .learning_rate import LearningRate
 from .MCMC import MCMC_chain
 from .algo import SPG_FIM
 

@@ -7,7 +7,7 @@ import scipy.special
 import itertools
 from collections import namedtuple
 
-from sdg4varselect.data_handler import Data_handler
+from sdg4varselect.data_handler import DataHandler
 from sdg4varselect.learning_rate import create_multi_step_size
 from sdg4varselect.miscellaneous import step_message
 from copy import deepcopy
@@ -112,7 +112,7 @@ class NanError(Exception):
 
 
 class SPG_FIM:
-    def __init__(self, PRNGKey, dh: Data_handler, settings, lbd=None, alpha=1.0):
+    def __init__(self, PRNGKey, dh: DataHandler, settings, lbd=None, alpha=1.0):
         self._data_handler = deepcopy(dh)
 
         self.PRNGKey = PRNGKey
