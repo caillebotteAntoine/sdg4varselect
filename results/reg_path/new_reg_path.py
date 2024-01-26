@@ -116,7 +116,8 @@ def selection_then_estimation(PRNGKey, model, dh, lbd=None, alpha=1.0, save_all=
     res_first_estim = one_estim(jrd.PRNGKey(0), model, dh, lbd, save_all=save_all)
 
     # === ESTIMATION === #
-    theta_biased = res_first_estim.theta[-1, model.DIM_LD :]
+    DIM_LD = model.DIM_LD
+    theta_biased = res_first_estim.theta[-1, DIM_LD:]
     selected_component = theta_biased != 0
     NEW_DIM_HD = int(selected_component.sum())
 
@@ -169,7 +170,7 @@ lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 reg_path = regularization_path(
     jrd.PRNGKey(0),
     lbd_set=lbd_set,
-    save_all=True,
+    save_all=False,
     verbatim=True,
     model=model,
     dh=dh,
