@@ -11,7 +11,7 @@ from sdg4varselect.logistic import Logistic_JM
 from sdg4varselect.data_handler import DataHandler
 
 
-model = Logistic_JM(N=50, J=5, DIM_HD=5)
+model = Logistic_JM(N=100, J=5, DIM_HD=200)
 
 # Simulation parameter
 params_star = model.new_params(
@@ -165,7 +165,7 @@ def regularization_path(PRNGKey, lbd_set, verbatim=False, *args, **kwargs):
     return [res for res in iter_estim()]
 
 
-lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 reg_path = regularization_path(
     jrd.PRNGKey(0),
     lbd_set=lbd_set,
