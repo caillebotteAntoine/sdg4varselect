@@ -183,6 +183,8 @@ def plot_reg_path(lbd_set, reg_path, bic, DIM_LD):
     ax.plot(lbd_set, multi_theta_HD)
 
     ax_bic = ax.twinx()
+    ax_bic.plot(lbd_set, bic, color="k", linewidth=5, linestyle="-")
+    ax_bic.plot(lbd_set, bic, color="w", linewidth=3, linestyle="-")
     ax_bic.plot(lbd_set, bic, color="k", linewidth=2, linestyle="--", label="BIC")
     ax_bic.set(ylabel="BIC Score")
     ax_bic.set(ylabel="BIC Score")

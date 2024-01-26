@@ -167,6 +167,10 @@ def regularization_path(PRNGKey, lbd_set, verbatim=False, *args, **kwargs):
     return [res for res in iter_estim()]
 
 
+import datetime
+
+print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+
 lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 reg_path = regularization_path(
     jrd.PRNGKey(0),
@@ -177,6 +181,7 @@ reg_path = regularization_path(
     dh=dh,
 )
 
+print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 pickle.dump(
     {"reg_path": reg_path, "lbd_set": lbd_set},
     gzip.open("new_reg_path_200.pkl.gz", "wb"),
