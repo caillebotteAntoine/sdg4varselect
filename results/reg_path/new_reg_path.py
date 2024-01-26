@@ -167,7 +167,7 @@ def regularization_path(PRNGKey, lbd_set, verbatim=False, *args, **kwargs):
     return [res for res in iter_estim()]
 
 
-import datetime
+from datetime import datetime
 
 print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
