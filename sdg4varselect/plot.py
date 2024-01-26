@@ -184,10 +184,12 @@ def plot_reg_path(lbd_set, reg_path, bic, DIM_HD):
 
     ax_bic = ax.twinx()
     ax_bic.plot(lbd_set, bic, color="k", linewidth=2, linestyle="--", label="BIC")
+    ax_bic.set(ylabel="BIC Score")
+    ax_bic.set(ylabel="BIC Score")
 
     # minimum value of bic
-    id_min = jnp.nanargmin(bic)
-    ax_bic = plot_axvline(ax_bic, lbd_set, bic, id_min, color="b", msg=" = min(BIC)")
+    idMin = jnp.nanargmin(bic)
+    ax_bic = plot_axvline(ax_bic, lbd_set, bic, idMin, color="b", msg=" = min(BIC)")
 
     return fig, [ax, ax_bic]
 

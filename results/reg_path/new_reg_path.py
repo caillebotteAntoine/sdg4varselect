@@ -11,7 +11,7 @@ from sdg4varselect.logistic import Logistic_JM
 from sdg4varselect.data_handler import DataHandler
 
 
-model = Logistic_JM(N=100, J=5, DIM_HD=200)
+model = Logistic_JM(N=100, J=5, DIM_HD=100)
 
 # Simulation parameter
 params_star = model.new_params(
@@ -178,5 +178,5 @@ reg_path = regularization_path(
 
 pickle.dump(
     {"reg_path": reg_path, "lbd_set": lbd_set},
-    gzip.open("new_reg_path.pkl.gz", "wb"),
+    gzip.open("new_reg_path_100.pkl.gz", "wb"),
 )
