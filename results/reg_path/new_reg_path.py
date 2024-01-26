@@ -171,16 +171,15 @@ lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 reg_path = regularization_path(
     jrd.PRNGKey(0),
     lbd_set=lbd_set,
-    save_all=True,
+    save_all=False,
     verbatim=True,
     model=model,
     dh=dh,
 )
 
-# pickle.dump(
-#     {"reg_path": reg_path, "lbd_set": lbd_set},
-#     gzip.open("new_reg_path_100.pkl.gz", "wb"),
-# )
+ pickle.dump( {"reg_path": reg_path, "lbd_set": lbd_set},
+     gzip.open("new_reg_path_100.pkl.gz", "wb"),
+)
 
 
 import sdg4varselect.plot as sdgplt
