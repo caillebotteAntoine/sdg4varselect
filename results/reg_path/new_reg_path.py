@@ -112,8 +112,9 @@ def one_estim(PRNGKey, model, dh, lbd=None, alpha=1.0, save_all=True):
 
 
 def selection_then_estimation(PRNGKey, model, dh, lbd=None, alpha=1.0, save_all=True):
+    PRNGKey_selection, PRNGKey_estimation = jrd.split(PRNGKey)
     # === SELECTION === #
-    res_first_estim = one_estim(jrd.PRNGKey(0), model, dh, lbd, save_all=save_all)
+    res_first_estim = one_estim(PRNGKey_selection, model, dh, lbd, save_all=save_all)
 
     # === ESTIMATION === #
     DIM_LD = model.DIM_LD
@@ -126,7 +127,7 @@ def selection_then_estimation(PRNGKey, model, dh, lbd=None, alpha=1.0, save_all=
     dh_shrink.data["cov"] = dh.data["cov"][:, selected_component]
 
     res_second_estim = one_estim(
-        jrd.PRNGKey(0), model_shrink, dh_shrink, lbd=None, save_all=save_all
+        PRNGKey_estimation, model_shrink, dh_shrink, lbd=None, save_all=save_all
     )
 
     # === THETA RE CONSTRUCTION === #
@@ -170,13 +171,19 @@ lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 reg_path = regularization_path(
     jrd.PRNGKey(0),
     lbd_set=lbd_set,
-    save_all=False,
+    save_all=True,
     verbatim=True,
     model=model,
     dh=dh,
 )
 
-pickle.dump(
-    {"reg_path": reg_path, "lbd_set": lbd_set},
-    gzip.open("new_reg_path_100.pkl.gz", "wb"),
-)
+# pickle.dump(
+#     {"reg_path": reg_path, "lbd_set": lbd_set},
+#     gzip.open("new_reg_path_100.pkl.gz", "wb"),
+# )
+
+
+import sdg4varselect.plot as sdgplt
+from sdg4varselect.logistic import get_params_star
+
+sdgplt.plot_theta([r[1] for r in reg_path], 7, params_star, model.params_names)

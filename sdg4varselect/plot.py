@@ -169,8 +169,8 @@ def plot_axvline(ax, lbd_set, bic, id, color, msg=""):
     return ax
 
 
-def plot_reg_path(lbd_set, reg_path, bic, DIM_HD):
-    multi_theta_HD = [res.theta[-1, -DIM_HD:] for res in reg_path]
+def plot_reg_path(lbd_set, reg_path, bic, DIM_LD):
+    multi_theta_HD = [res.theta[-1, DIM_LD:] for res in reg_path]
 
     fig = figure()
     ax = fig.add_subplot(1, 1, 1)
