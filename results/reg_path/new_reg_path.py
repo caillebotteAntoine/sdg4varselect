@@ -125,7 +125,7 @@ def selection_then_estimation(PRNGKey, model, dh, lbd=None, alpha=1.0, save_all=
     dh_shrink.data["cov"] = dh.data["cov"][:, selected_component]
 
     res_second_estim = one_estim(
-        jrd.PRNGKey(0), model_shrink, dh_shrink, lbd=None, save_all=True
+        jrd.PRNGKey(0), model_shrink, dh_shrink, lbd=None, save_all=save_all
     )
 
     # === THETA RE CONSTRUCTION === #
@@ -169,7 +169,7 @@ lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
 reg_path = regularization_path(
     jrd.PRNGKey(0),
     lbd_set=lbd_set,
-    save_all=False,
+    save_all=True,
     verbatim=True,
     model=model,
     dh=dh,
