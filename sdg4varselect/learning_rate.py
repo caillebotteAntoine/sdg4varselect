@@ -40,7 +40,7 @@ class LearningRate:
         coef_preheating: float = 1,
         heating: int = None,
         coef_heating: float = 1,
-        max: float = 1,
+        value_max: float = 1,
         step_flat: int = 0,
         *args,
         **kwargs
@@ -53,7 +53,7 @@ class LearningRate:
             coef_preheating (float): Coefficient for preheating exponential growth.
             heating (int or None): Number of iterations for heating or None for no heating.
             coef_heating (float): Coefficient for heating power-law decay.
-            max (float): Maximum learning rate.
+            value_max (float): Maximum learning rate.
             step_flat (int): Number of iterations for a flat learning rate.
         """
         if not isinstance(preheating, int):
@@ -75,9 +75,9 @@ class LearningRate:
             raise TypeError("coef_heating must be int or float")
         self._coef_heating = coef_heating
 
-        if not isinstance(max, (int, float)):
-            raise TypeError("max must be int or float")
-        self._max = max
+        if not isinstance(value_max, (int, float)):
+            raise TypeError("value_max must be int or float")
+        self._max = value_max
 
         if not isinstance(step_flat, (int, float)):
             raise TypeError("step_flat must be int or float")
