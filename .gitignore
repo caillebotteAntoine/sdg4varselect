@@ -4,3 +4,4 @@
 .mypy_cache/
 *.pyc
 *.pkl.gz
+*.nfs
