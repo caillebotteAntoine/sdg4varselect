@@ -72,8 +72,8 @@ def testP(P):
 
 # for i in (50,):
 #     testN(i)
-import jax
-import os
+# import jax
+# import os
 
 
 # print(jax.device_count(backend="cpu"))
@@ -90,5 +90,5 @@ import os
 # for i in (30, 100, 200, 400, 600):
 #     testN(i)
 
-# for i in (5, 200, 400, 600, 1000):
-#     testP(i)
+for i in (5, 200, 400, 600, 1000):
+    testP(i)
