@@ -1,0 +1,2 @@
+2024-02-01 13:27:20.601346: E external/org_tensorflow/tensorflow/tsl/util/command_line_flags.cc:53] Couldn't interpret value <30> for flag xla_force_host_platform_device_count.
+No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
