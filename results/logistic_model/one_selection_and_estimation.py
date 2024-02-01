@@ -1,95 +1,89 @@
+"""
+Module that define functions to perform a selection and estimation.
+
+Create by antoine.caillebotte@inrae.fr"""
+
+# pylint: disable=C0116
 import jax.random as jrd
 import jax.numpy as jnp
 
-from sdg4varselect.algo import (
-    BIC,
-    regularization_path,
-    NanError,
-    variable_selection_res,
-)
-import sdg4varselect.logistic as modelisation
+from sdg4varselect.outputs import SDGResults
+import sdg4varselect.models.logistic_joint_model as modelisation
 
 from results.logistic_model.one_estim import one_estim
 
 
-def _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set, save_all=True):
-    PRNGKey_reg_path, PRNGKey_estim = jrd.split(PRNGKey)
-    # === VARIABLE SELECTION === #
-    reg_path = regularization_path(
-        one_estim,
-        PRNGKey_reg_path,
-        model,
-        dh,
-        lbd_set,
-        save_all=save_all,
-        verbatim=__name__ == "__main__",
-    )
-    if reg_path is None:
-        raise NanError
+def _estim_shrink_model(
+    prngkey, model, dh, selected_component, lbd=None, save_all=True
+):
+    # === MODEL SHRINKAGE === #
+    dim_ld = model.DIM_LD
+    hd_selected = selected_component[dim_ld:]
+    new_dim_hd = int(hd_selected.sum())
 
-    DIM_LD = model.DIM_LD
-    multi_theta_HD = jnp.array([res.theta[-1, DIM_LD:] for res in reg_path])
-    bic = BIC(multi_theta_HD, jnp.array([res.likelihood for res in reg_path]), model.N)
-
-    # === FINAL ESTIMATION === #
-    lbd_id = jnp.argmin(bic)
-    selected_component = multi_theta_HD[lbd_id] != 0
-    theta_biased = reg_path[lbd_id].theta[-1]
-    NEW_DIM_HD = int(selected_component.sum())
-
-    model_shrink = modelisation.Logistic_JM(N=model.N, J=model.J, DIM_HD=NEW_DIM_HD)
+    model_shrink = modelisation.Logistic_JM(N=model.N, J=model.J, DIM_HD=new_dim_hd)
     dh_shrink = dh.deepcopy()
-    dh_shrink.data["cov"] = dh.data["cov"][:, selected_component]
+    dh_shrink.data["cov"] = dh.data["cov"][:, hd_selected]
 
-    res_estim = one_estim(
-        PRNGKey_estim, model_shrink, dh_shrink, lbd=None, save_all=save_all
-    )
+    # === ESTIMATION === #
+    res_estim = one_estim(prngkey, model_shrink, dh_shrink, lbd=lbd, save_all=save_all)
 
     # === THETA RE CONSTRUCTION === #
-    id = jnp.concatenate([jnp.repeat(True, model_shrink.DIM_LD), selected_component])
+    non_zero_component = jnp.concatenate([jnp.repeat(True, dim_ld), hd_selected])
 
-    theta = jnp.zeros(shape=(model.parametrization.size,))
-    theta = theta.at[jnp.where(id)].set(res_estim.theta[-1, :])
+    return SDGResults.expand_theta(res_estim, non_zero_component)
 
-    return variable_selection_res(
-        estim_res=res_estim,  # if save_all else None,
-        theta=theta,
-        theta_biased=theta_biased,
-        regularization_path=reg_path,
-        bic=bic,
+
+def lasso_into_adaptive_into_estim(prngkey, model, dh, lbd, save_all):
+    prngkey_lasso, prngkey_adaptive, prngkey_estim = jrd.split(prngkey, 3)
+    lasso = one_estim(prngkey_lasso, model, dh, lbd=lbd, save_all=save_all)
+
+    theta = lasso.theta[-1]
+    lasso_selected_component = theta != 0
+    lbd_weighted = lbd / jnp.abs(theta[lasso_selected_component])
+
+    adaptive_lasso = _estim_shrink_model(
+        prngkey_adaptive,
+        model,
+        dh,
+        selected_component=lasso_selected_component,
+        lbd=lbd_weighted,
+        save_all=save_all,
     )
 
+    estim = _estim_shrink_model(
+        prngkey_estim,
+        model,
+        dh,
+        selected_component=adaptive_lasso.last_theta != 0,
+        lbd=None,
+        save_all=save_all,
+    )
 
-def one_estim_with_selection(args):
-    PRNGKey, N, J, DIM_HD, dh, lbd_set, save_all = args
-
-    model = modelisation.Logistic_JM(N, J, DIM_HD)
-    return _one_estim_with_selection_with_model(PRNGKey, model, dh, lbd_set, save_all)
+    return [lasso, adaptive_lasso, estim]
 
 
 if __name__ == "__main__":
-    from sdg4varselect.logistic import sample_one, get_params_star
+    import sdg4varselect.plot as sdgplt
 
-    lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
-    model = modelisation.Logistic_JM(N=100, J=5, DIM_HD=10)
+    my_lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+    myModel = modelisation.Logistic_JM(N=100, J=5, DIM_HD=10)
 
-    dh = sample_one(jrd.PRNGKey(0), model, weibull_censoring_loc=2000)
+    myDH = modelisation.sample_one(jrd.PRNGKey(0), myModel, weibull_censoring_loc=2000)
 
-    selection_res = _one_estim_with_selection_with_model(
-        jrd.PRNGKey(0), model, dh, lbd_set, save_all=False
+    lasso_r, adaptive_lasso_r, estim_r = lasso_into_adaptive_into_estim(
+        jrd.PRNGKey(0), myModel, myDH, 10**-1, save_all=True
     )
 
     # === PLOT === #
-    reg_path = selection_res.regularization_path
-    from sdg4varselect.plot import plot_theta, plot_reg_path, plot_theta_HD
+    params_star = modelisation.get_params_star(myModel.DIM_HD)
+    params_names = myModel.params_names
 
-    params_star = get_params_star(model.DIM_HD)
+    # sdgplt.plot_theta(lasso, myModel.DIM_LD, params_star, params_names)
+    sdgplt.plot_theta_HD(lasso_r, myModel.DIM_LD, params_star, params_names)
 
-    plot_theta(reg_path, model.DIM_LD, params_star, model.params_names)
-    plot_theta_HD(reg_path, model.DIM_LD, params_star, model.params_names)
+    # sdgplt.plot_theta(adaptive_lasso, myModel.DIM_LD, params_star, params_names)
+    sdgplt.plot_theta_HD(adaptive_lasso_r, myModel.DIM_LD, params_star, params_names)
 
-    plot_reg_path(lbd_set, reg_path, selection_res.bic, model.DIM_HD)
-    plot_theta(selection_res.estim_res, model.DIM_LD, params_star, model.params_names)
-    plot_theta_HD(
-        selection_res.estim_res, model.DIM_LD, params_star, model.params_names
-    )
+    sdgplt.plot_theta(estim_r, myModel.DIM_LD, params_star, params_names)
+    sdgplt.plot_theta_HD(estim_r, myModel.DIM_LD, params_star, params_names)

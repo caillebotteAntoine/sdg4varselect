@@ -1,5 +1,13 @@
+"""
+Module that define some ploting function.
+
+Create by antoine.caillebotte@inrae.fr
+"""
+# pylint: disable=C0116
+
 import matplotlib.pyplot as plt
-import matplotlib.colors as colors
+
+# import matplotlib.colors as colors
 import numpy as np
 import jax.numpy as jnp
 
@@ -104,23 +112,24 @@ def dim_standardize(list_x: list):
 
 
 # ===================================================== #
-def _plot_theta(multi_theta, DIM_LD, params_star, params_names):
+def _plot_theta(multi_theta, dim_ld, params_star, params_names):
     dt = dim_standardize(multi_theta).T
 
     fig = figure()
-    for i in range(DIM_LD):
-        ax = fig.add_subplot(DIM_LD, 1, i + 1)
+    for i in range(dim_ld):
+        ax = fig.add_subplot(dim_ld, 1, i + 1)
 
         ax.plot(dt[i])
         ax.axhline(params_star[i], linestyle="--", label=params_names[i], color=f"C{i}")
         ax.legend(loc="center left")
 
-    ax = fig.axes[0]
-    ax.set_title("Parameter")
-    return fig, ax
+    if dim_ld != 0:
+        ax = fig.axes[0]
+        ax.set_title("Parameter")
+    return fig, fig.axes
 
 
-def plot_theta(multi_estim, DIM_LD, params_star, params_names):
+def plot_theta(multi_estim, dim_ld, params_star, params_names):
     if len(multi_estim) == 0:
         return None, None
 
@@ -128,21 +137,21 @@ def plot_theta(multi_estim, DIM_LD, params_star, params_names):
         multi_estim = [multi_estim]
 
     multi_theta = [res.theta for res in multi_estim]
-    return _plot_theta(multi_theta, DIM_LD, jnp.hstack(params_star), params_names)
+    return _plot_theta(multi_theta, dim_ld, jnp.hstack(params_star), params_names)
 
 
-def plot_theta_HD(multi_estim, DIM_LD, params_star, params_names):
+def plot_theta_HD(multi_estim, dim_ld, params_star, params_names):
     if len(multi_estim) == 0:
         return None, None
 
     if not isinstance(multi_estim, list):
         multi_estim = [multi_estim]
 
-    multi_theta = [res.theta[:, DIM_LD:] for res in multi_estim]
-    params_star = jnp.hstack(params_star)[DIM_LD:]
+    multi_theta = [res.theta[:, dim_ld:] for res in multi_estim]
+    params_star = jnp.hstack(params_star)[dim_ld:]
 
     return _plot_theta(
-        multi_theta, multi_theta[0].shape[-1], params_star, params_names[DIM_LD:]
+        multi_theta, multi_theta[0].shape[-1], params_star, params_names[dim_ld:]
     )
 
 
@@ -169,8 +178,8 @@ def plot_axvline(ax, lbd_set, bic, id, color, msg=""):
     return ax
 
 
-def plot_reg_path(lbd_set, reg_path, bic, DIM_LD):
-    multi_theta_HD = [res.theta[-1, DIM_LD:] for res in reg_path]
+def plot_reg_path(lbd_set, reg_path, bic, dim_ld):
+    multi_theta_HD = [res.theta[-1, dim_ld:] for res in reg_path]
 
     fig = figure()
     ax = fig.add_subplot(1, 1, 1)
@@ -196,9 +205,9 @@ def plot_reg_path(lbd_set, reg_path, bic, DIM_LD):
     return fig, [ax, ax_bic]
 
 
-def plot_box_plot_HD(theta, DIM_LD, params_star, threshold=0):
-    params_star = jnp.hstack(params_star)[DIM_LD:]
-    multi_theta = jnp.array([t[DIM_LD:] for t in theta]).T
+def plot_box_plot_HD(theta, dim_ld, params_star, threshold=0):
+    params_star = jnp.hstack(params_star)[dim_ld:]
+    multi_theta = jnp.array([t[dim_ld:] for t in theta]).T
 
     fig = figure()
     ax = fig.add_subplot(1, 1, 1)

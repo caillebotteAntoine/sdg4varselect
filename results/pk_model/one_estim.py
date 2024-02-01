@@ -1,7 +1,8 @@
 import jax.random as jrd
 import jax.numpy as jnp
 
-from sdg4varselect.algo import SPG_FIM, NanError
+from sdg4varselect import SPG_FIM
+from sdg4varselect.exceptions import sdg4vsNanError
 
 algo_settings = SPG_FIM.settings(
     step_size_grad={
@@ -67,9 +68,9 @@ def one_estim(PRNGKey, model, dh, algo_settings, lbd=None, alpha=1.0):
         res_estim, algo = estim(
             PRNGKey_estim, model, dh, theta0, algo_settings, lbd=lbd, alpha=alpha
         )
-    except NanError as err:
+    except sdg4vsNanError as err:
         print(err)
-        return NanError
+        return sdg4vsNanError
 
     res = algo.labelswitch(res_estim)
     return algo.estim_res(
@@ -81,7 +82,11 @@ def one_estim(PRNGKey, model, dh, algo_settings, lbd=None, alpha=1.0):
 
 
 if __name__ == "__main__":
-    from sdg4varselect.pharmacokinetic import pharma_JM, sample_one, get_params_star
+    from sdg4varselect.models.pharmacokinetic import (
+        pharma_JM,
+        sample_one,
+        get_params_star,
+    )
     from time import time
 
     model = pharma_JM(N=100, J=5, DIM_HD=5)
@@ -92,8 +97,8 @@ if __name__ == "__main__":
         one_estim(jrd.PRNGKey(key), model, dh, algo_settings, lbd=None)
         for key in range(20)
     ]
-    while NanError in multi_estim:
-        multi_estim.remove(NanError)
+    while sdg4vsNanError in multi_estim:
+        multi_estim.remove(sdg4vsNanError)
 
     # === PLOT === #
     from sdg4varselect.plot import (

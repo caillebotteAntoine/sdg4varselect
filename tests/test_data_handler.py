@@ -1,7 +1,7 @@
 """tests for the DataHandler class"""
 # pylint: disable=C0116, W0621
 import pytest
-from sdg4varselect.data_handler import DataHandler
+from sdg4varselect._data_handler import DataHandler
 
 
 @pytest.fixture

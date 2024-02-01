@@ -4,7 +4,7 @@ Module for DataHandler class.
 Create by antoine.caillebotte@inrae.fr
 """
 from copy import deepcopy
-from sdg4varselect.MCMC import MCMC_chain
+from sdg4varselect._MCMC import MCMC_chain
 
 
 class DataHandler:
@@ -44,13 +44,15 @@ class DataHandler:
             Returns the data dictionary.
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         """
         Constructor method for the DataHandler class.
         Initializes _latent_variables and _data dictionaries.
         """
         self._latent_variables: dict[str, MCMC_chain] = {}
         self._data = {}
+
+        self.add_data(**kwargs)
 
     @property
     def latent_variables(self) -> dict[str, MCMC_chain]:

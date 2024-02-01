@@ -5,11 +5,14 @@ import gzip
 import pickle
 
 import sdg4varselect.plot as sdgplt
-from sdg4varselect.algo import NanError, estim_res, SPG_FIM
+from sdg4varselect.algo import estim_res, SPG_FIM
+from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.miscellaneous import step_message
 from sdg4varselect.logistic import Logistic_JM
-from sdg4varselect.data_handler import DataHandler
+from sdg4varselect._data_handler import DataHandler
 
+
+from datetime import datetime
 
 model = Logistic_JM(N=100, J=5, DIM_HD=200)
 
@@ -96,9 +99,9 @@ def one_estim(PRNGKey, model, dh, lbd=None, alpha=1.0, save_all=True):
 
     try:
         res_estim, algo = estim(PRNGKey_estim, model, dh, theta0, lbd=lbd, alpha=alpha)
-    except NanError as err:
+    except sdg4vsNanError as err:
         print(err)
-        return NanError
+        return sdg4vsNanError
 
     res = algo.labelswitch(res_estim)
 
@@ -167,8 +170,6 @@ def regularization_path(PRNGKey, lbd_set, verbatim=False, *args, **kwargs):
     return [res for res in iter_estim()]
 
 
-from datetime import datetime
-
 print(f'start at {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
 lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
@@ -186,9 +187,5 @@ pickle.dump(
     {"reg_path": reg_path, "lbd_set": lbd_set},
     gzip.open("new_reg_path_200.pkl.gz", "wb"),
 )
-
-
-import sdg4varselect.plot as sdgplt
-from sdg4varselect.logistic import get_params_star
 
 sdgplt.plot_theta([r[1] for r in reg_path], 7, params_star, model.params_names)

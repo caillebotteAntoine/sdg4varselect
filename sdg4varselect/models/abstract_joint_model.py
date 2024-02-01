@@ -1,7 +1,15 @@
-# Create by antoine.caillebotte@inrae.fr
+"""
+Module for abstract class AbstractJointModel.
 
-from scipy.optimize import brenth
+Create by antoine.caillebotte@inrae.fr
+"""
+# pylint: disable=C0116
+
+from abc import abstractmethod
+import functools
+
 import numpy as np
+from scipy.optimize import brenth
 
 
 import jax.numpy as jnp
@@ -9,7 +17,6 @@ import jax.random as jrd
 from jax import jit, jacfwd
 
 import parametrization_cookbook.jax as pc
-import functools
 
 
 @jit
@@ -19,13 +26,9 @@ def gaussian_prior(data, mean, variance) -> jnp.ndarray:
     return -out / 2
 
 
-class JointModel:
-    def __init__(
-        self, N, J, DIM_HD, log_baseline_hazard, mixed_effect_function, **kwargs
-    ):
-        self._log_h0 = log_baseline_hazard
+class AbstractJointModel:
+    def __init__(self, N=1, J=1, DIM_HD=1, **kwargs):
         self._cst = kwargs
-        self._mem_fct = mixed_effect_function
 
         self._parametrization: pc.NamedTuple = None
 
@@ -72,6 +75,20 @@ class JointModel:
         return self._parametrization.reals1d_to_params(theta_reals1d)
 
     # ============================================================== #
+    @abstractmethod
+    def log_baseline_hazard(
+        self,
+        times,  # shape = (N,num)
+        *args,
+        **kwargs,
+    ):
+        """Function that return the log of the baseline hazard"""
+
+    @abstractmethod
+    def mixed_effect_function(self, *args, **kwargs):
+        """Function that return an non linear fct that define the mixed effect models"""
+
+    # ============================================================== #
     @functools.partial(jit, static_argnums=0)
     def link_function(
         self,
@@ -79,7 +96,7 @@ class JointModel:
         times: jnp.ndarray,  # shape = (N,num)
         **kwargs,
     ):
-        logistic_value = self._mem_fct(times, **kwargs)
+        logistic_value = self.mixed_effect_function(times, **kwargs)
         assert logistic_value.shape == times.shape
         return alpha * logistic_value
 
@@ -98,7 +115,7 @@ class JointModel:
         return : log(b/a) + (b-1)*log(t/a) + beta^T U + alpha*m(t)
         """
         link_values = self.link_function(alpha, times, **kwargs)
-        h0_values = self._log_h0(times, **kwargs)
+        h0_values = self.log_baseline_hazard(times, **kwargs)
 
         beta_prod_cov = (cov @ beta)[:, None]
         assert beta_prod_cov.shape[0] == times.shape[0]
@@ -160,7 +177,9 @@ class JointModel:
         # assert phi1.shape == (N,)
         # assert phi2.shape == (N,)
 
-        pred = self._mem_fct(mem_obs_time, **self._cst, **kwargs)  # shape = (N,J)
+        pred = self.mixed_effect_function(
+            mem_obs_time, **self._cst, **kwargs
+        )  # shape = (N,J)
 
         likelihood_mem = -J / 2 * jnp.log(2 * jnp.pi * params.sigma2) - jnp.nansum(
             (Y - pred) ** 2, axis=1

@@ -194,10 +194,12 @@ class LearningRate:
         return plt.plot(x, y, label=label)
 
 
-def create_multi_step_size(settings, num_step_size=3):
+def create_multi_step_size(settings: list[dict], num_step_size: int = 3):
+    """create num_step_size LearningRate with settings as parameter"""
     # !! check if setting is list of settings set !!
-    if not isinstance(settings, list):
-        raise TypeError("settings must be a list of dict !")
+    settings = list(settings)
+    # if not isinstance(settings, list):
+    #     raise TypeError("settings must be a list of dict !")
 
     if len(settings) < 0:
         raise TypeError(

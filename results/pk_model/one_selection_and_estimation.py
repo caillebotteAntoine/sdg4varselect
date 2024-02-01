@@ -1,8 +1,9 @@
 import jax.random as jrd
 import jax.numpy as jnp
 
-from sdg4varselect.algo import BIC, SPG_FIM, regularization_path, NanError
-import sdg4varselect.pharmacokinetic as modelisation
+from sdg4varselect.algo import BIC, SPG_FIM, regularization_path
+from sdg4varselect.exceptions import sdg4vsNanError
+import sdg4varselect.models.pharmacokinetic as modelisation
 
 from one_estim import one_estim, algo_settings
 
@@ -19,7 +20,7 @@ def _one_estim_with_selection_with_model(PRNGKey, model, dh, algo_settings, lbd_
         lbd_set,
     )
     if reg_path is None:
-        raise NanError
+        raise sdg4vsNanError
 
     multi_theta = jnp.array([res.theta for res in reg_path])
     DIM_LD = model.DIM_LD

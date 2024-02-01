@@ -9,7 +9,7 @@ import jax.random as jrd
 from jax import jit
 import functools
 
-from sdg4varselect.data_handler import Data_handler
+from sdg4varselect._data_handler import Data_handler
 from sdg4varselect.joint_model import (
     JointModel,
     mem_simulation,

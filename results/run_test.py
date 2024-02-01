@@ -6,7 +6,7 @@ import pickle
 
 
 from sdg4varselect.logistic import Logistic_JM
-from logistic_model.multi_estim import multi_estim_with_selection
+from results.logistic_model.multi_results import multi_estim_with_selection
 
 nrun = 20
 lbd_set = 10 ** jnp.linspace(-2, 0, num=15)

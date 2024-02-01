@@ -1,40 +1,19 @@
-from .learning_rate import LearningRate
-from .MCMC import MCMC_chain
-from .algo import SPG_FIM
-
-import jax
-import jax.random as jrd
-import jax.numpy as jnp
-
-jnp.set_printoptions(threshold=200)  # jnp.inf)
-
-import jax.numpy as jnp
-import jax.random as jrd
-from jax import jit, jacrev, jacfwd
-
+"""
+Create by antoine.caillebotte@inrae.fr
+"""
 from jax.config import config
 
+# from .learning_rate import LearningRate
+from ._MCMC import MCMC_chain
+from .algo.spg_fim import SPG_FIM
+from ._data_handler import DataHandler
+from ._regularization_function import eBIC, BIC, regularization_path
+
+
+# import jax.numpy as jnp
+# jnp.set_printoptions(threshold=200)  # jnp.inf)
+
+# import jax.random as jrd
+# from jax import jit, jacrev, jacfwd
+
 config.update("jax_enable_x64", True)
-
-
-def print_array(x):
-    out = ""
-    for i in range(len(x)):
-        if len(x[i].shape) != 0:
-            out += "[ "
-            for j in range(len(x[i])):
-                out += "{:.3e}".format(x[i][j])
-
-                if j != len(x[i]):
-                    out += ", "
-            out += "]"
-        else:
-            out += "{:.3e}".format(x[i])
-
-        if i != len(x):
-            out += ","
-
-        if len(x[i].shape) != 0:
-            out += "\n"
-
-    print(out)

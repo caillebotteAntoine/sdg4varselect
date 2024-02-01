@@ -1,4 +1,9 @@
-# Create by antoine.caillebotte@inrae.fr
+"""
+Module for abstract class AbstractJointModel.
+
+Create by antoine.caillebotte@inrae.fr
+"""
+# pylint: disable=C0116, W0221
 
 import functools
 import numpy as np
@@ -9,9 +14,9 @@ import jax.numpy as jnp
 import jax.random as jrd
 from jax import jit
 
-from sdg4varselect.data_handler import DataHandler
-from sdg4varselect.joint_model import (
-    JointModel,
+from sdg4varselect._data_handler import DataHandler
+from sdg4varselect.models.abstract_joint_model import (
+    AbstractJointModel,
     mem_simulation,
     cov_simulation,
     cox_simulation,
@@ -29,39 +34,12 @@ def logistic_curve_float(x, supremum: float, midpoint: float, growth_rate: float
     return supremum / (1 + jnp.exp(-(x - midpoint) / growth_rate))
 
 
-@jit
-def logistic_curve(
-    times: jnp.ndarray,  # shape = (J,) [None, :]
-    phi1: jnp.ndarray,  # shape = (N,) [:,None]
-    phi2: jnp.ndarray,  # shape = (N,) [:,None]
-    mu3: jnp.ndarray,  # shape = ()
-    **kwargs,
-) -> jnp.ndarray:  # shape = (N,J)
-    """
-    phi1 = supremum
-    phi2 = midpoint
-    mu3 = growth_rate
-    """
-    out = phi1[:, None] / (1 + jnp.exp(-(times - phi2[:, None]) / mu3))
-    assert out.shape == times.shape
-    return out
-
-
 # ============================================================== #
-def log_baseline_hazard(
-    times,  # shape = (N,num)
-    a: jnp.ndarray,  # shape = (1,)
-    b: jnp.ndarray,  # shape = (1,)
-    **kwargs,
-):
-    out = jnp.log(b / a) + (b - 1) * jnp.log(times / a)
-    assert out.shape == times.shape
-    return out
 
 
-class Logistic_JM(JointModel):
+class Logistic_JM(AbstractJointModel):
     def __init__(self, N=1, J=1, DIM_HD=1):
-        super().__init__(N, J, DIM_HD, log_baseline_hazard, logistic_curve, a=80, b=35)
+        super().__init__(N, J, DIM_HD, a=80, b=35)
 
         self._parametrization = pc.NamedTuple(
             mu1=pc.RealPositive(scale=0.5),
@@ -73,6 +51,38 @@ class Logistic_JM(JointModel):
             alpha=pc.Real(scale=10),
             beta=pc.Real(scale=1, shape=(DIM_HD,)),
         )
+
+    # ============================================================== #
+    @functools.partial(jit, static_argnums=0)
+    def log_baseline_hazard(
+        self,
+        times,  # shape = (N,num)
+        a: jnp.ndarray,  # shape = (1,)
+        b: jnp.ndarray,  # shape = (1,)
+        **kwargs,
+    ):
+        out = jnp.log(b / a) + (b - 1) * jnp.log(times / a)
+        assert out.shape == times.shape
+        return out
+
+    @functools.partial(jit, static_argnums=0)
+    def mixed_effect_function(
+        self,
+        times: jnp.ndarray,  # shape = (J,) [None, :]
+        phi1: jnp.ndarray,  # shape = (N,) [:,None]
+        phi2: jnp.ndarray,  # shape = (N,) [:,None]
+        mu3: jnp.ndarray,  # shape = ()
+        **kwargs,
+    ) -> jnp.ndarray:  # shape = (N,J)
+        """logistic_curve
+        phi1 = supremum
+        phi2 = midpoint
+        mu3 = growth_rate
+        """
+
+        out = phi1[:, None] / (1 + jnp.exp(-(times - phi2[:, None]) / mu3))
+        assert out.shape == times.shape
+        return out
 
     # ============================================================== #
 
@@ -130,7 +140,9 @@ class Logistic_JM(JointModel):
             PRNGKey_mem,
             N_IND=self.N,
             noise_variance="sigma2",
-            fct=lambda time, phi1, phi2, phi3: logistic_curve(time, phi1, phi2, phi3),
+            fct=lambda time, phi1, phi2, phi3: self.mixed_effect_function(
+                time, phi1, phi2, phi3
+            ),
             random_effects={
                 "phi1": ("mu1", "gamma2_1"),
                 "phi2": ("mu2", "gamma2_2"),
@@ -199,11 +211,7 @@ def sample_one(PRNGKey, model, weibull_censoring_loc):
     params_star = get_params_star(model.DIM_HD)
 
     obs, _ = model.sample(params_star, PRNGKey, weibull_censoring_loc)
-
-    dh = DataHandler()
-    dh.add_data(**obs)
-
-    return dh
+    return DataHandler(**obs)
 
 
 # ============================================================== #
@@ -212,9 +220,9 @@ def sample_one(PRNGKey, model, weibull_censoring_loc):
 if __name__ == "__main__":
     from sdg4varselect.plot import plot_sample
 
-    model = Logistic_JM(N=100, J=5, DIM_HD=4)
+    myModel = Logistic_JM(N=100, J=5, DIM_HD=4)
 
-    params_star = model.new_params(
+    params_star = myModel.new_params(
         mu1=0.3,
         mu2=90.0,
         mu3=7.5,
@@ -223,14 +231,14 @@ if __name__ == "__main__":
         sigma2=0.001,
         alpha=11.11,
         beta=jnp.concatenate(
-            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(model.DIM_HD - 4,))]
+            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.DIM_HD - 4,))]
         ),
     )
 
     PRNGKey = jrd.PRNGKey(0)
 
     def test_censoring_loc(censoring_loc, PRNGKey):
-        obs, sim = model.sample(
+        obs, sim = myModel.sample(
             params_star, PRNGKey, weibull_censoring_loc=censoring_loc
         )
         _, _ = plot_sample(obs, sim, params_star, censoring_loc, 80, 35)
