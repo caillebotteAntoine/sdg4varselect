@@ -8,11 +8,27 @@ from collections import namedtuple
 
 import gzip
 import pickle
+import jax.numpy as jnp
 
 
 from sdg4varselect.models.abstract_joint_model import AbstractJointModel
 
-import jax.numpy as jnp
+
+def _get_filename(
+    model: type(AbstractJointModel),
+    root: str = "",
+    filename_default: str = "",
+):
+    """return filename"""
+    filename = f"N{model.N}_P{model.DIM_HD}_J{model.J}"
+
+    if filename_default != "":
+        filename = filename_default + "_" + filename
+
+    if root != "":
+        filename += "/" + root
+
+    return filename
 
 
 class sdg4vsResults:
@@ -28,15 +44,29 @@ class sdg4vsResults:
     # def model_cst(self):
     #     return self._model_cst
 
-    def default_filename(self, model: type(AbstractJointModel)):
-        """return filename base on model configuration"""
-        return f"N{model.N}_P{model.DIM_HD}_J{model.J}"
+    @staticmethod
+    def load(
+        model: type(AbstractJointModel),
+        root: str = "",
+        filename_default: str = "",
+    ):
+        """load object"""
+        filename = _get_filename(model, root, filename_default)
+        return pickle.load(gzip.open(f"{filename}.pkl.gz", "rb"))
 
-    def save(self, model: type(AbstractJointModel), root: str, filename_default: str):
+    def save(
+        self,
+        model: type(AbstractJointModel),
+        root: str = "",
+        filename_default: str = "",
+    ):
         """save the object"""
-        filename = f"{filename_default}/{self.default_filename(model)}"
-        pickle.dump(self, gzip.open(f"{root}/{filename}.pkl.gz", "wb"))
+        filename = _get_filename(model, root, filename_default)
+        pickle.dump(self, gzip.open(f"{filename}.pkl.gz", "wb"))
+        print(f"{filename} SAVED !")
 
+
+###########################################################################################################
 
 _SDGResults = namedtuple("SDGResults", ("theta", "FIM", "grad", "likelihood"))
 
@@ -108,6 +138,8 @@ class SDGResults(sdg4vsResults, _SDGResults):
         )
 
 
+###########################################################################################################
+
 _RegularizationPathRes = namedtuple(
     "RegularizationPathRes",
     ("listSDGResults", "bic"),
@@ -128,6 +160,8 @@ class RegularizationPathRes(sdg4vsResults, _RegularizationPathRes):
         )
 
 
+###########################################################################################################
+
 _variableSelectionRes = namedtuple(
     "VariableSelectionRes",
     ("listSDGResults", "theta", "regularization_path", "bic", "argmin_bic"),
@@ -139,12 +173,48 @@ class VariableSelectionRes(sdg4vsResults, _variableSelectionRes):
         pass
 
 
+###########################################################################################################
+
+_MultiRunRes = namedtuple(
+    "MultiRunRes",
+    ("MultiRun", "lbd_set", "chrono", "N", "J", "P"),
+)
+
+
+class MultiRunRes(sdg4vsResults, _MultiRunRes):
+    def __init__(self, *args, **kwargs):
+        pass
+
+    @staticmethod
+    def FromModel(multi_run, lbd_set, chrono, model):
+        return MultiRunRes(
+            MultiRun=multi_run,
+            lbd_set=lbd_set,
+            chrono=chrono,
+            N=model.N,
+            J=model.J,
+            P=model.DIM_HD,
+        )
+
+
 if __name__ == "__main__":
-    print(sdg4vsResults().default_filename(AbstractJointModel()))
+    myModel = AbstractJointModel()
+    print(sdg4vsResults())
     print(SDGResults(1, 2, 3, 4))
 
     x = SDGResults(1, 2, 3, 4)
     print(x)
-    print(x.default_filename(model=AbstractJointModel()))
 
     print(SDGResults(FIM=1, likelihood=2, grad=3, theta=4))
+
+    x.save(myModel, root="", filename_default="x")
+    print(sdg4vsResults.load(myModel, filename_default="x"))
+
+    # A = namedtuple("A",("a"))
+    # B = namedtuple("B",("b"))
+
+    # class C(A,B):
+    #     def __init__(self, *args, **kwargs):
+    #         pass
+
+    # print(C(a = 1, b = 2))

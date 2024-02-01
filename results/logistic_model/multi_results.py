@@ -19,44 +19,40 @@ multi_estim_res = namedtuple("multi_estim_res", ("estim_res", "censoring_rate"))
 
 
 # ====================================================== #
-def multi_estim_with_selection(PRNGKey, lbd_set, model, nrun, CENSORING, save_all=True):
-    if not isinstance(CENSORING, (list, tuple)):
-        CENSORING = [CENSORING]
-
+def multi_run(prngkey, lbd_set, model, nrun, censoring, save_all=True):
     chrono_start = datetime.now()
     print(f'start at {chrono_start.strftime("%d/%m/%Y %H:%M:%S")}')
-    PRNGKey_list = jrd.split(PRNGKey, num=nrun)
+
+    prngkey_list = jrd.split(prngkey, num=nrun)
 
     R = []
-    for censoring in CENSORING:
-        R.append([])
-        for k in range(nrun):
-            print(step_message(k, nrun), end=f"{censoring}/{CENSORING}\r")
-            dh = modelisation.sample_one(
-                PRNGKey_list[k], model, weibull_censoring_loc=censoring
-            )
+    for k in range(nrun):
+        print(step_message(k, nrun), end="\r")
+        dh = modelisation.sample_one(
+            prngkey_list[k], model, weibull_censoring_loc=censoring
+        )
 
-            args = (
-                PRNGKey_list[k],
-                model.N,
-                model.J,
-                model.DIM_HD,
-                dh,
-                lbd_set,
-                save_all,
-            )
-            try:
-                R[-1].append(
-                    multi_estim_res(
-                        estim_res=one_result(args),
-                        censoring_rate=1 - dh.data["delta"].mean(),
-                    )
+        args = (
+            prngkey_list[k],
+            model.N,
+            model.J,
+            model.DIM_HD,
+            dh,
+            lbd_set,
+            save_all,
+        )
+        try:
+            R.append(
+                multi_estim_res(
+                    estim_res=one_result(args),
+                    censoring_rate=1 - dh.data["delta"].mean(),
                 )
-            except sdg4vsNanError as err:
-                print(f"{err} :  estimation cancelled !")
+            )
+        except sdg4vsNanError as err:
+            print(f"{err} :  estimation cancelled !")
 
     chrono_time = datetime.now() - chrono_start
-    print(f"end at {str(chrono_time)}")
+    print(f"duration time = {str(chrono_time)}")
 
     return R, chrono_time
 
@@ -68,14 +64,12 @@ if __name__ == "__main__":
 
     myModel = modelisation.Logistic_JM(N=50, J=5, DIM_HD=10)
 
-    res = multi_estim_with_selection(
-        jrd.PRNGKey(0), my_lbd_set, myModel, nrun=1, CENSORING=2000
-    )
+    res, chrono = multi_run(jrd.PRNGKey(0), my_lbd_set, myModel, nrun=1, censoring=2000)
+    print(chrono)
 
     # === PLOT === #
     params_star = modelisation.get_params_star(myModel.DIM_HD)
-    sres, chrono = res[0][0][0]
-    print(chrono)
+    sres = res[0].estim_res
 
     # sdgplt.plot_theta(
     #     sres.listSDGResults[-1], myModel.DIM_LD, params_star, myModel.params_names

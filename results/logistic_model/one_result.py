@@ -33,7 +33,7 @@ def _one_result(prngkey, model, dh, lbd_set, save_all=True):
         lbd_set=lbd_set,
         dim_ld=model.DIM_LD,
         N=model.N * (1 + model.J),
-        verbatim=__name__ == "__main__",
+        verbatim=True,  # __name__ == "__main__",
         # additional parameter
         model=model,
         dh=dh,
