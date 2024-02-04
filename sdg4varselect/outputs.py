@@ -26,7 +26,7 @@ def _get_filename(
         filename = filename_default + "_" + filename
 
     if root != "":
-        filename += "/" + root
+        filename = root + "/" + filename
 
     return filename
 

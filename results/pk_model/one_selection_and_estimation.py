@@ -1,94 +1,93 @@
+"""
+Module that define functions to perform a selection and estimation.
+
+Create by antoine.caillebotte@inrae.fr"""
+
+# pylint: disable=C0116
 import jax.random as jrd
 import jax.numpy as jnp
 
-from sdg4varselect.algo import BIC, SPG_FIM, regularization_path
-from sdg4varselect.exceptions import sdg4vsNanError
-import sdg4varselect.models.pharmacokinetic as modelisation
+from sdg4varselect.outputs import SDGResults
+from sdg4varselect.models.pharmacokinetic import PharmaJM as model_jm
 
-from one_estim import one_estim, algo_settings
+from results.logistic_model.one_estim import one_estim
 
 
-def _one_estim_with_selection_with_model(PRNGKey, model, dh, algo_settings, lbd_set):
-    PRNGKey_reg_path, PRNGKey_estim = jrd.split(PRNGKey)
-    # === VARIABLE SELECTION === #
-    reg_path = regularization_path(
-        one_estim,
-        PRNGKey_reg_path,
-        model,
-        dh,
-        algo_settings,
-        lbd_set,
-    )
-    if reg_path is None:
-        raise sdg4vsNanError
+def _estim_shrink_model(
+    prngkey, model, dh, selected_component, lbd=None, save_all=True
+):
+    # === MODEL SHRINKAGE === #
+    dim_ld = model.DIM_LD
+    hd_selected = selected_component[dim_ld:]
+    new_dim_hd = int(hd_selected.sum())
 
-    multi_theta = jnp.array([res.theta for res in reg_path])
-    DIM_LD = model.DIM_LD
-    multi_theta_HD = multi_theta[:, -1, DIM_LD:]
-    bic = BIC(multi_theta_HD, jnp.array([res.likelihood for res in reg_path]), model.N)
-
-    # === FINAL ESTIMATION === #
-    lbd_id = jnp.argmin(bic)
-    selected_component = multi_theta_HD[lbd_id] != 0
-    NEW_DIM_HD = int(selected_component.sum())
-
-    model_shrink = modelisation.pharma_JM(N=model.N, J=model.J, DIM_HD=NEW_DIM_HD)
+    model_shrink = model_jm(N=model.N, J=model.J, DIM_HD=new_dim_hd)
     dh_shrink = dh.deepcopy()
-    dh_shrink.data["cov"] = dh.data["cov"][:, selected_component]
+    dh_shrink.data["cov"] = dh.data["cov"][:, hd_selected]
 
-    res_estim = one_estim(
-        PRNGKey_estim, model_shrink, dh_shrink, algo_settings, lbd=None
-    )
+    # === ESTIMATION === #
+    res_estim = one_estim(prngkey, model_shrink, dh_shrink, lbd=lbd, save_all=save_all)
 
     # === THETA RE CONSTRUCTION === #
-    id = jnp.concatenate([jnp.repeat(True, model_shrink.DIM_LD), selected_component])
+    non_zero_component = jnp.concatenate([jnp.repeat(True, dim_ld), hd_selected])
 
-    theta = jnp.zeros(shape=(model.parametrization.size,))
-    theta.at[jnp.where(id)].set(res_estim.theta[-1, :])
+    return SDGResults.expand_theta(res_estim, non_zero_component)
 
-    return SPG_FIM.variable_selection_res(
-        estim_res=res_estim, theta=theta, regularization_path=reg_path, bic=bic
+
+def lasso_into_adaptive_into_estim(prngkey, model, dh, lbd, save_all):
+    prngkey_lasso, prngkey_adaptive, prngkey_estim = jrd.split(prngkey, 3)
+    lasso = one_estim(prngkey_lasso, model, dh, lbd=lbd, save_all=save_all)
+
+    theta = lasso.theta[-1]
+    lasso_selected_component = theta != 0
+    lbd_weighted = lbd / jnp.abs(theta[lasso_selected_component])
+
+    adaptive_lasso = _estim_shrink_model(
+        prngkey_adaptive,
+        model,
+        dh,
+        selected_component=lasso_selected_component,
+        lbd=lbd_weighted,
+        save_all=save_all,
     )
 
-
-def one_estim_with_selection(args):
-    PRNGKey, N, J, DIM_HD, dh, lbd_set = args
-
-    model = modelisation.pharma_JM(N, J, DIM_HD)
-    return _one_estim_with_selection_with_model(
-        PRNGKey, model, dh, algo_settings, lbd_set
+    estim = _estim_shrink_model(
+        prngkey_estim,
+        model,
+        dh,
+        selected_component=adaptive_lasso.last_theta != 0,
+        lbd=None,
+        save_all=save_all,
     )
+
+    return [lasso, adaptive_lasso, estim]
 
 
 if __name__ == "__main__":
-    lbd_set = 10 ** jnp.linspace(-2, 1, num=10)
-    model = modelisation.pharma_JM(N=100, J=12, DIM_HD=10)
+    from sdg4varselect import sample_model
+    import sdg4varselect.plot as sdgplt
+    from sdg4varselect.models.pharmacokinetic import get_params_star
 
-    dh = modelisation.sample_one(jrd.PRNGKey(1), model, weibull_censoring_loc=2000)
+    my_lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+    myModel = model_jm(N=100, J=5, DIM_HD=10)
+    params_star = get_params_star(myModel.DIM_HD)
 
-    # selection_res = _one_estim_with_selection_with_model(
-    #     jrd.PRNGKey(0), model, dh, algo_settings, lbd_set
-    # )
-
-    # # === PLOT === #
-    # reg_path = selection_res.regularization_path
-
-    reg_path = regularization_path(
-        one_estim,
-        jrd.PRNGKey(1),
-        model,
-        dh,
-        algo_settings,
-        lbd_set,
+    myDH = sample_model(
+        jrd.PRNGKey(1), params_star, myModel, weibull_censoring_loc=2000
     )
-    print([res.theta.shape for res in reg_path])
-    # from sdg4varselect.plot import plot_theta, plot_reg_path, plot_theta_HD
 
-    # params_star = modelisation.get_params_star(model.DIM_HD)
+    lasso_r, adaptive_lasso_r, estim_r = lasso_into_adaptive_into_estim(
+        jrd.PRNGKey(10), myModel, myDH, 10**-1, save_all=True
+    )
 
-    # plot_theta(reg_path, model.DIM_LD, params_star, model.params_names)
-    # plot_reg_path(lbd_set, reg_path, selection_res.bic, model.DIM_HD)
-    # plot_theta(selection_res.estim_res, model.DIM_LD, params_star, model.params_names)
-    # plot_theta_HD(
-    #     selection_res.estim_res, model.DIM_LD, params_star, model.params_names
-    # )
+    # === PLOT === #
+    params_names = myModel.params_names
+
+    # sdgplt.plot_theta(lasso, myModel.DIM_LD, params_star, params_names)
+    sdgplt.plot_theta_HD(lasso_r, myModel.DIM_LD, params_star, params_names)
+
+    # sdgplt.plot_theta(adaptive_lasso, myModel.DIM_LD, params_star, params_names)
+    sdgplt.plot_theta_HD(adaptive_lasso_r, myModel.DIM_LD, params_star, params_names)
+
+    sdgplt.plot_theta(estim_r, myModel.DIM_LD, params_star, params_names)
+    sdgplt.plot_theta_HD(estim_r, myModel.DIM_LD, params_star, params_names)

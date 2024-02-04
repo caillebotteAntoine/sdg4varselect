@@ -82,16 +82,18 @@ def one_estim(prngkey, model, dh, lbd=None, alpha=1.0, save_all=True):
 
 
 if __name__ == "__main__":
+    from sdg4varselect import sample_model
     from sdg4varselect.models.logistic_joint_model import (
         Logistic_JM,
-        sample_one,
         get_params_star,
     )
 
     myModel = Logistic_JM(N=100, J=5, DIM_HD=10)
+    params_star = get_params_star(myModel.DIM_HD)
 
-    myDH = sample_one(jrd.PRNGKey(0), myModel, weibull_censoring_loc=2000)
-
+    myDH = sample_model(
+        jrd.PRNGKey(0), params_star, myModel, weibull_censoring_loc=2000
+    )
     multi_estim = [
         one_estim(jrd.PRNGKey(key), myModel, myDH, lbd=None, save_all=True)
         for key in range(2)
@@ -104,8 +106,6 @@ if __name__ == "__main__":
         plot_theta,
         plot_theta_HD,
     )
-
-    params_star = get_params_star(myModel.DIM_HD)
 
     plot_theta(multi_estim, myModel.DIM_LD, params_star, myModel.params_names)
     plot_theta_HD(multi_estim, myModel.DIM_LD, params_star, myModel.params_names)

@@ -223,3 +223,32 @@ def plot_box_plot_HD(theta, dim_ld, params_star, threshold=0):
     ax.legend()
 
     return fig, ax
+
+
+def plot_mcmc(x, id_max=None):
+    """plot an MCMC_chain"""
+    import matplotlib.pyplot as plt
+    from sdg4varselect._MCMC import MCMC_chain
+
+    if id_max is None:
+        id_max = len(x.chain)
+    if len(x.sd) == 1:
+        fig, axs = plt.subplots(2, 1, sharex=True)
+    else:
+        fig, axs = plt.subplots(3, 1, sharex=True)
+
+    axs[0].set_title(label="chaine de " + x.name)
+
+    axs[0].plot(x.chain[:id_max])
+    axs[0].set_ylabel("chain")
+
+    axs[1].plot(x.acceptance_rate()[:id_max])
+    axs[1].set_ylabel("acceptance_rate")
+
+    if len(x.sd) != 1:
+        axs[2].plot(x.sd[:id_max])
+        axs[2].set_ylabel("proposal sd")
+
+    axs[-1].set_xlabel("Iteration")
+
+    return fig, axs

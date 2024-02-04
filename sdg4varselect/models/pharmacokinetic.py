@@ -1,17 +1,17 @@
-# Create by antoine.caillebotte@inrae.fr
+# pylint: disable=C0116, W0221
 
-import parametrization_cookbook.jax as pc
+import functools
 import numpy as np
+import parametrization_cookbook.jax as pc
 
 
 import jax.numpy as jnp
 import jax.random as jrd
 from jax import jit
-import functools
 
-from sdg4varselect._data_handler import Data_handler
-from sdg4varselect.joint_model import (
-    JointModel,
+from sdg4varselect._data_handler import DataHandler
+from sdg4varselect.models.abstract_joint_model import (
+    AbstractJointModel,
     mem_simulation,
     cov_simulation,
     cox_simulation,
@@ -48,46 +48,58 @@ def pk_curve(
 # ============================================================== #
 
 
-def mixed_effect_function(
-    times,  # shape = (N,num)
-    phi1,  # shape = (N,)
-    phi2,  # shape = (N,)
-    mu3,
-    D,
-    **kwargs,
-):
-    out = pk_curve(times, D=D, ka=phi1, Cl=phi2, V=jnp.array([mu3]))
-    assert out.shape == times.shape
-    return out
-
-
-def log_baseline_hazard(
-    times,  # shape = (N,num)
-    a: jnp.ndarray,  # shape = (1,)
-    b: jnp.ndarray,  # shape = (1,)
-    **kwargs,
-):
-    out = jnp.log(b / a) + (b - 1) * jnp.log(times / a)
-    assert out.shape == times.shape
-    return out
-
-
-class pharma_JM(JointModel):
+class PharmaJM(AbstractJointModel):
     def __init__(self, N=1, J=1, DIM_HD=1):
-        super().__init__(
-            N, J, DIM_HD, log_baseline_hazard, mixed_effect_function, a=35, b=15, D=-100
-        )
+        super().__init__(N, J, DIM_HD, a=35, b=15, D=-100)
 
         self._parametrization = pc.NamedTuple(
             mu1=pc.RealPositive(scale=10),
-            mu2=pc.RealPositive(scale=10),
-            mu3=pc.RealPositive(scale=100),
-            gamma2_1=pc.RealPositive(scale=0.1),
-            gamma2_2=pc.RealPositive(scale=0.1),
-            sigma2=pc.RealPositive(scale=0.01),
+            mu2=pc.RealPositive(scale=5),
+            mu3=pc.RealPositive(scale=50),
+            gamma2_1=pc.RealPositive(scale=1),
+            gamma2_2=pc.RealPositive(scale=1),
+            sigma2=pc.RealPositive(scale=0.001),
             alpha=pc.Real(scale=1),
             beta=pc.Real(scale=1, shape=(DIM_HD,)),
         )
+
+    # ============================================================== #
+    @functools.partial(jit, static_argnums=0)
+    def log_baseline_hazard(
+        self,
+        times,  # shape = (N,num)
+        a: jnp.ndarray,  # shape = (1,)
+        b: jnp.ndarray,  # shape = (1,)
+        **kwargs,
+    ):
+        out = jnp.log(b / a) + (b - 1) * jnp.log(times / a)
+        assert out.shape == times.shape
+        return out
+
+    @functools.partial(jit, static_argnums=0)
+    def mixed_effect_function(
+        self,
+        times: jnp.ndarray,  # shape = (J,) [None, :]
+        phi1: jnp.ndarray,  # shape = (N,) [:,None]
+        phi2: jnp.ndarray,  # shape = (N,) [:,None]
+        mu3: jnp.ndarray,  # shape = ()
+        D,
+        **kwargs,
+    ) -> jnp.ndarray:  # shape = (N,J)
+        """logistic_curve
+        phi1 = supremum
+        phi2 = midpoint
+        mu3 = growth_rate
+        """
+        out = (
+            D
+            * phi1[:, None]
+            / (mu3 * (phi1[:, None] - phi2[:, None] / mu3))
+            * (jnp.exp(-phi1[:, None] * times) - jnp.exp(-phi2[:, None] / mu3 * times))
+        )
+
+        assert out.shape == times.shape
+        return out
 
     # ============================================================== #
 
@@ -112,123 +124,121 @@ class pharma_JM(JointModel):
             + self.likelihood_survival_without_prior(params, **kwargs)
         )
 
+    # ============================================================== #
+
+    # ===================================================== #
+    # ================== DATA GENERATION ================== #
+    # ===================================================== #
+    def sample(
+        self,
+        params_star,
+        prngkey,
+        weibull_censoring_loc,
+    ):
+        """return longitudinal and survival simulation
+        and latente variable simulation in the two dict"""
+
+        # def pk_fct(time, phi1, phi2, phi3, D):
+        #     return pk_curve(time, D, ka=phi1, Cl=phi2, V=phi3)
+
+        (
+            prngkey_mem,
+            prngkey_cov,
+            prngkey_cox,
+            prngkey_weibull,
+        ) = jrd.split(prngkey, num=4)
+
+        # === nlmem_simulation() === #
+        time = jnp.repeat(
+            jnp.exp(jnp.linspace(-3, 4, num=self.J))[jnp.newaxis, :],
+            self.N,
+            axis=0,
+        )
+
+        obs = {"mem_obs_time": time}
+
+        obs_mem, sim = mem_simulation(
+            params_star,
+            prngkey_mem,
+            N_IND=self.N,
+            noise_variance="sigma2",
+            fct=lambda time, phi1, phi2, phi3, D: self.mixed_effect_function(
+                time, phi1, phi2, phi3, D
+            ),
+            random_effects={
+                "phi1": ("mu1", "gamma2_1"),
+                "phi2": ("mu2", "gamma2_2"),
+            },
+            fixed_effets={"phi3": "mu3"},
+            fct_kwargs={"time": obs["mem_obs_time"], "D": -100},
+        )
+
+        obs.update(obs_mem)
+
+        # === cox_weibull_simulation === #
+        link_kwargs = {
+            "phi1": sim["phi1"],
+            "phi2": sim["phi2"],
+            "mu3": params_star.mu3,
+            "D": -100,
+        }
+
+        cov = cov_simulation(prngkey_cov, min=-1, max=1, shape=(self.N, self.DIM_HD))
+
+        _, sim_cox = cox_simulation(
+            params_star,
+            prngkey_cox,
+            cov @ params_star.beta,
+            baseline_fct=lambda t, a, b: b / a * (t / a) ** (b - 1),
+            baseline_kwargs={"a": 35, "b": 15},
+            link_fct=lambda t, alpha, phi1, phi2, mu3, D: alpha
+            * pk_curve_float(t, D, ka=phi1, Cl=phi2, V=mu3),
+            link_kwargs=link_kwargs,
+        )
+
+        obs.update({"cov": cov})
+        sim.update(sim_cox)
+
+        # ============================================================== #
+        C = jrd.weibull_min(
+            prngkey_weibull, weibull_censoring_loc, 35, shape=sim["T uncensored"].shape
+        )
+
+        T = np.minimum(sim["T uncensored"], C)
+        delta = sim["T uncensored"] < C
+
+        obs.update({"T": T, "delta": delta})
+        sim["C"] = C
+
+        return obs, sim
+
+
+def get_params_star(dim_hd):
+    model = PharmaJM(DIM_HD=dim_hd)
+    params_star = model.new_params(
+        mu1=8,
+        mu2=6,
+        mu3=40,
+        gamma2_1=0.2,
+        gamma2_2=0.1,
+        sigma2=1e-3,
+        alpha=100.11,
+        beta=jnp.concatenate(
+            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(dim_hd - 4,))]
+        ),
+    )
+    return params_star
+
 
 # ============================================================== #
 
 
-# ===================================================== #
-# ================== DATA GENERATION ================== #
-# ===================================================== #
-def sample_pk_model(
-    params_star,
-    PRNGKey,
-    N_IND,
-    J_OBS,
-    weibull_censoring_loc,
-):
-    """return longitudinal and survival simulation
-    and latente variable simulation in the two dict"""
+if __name__ == "__main__":
+    from sdg4varselect.plot import plot_sample
 
-    def nlmem_simulation(params, PRNGKey, N_IND):
-        """return longitudinal simulation
-        and latente variable simulation in the two dict"""
+    myModel = PharmaJM(N=100, J=10, DIM_HD=5)
 
-        def pk_fct(time, phi1, phi2, phi3, D):
-            return pk_curve(time, D, ka=phi1, Cl=phi2, V=phi3)
-
-        random_effects = {"phi1": ("mu1", "gamma2_1"), "phi2": ("mu2", "gamma2_2")}
-        fixed_effets = {"phi3": "mu3"}
-
-        time = jnp.repeat(
-            jnp.exp(jnp.linspace(-3, 4, num=J_OBS))[jnp.newaxis, :],
-            N_IND,
-            axis=0,
-        )
-
-        # jnp.array([0.05, 0.15, 0.25, 0.4, 0.5, 0.8, 1, 2, 7, 12, 24, 40])
-
-        obs = {"mem_obs_time": time}
-
-        obs2, sim, PRNGKey = mem_simulation(
-            params,
-            PRNGKey,
-            N_IND,
-            "sigma2",
-            pk_fct,
-            random_effects,
-            fixed_effets,
-            fct_kwargs={"time": obs["mem_obs_time"], "D": -100},
-        )
-
-        obs.update(obs2)
-
-        return obs, sim, PRNGKey
-
-    def cox_weibull_simulation(params, PRNGKey, N_IND, logistic_sim):
-        baseline_kwargs = {"a": 35, "b": 15}
-
-        def baseline_fct(t, a, b):
-            return b / a * (t / a) ** (b - 1)
-
-        link_kwargs = {
-            "phi1": logistic_sim["phi1"],
-            "phi2": logistic_sim["phi2"],
-            "mu3": params.mu3,
-            "D": -100,
-        }
-
-        def link_fct(t, alpha, phi1, phi2, mu3, D):
-            return alpha * pk_curve_float(t, D, ka=phi1, Cl=phi2, V=mu3)
-
-        DIM_COV = params.beta.shape[0]
-        cov, PRNGKey = cov_simulation(PRNGKey, min=-1, max=1, shape=(N_IND, DIM_COV))
-
-        _, sim, PRNGKey = cox_simulation(
-            params,
-            PRNGKey,
-            cov @ params.beta,
-            baseline_fct,
-            baseline_kwargs,
-            link_fct,
-            link_kwargs,
-        )
-
-        return {"cov": cov}, sim, PRNGKey
-
-    # ============================================================== #
-
-    obs, sim, PRNGKey = nlmem_simulation(params_star, PRNGKey, N_IND)
-
-    obs2, sim2, PRNGKey = cox_weibull_simulation(
-        params_star, PRNGKey, N_IND, logistic_sim=sim
-    )
-
-    obs.update(obs2)
-    sim.update(sim2)
-
-    rng = np.random.default_rng()
-    C = weibull_censoring_loc * rng.weibull(35, len(sim["T uncensored"]))
-    # C = np.minimum(C, obs["time"].max() + 1)
-
-    T = np.minimum(sim["T uncensored"], C)
-    delta = sim["T uncensored"] < C
-
-    obs.update({"T": T, "delta": delta})
-    sim["C"] = C
-
-    # obs["Y"] = np.array(
-    #     [np.where(obs["time"][i] < T[i], obs["Y"][i], np.nan) for i in range(len(T))]
-    # )
-    # obs["time"] = np.array(
-    #     [np.where(obs["time"][i] < T[i], obs["time"][i], np.nan) for i in range(len(T))]
-    # )
-
-    return obs, sim, PRNGKey
-
-
-def get_params_star(DIM_HD):
-    model = pharma_JM(DIM_HD=DIM_HD)
-    params_star = model.new_params(
+    my_params_star = myModel.new_params(
         mu1=8,
         mu2=6,
         mu3=40,
@@ -237,66 +247,24 @@ def get_params_star(DIM_HD):
         sigma2=1e-3,
         alpha=11.11,
         beta=jnp.concatenate(
-            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(DIM_HD - 4,))]
-        ),
-    )
-    return params_star
-
-
-def sample_one(PRNGKey, model, weibull_censoring_loc):
-    params_star = get_params_star(model.DIM_HD)
-
-    obs, _, _ = sample_pk_model(
-        params_star,
-        PRNGKey,
-        model.N,
-        model.J,
-        weibull_censoring_loc,
-    )
-
-    dh = Data_handler()
-    dh.add_data(**obs)
-
-    return dh
-
-
-# ============================================================== #
-
-
-if __name__ == "__main__":
-    from work import sdgplt
-
-    model = pharma_JM(N=100, J=10, DIM_HD=5)
-
-    params_star = model.new_params(
-        mu1=0.3,
-        mu2=90.0,
-        mu3=7.5,
-        gamma2_1=0.0025,
-        gamma2_2=20,
-        sigma2=0.001,
-        alpha=11.11,
-        beta=jnp.concatenate(
-            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(model.DIM_HD - 4,))]
+            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.DIM_HD - 4,))]
         ),
     )
 
-    PRNGKey = jrd.PRNGKey(0)
-
-    def test_censoring_loc(censoring_loc, PRNGKey):
-        obs, sim, PRNGKey = sample_pk_model(
-            params_star,
-            PRNGKey=PRNGKey,
-            N_IND=model.N,
-            J_OBS=model.J,
-            weibull_censoring_loc=censoring_loc,
+    def test_censoring_loc(censoring_loc):
+        myobs, mysim = myModel.sample(
+            my_params_star, jrd.PRNGKey(0), weibull_censoring_loc=censoring_loc
         )
-        _, _ = sdgplt.plot_sample(obs, sim, params_star, censoring_loc, 80, 35)
+        _, _ = plot_sample(myobs, mysim, my_params_star, censoring_loc, 35, 15)
 
-        return obs, sim, PRNGKey
+    # test_censoring_loc(1000)  # a = 80, b = 35
+    # test_censoring_loc(85)  # ~20%
+    # test_censoring_loc(80.5)  # ~40%
+    # test_censoring_loc(77)  # ~60%
+    # test_censoring_loc(73)  # ~80%
 
-    obs, sim, PRNGKey = test_censoring_loc(1000, PRNGKey)  # a = 80, b = 35
-    obs, sim, PRNGKey = test_censoring_loc(85, PRNGKey)  # ~20%
-    obs, sim, PRNGKey = test_censoring_loc(80.5, PRNGKey)  # ~40%
-    obs, sim, PRNGKey = test_censoring_loc(77, PRNGKey)  # ~60%
-    obs, sim, PRNGKey = test_censoring_loc(73, PRNGKey)  # ~80%
+    theta0 = 0.2 * jrd.normal(jrd.PRNGKey(0), shape=(myModel.parametrization.size, 100))
+    params0 = jnp.array(
+        [myModel.reals1d_to_hstack_params(theta0[:, i]) for i in range(100)]
+    )
+    print(params0.mean(axis=0))

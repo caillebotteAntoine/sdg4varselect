@@ -170,10 +170,9 @@ class SPG_FIM(AbstractAlgoMCMC):
     ):
         (DIM_THETA,) = theta0_reals1d.shape
 
-        # mask for proximal operator
-        HD_MASK = jnp.arange(DIM_THETA) >= DIM_THETA
         # mask for fisher preconditionning
-        FIM_MASK = np.invert(HD_MASK)
+        FIM_MASK = jnp.arange(DIM_THETA) < DIM_THETA
+        # mask for proximal operator
         HD_MASK = jnp.arange(DIM_THETA) >= DIM_THETA - DIM_HD
 
         jac_shape = jac_likelihood(theta0_reals1d, **self.data).shape

@@ -3,7 +3,7 @@ import gzip
 
 import jax.numpy as jnp
 
-from sdg4varselect.logistic import Logistic_JM, get_params_star
+from sdg4varselect.models.logistic_joint_model import Logistic_JM, get_params_star
 
 from sdg4varselect.plot import (
     plot_theta,

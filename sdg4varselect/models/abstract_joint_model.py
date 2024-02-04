@@ -18,6 +18,8 @@ from jax import jit, jacfwd
 
 import parametrization_cookbook.jax as pc
 
+from sdg4varselect._data_handler import DataHandler
+
 
 @jit
 def gaussian_prior(data, mean, variance) -> jnp.ndarray:
@@ -201,12 +203,29 @@ class AbstractJointModel:
     def jac_likelihood(self, theta_reals1d, **kwargs):
         return jacfwd(self.likelihood_array)(theta_reals1d, **kwargs)
 
+    # ============================================================== #
+    @abstractmethod
+    def sample(
+        self,
+        params_star,
+        prngkey,
+        **kwargs,
+    ):
+        """Sample one data set for the model"""
+
+
+def sample_model(prngkey, params_star, model: type(AbstractJointModel), **kwargs):
+    obs, _ = model.sample(prngkey=prngkey, params_star=params_star, **kwargs)
+    return DataHandler(**obs)
+
 
 # ======================================================= #
 # ====================== SIMULATION ===================== #
 # ======================================================= #
-def cov_simulation(PRNGKey, min, max, shape):
-    cov = jrd.uniform(PRNGKey, minval=min, maxval=max, shape=shape)
+
+
+def cov_simulation(prngkey, min, max, shape):
+    cov = jrd.uniform(prngkey, minval=min, maxval=max, shape=shape)
     cov = cov - cov.mean(axis=0)[None, :]
     cov = jnp.array(cov, dtype=jnp.float32)
 
@@ -215,7 +234,7 @@ def cov_simulation(PRNGKey, min, max, shape):
 
 def mem_simulation(
     params,
-    PRNGKey,
+    prngkey,
     N_IND,
     noise_variance,  # = sigma2
     fct,  # = logistic_curve
@@ -229,7 +248,7 @@ def mem_simulation(
 
     sim = {}
     for name, value in random_effects.items():
-        key, PRNGKey = jrd.split(PRNGKey, num=2)
+        key, prngkey = jrd.split(prngkey, num=2)
 
         mean = getattr(params, value[0])
         var = getattr(params, value[1])
@@ -243,7 +262,7 @@ def mem_simulation(
 
     Y_without_noise = fct(**fct_kwargs)
 
-    key, PRNGKey = jrd.split(PRNGKey, num=2)
+    key, prngkey = jrd.split(prngkey, num=2)
     sim["eps"] = jnp.sqrt(getattr(params, noise_variance)) * jrd.normal(
         key, shape=Y_without_noise.shape
     )
@@ -257,7 +276,7 @@ def mem_simulation(
 
 
 def cox_simulation(
-    params, PRNGKey, beta_prod_cov, baseline_fct, baseline_kwargs, link_fct, link_kwargs
+    params, prngkey, beta_prod_cov, baseline_fct, baseline_kwargs, link_fct, link_kwargs
 ):
     """
     lbd(t) = baseline_fct(t) * exp(beta^T U + linkfct(alpha, t, ...))
@@ -293,7 +312,7 @@ def cox_simulation(
     f = jnp.vectorize(f)
 
     tmp = [0 for i in range(N_IND)]
-    key, PRNGKey = jrd.split(PRNGKey, num=2)
+    key, prngkey = jrd.split(prngkey, num=2)
     # rem : c'est pas pratique si uni est très très petit le log explose ...
     uni = jrd.uniform(key, shape=(N_IND,))
 

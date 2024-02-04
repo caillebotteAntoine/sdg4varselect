@@ -8,13 +8,16 @@ import jax.random as jrd
 import jax.numpy as jnp
 
 
-from sdg4varselect.models.logistic_joint_model import Logistic_JM
+from sdg4varselect.models.logistic_joint_model import (
+    Logistic_JM,
+    get_params_star,
+)
 from results.logistic_model.multi_results import multi_run
 
 from sdg4varselect.outputs import MultiRunRes
 
-nrun = 5
-lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
+nrun = 1
+lbd_set = 10 ** jnp.linspace(-2, 0, num=4)
 
 
 # def testC(*censoring_loc):
@@ -55,11 +58,13 @@ lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 
 def testP(P):
     model = Logistic_JM(N=100, J=5, DIM_HD=P)
+    params_star = get_params_star(model.DIM_HD)
 
     seed = 1
     res, chrono = multi_run(
         jrd.PRNGKey(seed),
         lbd_set,
+        params_star,
         model,
         nrun=nrun,
         censoring=2000,

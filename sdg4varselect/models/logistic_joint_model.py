@@ -14,7 +14,6 @@ import jax.numpy as jnp
 import jax.random as jrd
 from jax import jit
 
-from sdg4varselect._data_handler import DataHandler
 from sdg4varselect.models.abstract_joint_model import (
     AbstractJointModel,
     mem_simulation,
@@ -115,29 +114,29 @@ class Logistic_JM(AbstractJointModel):
     def sample(
         self,
         params_star,
-        PRNGKey,
+        prngkey,
         weibull_censoring_loc,
     ):
         """return longitudinal and survival simulation
         and latente variable simulation in the two dict"""
 
         (
-            PRNGKey_time,
-            PRNGKey_mem,
-            PRNGKey_cov,
-            PRNGKey_cox,
-            PRNGKey_weibull,
-        ) = jrd.split(PRNGKey, num=5)
+            prngkey_time,
+            prngkey_mem,
+            prngkey_cov,
+            prngkey_cox,
+            prngkey_weibull,
+        ) = jrd.split(prngkey, num=5)
 
         # === nlmem_simulation() === #
         time = jnp.repeat(jnp.linspace(60, 135, num=self.J)[None, :], self.N, axis=0)
-        time += jrd.uniform(PRNGKey_time, minval=-2, maxval=2, shape=time.shape)
+        time += jrd.uniform(prngkey_time, minval=-2, maxval=2, shape=time.shape)
 
         obs = {"mem_obs_time": time}
 
         obs_mem, sim = mem_simulation(
             params_star,
-            PRNGKey_mem,
+            prngkey_mem,
             N_IND=self.N,
             noise_variance="sigma2",
             fct=lambda time, phi1, phi2, phi3: self.mixed_effect_function(
@@ -160,11 +159,11 @@ class Logistic_JM(AbstractJointModel):
             "mu3": params_star.mu3,
         }
 
-        cov = cov_simulation(PRNGKey_cov, min=-1, max=1, shape=(self.N, self.DIM_HD))
+        cov = cov_simulation(prngkey_cov, min=-1, max=1, shape=(self.N, self.DIM_HD))
 
         _, sim_cox = cox_simulation(
             params_star,
-            PRNGKey_cox,
+            prngkey_cox,
             cov @ params_star.beta,
             baseline_fct=lambda t, a, b: b / a * (t / a) ** (b - 1),
             baseline_kwargs={"a": 80, "b": 35},
@@ -178,7 +177,7 @@ class Logistic_JM(AbstractJointModel):
 
         # ============================================================== #
         C = jrd.weibull_min(
-            PRNGKey_weibull, weibull_censoring_loc, 35, shape=sim["T uncensored"].shape
+            prngkey_weibull, weibull_censoring_loc, 35, shape=sim["T uncensored"].shape
         )
 
         T = np.minimum(sim["T uncensored"], C)
@@ -190,8 +189,8 @@ class Logistic_JM(AbstractJointModel):
         return obs, sim
 
 
-def get_params_star(DIM_HD):
-    model = Logistic_JM(DIM_HD=DIM_HD)
+def get_params_star(dim_hd):
+    model = Logistic_JM(DIM_HD=dim_hd)
     params_star = model.new_params(
         mu1=0.3,
         mu2=90.0,
@@ -199,19 +198,12 @@ def get_params_star(DIM_HD):
         gamma2_1=0.0025,
         gamma2_2=20,
         sigma2=0.001,
-        alpha=11.11,
+        alpha=110.11,
         beta=jnp.concatenate(
-            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(DIM_HD - 4,))]
+            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(dim_hd - 4,))]
         ),
     )
     return params_star
-
-
-def sample_one(PRNGKey, model, weibull_censoring_loc):
-    params_star = get_params_star(model.DIM_HD)
-
-    obs, _ = model.sample(params_star, PRNGKey, weibull_censoring_loc)
-    return DataHandler(**obs)
 
 
 # ============================================================== #
@@ -222,31 +214,33 @@ if __name__ == "__main__":
 
     myModel = Logistic_JM(N=100, J=5, DIM_HD=4)
 
-    params_star = myModel.new_params(
+    my_params_star = myModel.new_params(
         mu1=0.3,
         mu2=90.0,
         mu3=7.5,
         gamma2_1=0.0025,
         gamma2_2=20,
         sigma2=0.001,
-        alpha=11.11,
+        alpha=110.11,
         beta=jnp.concatenate(
             [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.DIM_HD - 4,))]
         ),
     )
 
-    PRNGKey = jrd.PRNGKey(0)
-
-    def test_censoring_loc(censoring_loc, PRNGKey):
-        obs, sim = myModel.sample(
-            params_star, PRNGKey, weibull_censoring_loc=censoring_loc
+    def test_censoring_loc(censoring_loc):
+        myobs, mysim = myModel.sample(
+            my_params_star, jrd.PRNGKey(0), weibull_censoring_loc=censoring_loc
         )
-        _, _ = plot_sample(obs, sim, params_star, censoring_loc, 80, 35)
+        _, _ = plot_sample(myobs, mysim, my_params_star, censoring_loc, 80, 35)
 
-        return obs, sim, PRNGKey
+    # test_censoring_loc(1000)  # a = 80, b = 35
+    # test_censoring_loc(85)  # ~20%
+    # test_censoring_loc(80.5)  # ~40%
+    # test_censoring_loc(77)  # ~60%
+    # test_censoring_loc(73)  # ~80%
 
-    obs, sim, PRNGKey = test_censoring_loc(1000, PRNGKey)  # a = 80, b = 35
-    obs, sim, PRNGKey = test_censoring_loc(85, PRNGKey)  # ~20%
-    obs, sim, PRNGKey = test_censoring_loc(80.5, PRNGKey)  # ~40%
-    obs, sim, PRNGKey = test_censoring_loc(77, PRNGKey)  # ~60%
-    obs, sim, PRNGKey = test_censoring_loc(73, PRNGKey)  # ~80%
+    theta0 = 0.2 * jrd.normal(jrd.PRNGKey(0), shape=(myModel.parametrization.size, 100))
+    params0 = jnp.array(
+        [myModel.reals1d_to_hstack_params(theta0[:, i]) for i in range(100)]
+    )
+    print(params0.mean(axis=0))

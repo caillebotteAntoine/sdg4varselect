@@ -1,12 +1,20 @@
+"""
+Module that define functions to perform a simple estimation.
+
+Create by antoine.caillebotte@inrae.fr"""
+
+# pylint: disable=C0116
 import jax.random as jrd
-import jax.numpy as jnp
+
+# import jax.numpy as jnp
 
 from sdg4varselect import SPG_FIM
 from sdg4varselect.exceptions import sdg4vsNanError
+from sdg4varselect.outputs import SDGResults
 
-algo_settings = SPG_FIM.settings(
+algo_settings = SPG_FIM.SPGfimSettings(
     step_size_grad={
-        "learning_rate": 1e-8,
+        "learning_rate": 1e-12,
         "preheating": 1000,
         "heating": 1400,
         "max": 0.9,
@@ -23,14 +31,13 @@ algo_settings = SPG_FIM.settings(
         "heating": 2000,
         "max": 0.9,
     },
+    max_iter=2000,
 )
 
 
-def estim(PRNGKey, model, dh, theta0, algo_settings, lbd=None, alpha=1.0):
-    # _, _ = sdgplt.plot_sample(data_set, sim, params_star, 2000, 80, 35)
-
+def estim(prngkey, model, dh, theta0, lbd=None, alpha=1.0):
     params0 = model.parametrization.reals1d_to_params(theta0)
-    algo = SPG_FIM(PRNGKey, dh, algo_settings, lbd=lbd, alpha=alpha)
+    algo = SPG_FIM(prngkey, dh, algo_settings, lbd=lbd, alpha=alpha)
     # =================== MCMC configuration ==================== #
     algo.add_mcmc(
         float(params0.mu1),
@@ -51,64 +58,65 @@ def estim(PRNGKey, model, dh, theta0, algo_settings, lbd=None, alpha=1.0):
     # ==================== END configuration ==================== #
     res = algo.fit(
         model.jac_likelihood,
-        niter=2000,
         DIM_HD=model.DIM_HD,
         theta0_reals1d=theta0,
-        # partial_fit=True,
+        ntry=5,
+        partial_fit=False,
     )
 
     return res, algo
 
 
-def one_estim(PRNGKey, model, dh, algo_settings, lbd=None, alpha=1.0):
-    PRNGKey_theta, PRNGKey_estim, PRNGKey_likelihoohd = jrd.split(PRNGKey, 3)
-    theta0 = 0.2 * jrd.normal(PRNGKey_theta, shape=(model.parametrization.size,))
+def one_estim(prngkey, model, dh, lbd=None, alpha=1.0, save_all=True):
+    prngkey_theta, prngkey_estim, prngkey_likelihood = jrd.split(prngkey, 3)
+    theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(model.parametrization.size,))
 
     try:
-        res_estim, algo = estim(
-            PRNGKey_estim, model, dh, theta0, algo_settings, lbd=lbd, alpha=alpha
-        )
+        res_estim, algo = estim(prngkey_estim, model, dh, theta0, lbd=lbd, alpha=alpha)
     except sdg4vsNanError as err:
         print(err)
         return sdg4vsNanError
 
-    res = algo.labelswitch(res_estim)
-    return algo.estim_res(
-        theta=jnp.array([model.reals1d_to_hstack_params(t) for t in res.theta]),
-        FIM=res.FIM,
-        grad=res.grad,
-        likelihood=algo.likelihood_marginal(model, PRNGKey_likelihoohd, res.theta[-1]),
-    )
+    res = SDGResults.compute_with_model(prngkey_likelihood, algo, model, res_estim)
+    return res if save_all else SDGResults.make_it_lighter(res)
 
 
 if __name__ == "__main__":
+    from sdg4varselect import sample_model
+    import sdg4varselect.plot as sdgplt
     from sdg4varselect.models.pharmacokinetic import (
-        pharma_JM,
-        sample_one,
+        PharmaJM,
         get_params_star,
     )
-    from time import time
 
-    model = pharma_JM(N=100, J=5, DIM_HD=5)
+    myModel = PharmaJM(N=100, J=10, DIM_HD=10)
+    params_star = get_params_star(myModel.DIM_HD)
 
-    dh = sample_one(jrd.PRNGKey(int(time())), model, weibull_censoring_loc=2000)
+    myDH = sample_model(
+        jrd.PRNGKey(0), params_star, myModel, weibull_censoring_loc=2000
+    )
 
     multi_estim = [
-        one_estim(jrd.PRNGKey(key), model, dh, algo_settings, lbd=None)
-        for key in range(20)
+        one_estim(jrd.PRNGKey(key), myModel, myDH, lbd=None, save_all=True)
+        for key in range(10)
     ]
     while sdg4vsNanError in multi_estim:
         multi_estim.remove(sdg4vsNanError)
 
     # === PLOT === #
-    from sdg4varselect.plot import (
-        plot_theta,
-        plot_theta_HD,
-    )
 
-    params_star = get_params_star(model.DIM_HD)
+    # prngkey_theta, prngkey_estim, prngkey_likelihood = jrd.split(jrd.PRNGKey(3), 3)
+    # theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(myModel.parametrization.size,))
 
-    plot_theta(multi_estim, model.DIM_LD, params_star, model.params_names)
-    plot_theta_HD(multi_estim, model.DIM_LD, params_star, model.params_names)
+    # res, algo = estim(prngkey_estim, myModel, myDH, theta0, lbd=None)
+    # multi_estim = SDGResults.compute_with_model(prngkey_likelihood, algo, myModel, res)
+
+    # for var in algo.latent_variables.values():
+    #     sdgplt.plot_mcmc(var)
+
+    params_star = get_params_star(myModel.DIM_HD)
+
+    sdgplt.plot_theta(multi_estim, myModel.DIM_LD, params_star, myModel.params_names)
+    sdgplt.plot_theta_HD(multi_estim, myModel.DIM_LD, params_star, myModel.params_names)
 
     # sdgplt.plot_mcmc(algo.mcmc)
