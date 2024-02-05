@@ -16,8 +16,8 @@ from results.logistic_model.multi_results import multi_run
 
 from sdg4varselect.outputs import MultiRunRes
 
-nrun = 1
-lbd_set = 10 ** jnp.linspace(-2, 0, num=4)
+nrun = 20
+lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 
 
 # def testC(*censoring_loc):
@@ -41,26 +41,31 @@ lbd_set = 10 ** jnp.linspace(-2, 0, num=4)
 #     print(f"{filename} SAVED !")
 
 
-# def testN(N):
-#     model = Logistic_JM(N=N, J=5, DIM_HD=800)
 
-#     seed = 1
-#     R = multi_estim_with_selection(
-#         jrd.PRNGKey(seed), lbd_set, model, nrun=nrun, CENSORING=2000, save_all=False
-#     )
-#     res = {"res": R, "lbd_set": lbd_set, "N": model.N, "J": model.J, "P": model.DIM_HD}
+def testN(N):
+    model = Logistic_JM(N=N, J=5, DIM_HD=800)
+    params_star = get_params_star(model.DIM_HD)
 
-#     filename = f"s{seed}_N{model.N}_P{model.DIM_HD}_J{model.J}"
-#     # _C{int(jnp.array(lcensoring_rate).mean()*100)}"
-#     pickle.dump(res, gzip.open(f"files/test_{filename}.pkl.gz", "wb"))
-#     print(f"{filename} SAVED !")
+    seed = 2
+    res, chrono = multi_run(
+        jrd.PRNGKey(seed),
+        lbd_set,
+        params_star,
+        model,
+        nrun=nrun,
+        censoring=2000,
+        save_all=False,
+    )
+
+    all_results = MultiRunRes.FromModel(res, lbd_set, chrono, model)
+    all_results.save(model, "files", f"test_s{seed}")
 
 
 def testP(P):
     model = Logistic_JM(N=100, J=5, DIM_HD=P)
     params_star = get_params_star(model.DIM_HD)
 
-    seed = 1
+    seed = 2
     res, chrono = multi_run(
         jrd.PRNGKey(seed),
         lbd_set,
@@ -92,8 +97,8 @@ def testP(P):
 
 # testC(1000, 85, 77)
 
-# for i in (30, 100, 200, 400, 600):
-#     testN(i)
+for i in (100, 200, 400, 600):
+    testN(i)
 
 for i in (10, 50, 200, 400, 600, 1000):
     testP(i)
