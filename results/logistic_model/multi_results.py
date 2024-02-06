@@ -13,9 +13,6 @@ from sdg4varselect.exceptions import sdg4vsNanError
 
 from sdg4varselect.miscellaneous import step_message
 from results.logistic_model.one_result import one_result
-from collections import namedtuple
-
-multi_estim_res = namedtuple("multi_estim_res", ("estim_res", "censoring_rate"))
 
 
 # ====================================================== #
@@ -25,7 +22,9 @@ def multi_run(prngkey, lbd_set, params_star, model, nrun, censoring, save_all=Tr
 
     prngkey_list = jrd.split(prngkey, num=nrun)
 
-    R = []
+    estim_res = []
+    censoring_rate = []
+    chrono_time = []
     for k in range(nrun):
         print(step_message(k, nrun), end="\r")
         dh = sample_model(
@@ -42,19 +41,18 @@ def multi_run(prngkey, lbd_set, params_star, model, nrun, censoring, save_all=Tr
             save_all,
         )
         try:
-            R.append(
-                multi_estim_res(
-                    estim_res=one_result(args),
-                    censoring_rate=1 - dh.data["delta"].mean(),
-                )
+            estim_res.append(
+                one_result(args),
             )
+            censoring_rate.append(1 - dh.data["delta"].mean())
+
         except sdg4vsNanError as err:
             print(f"{err} :  estimation cancelled !")
 
     chrono_time = datetime.now() - chrono_start
     print(f"duration time = {str(chrono_time)}")
 
-    return R, chrono_time
+    return estim_res, chrono_time, jnp.array(censoring_rate).mean()
 
 
 if __name__ == "__main__":

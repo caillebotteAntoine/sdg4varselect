@@ -3,6 +3,7 @@ Module for results handling objects.
 
 Create by antoine.caillebotte@inrae.fr
 """
+
 # pylint: disable=C0116
 from collections import namedtuple
 
@@ -52,7 +53,9 @@ class sdg4vsResults:
     ):
         """load object"""
         filename = _get_filename(model, root, filename_default)
-        return pickle.load(gzip.open(f"{filename}.pkl.gz", "rb"))
+        out = pickle.load(gzip.open(f"{filename}.pkl.gz", "rb"))
+        print(f"{filename} LOADED !")
+        return out
 
     def save(
         self,
@@ -177,7 +180,7 @@ class VariableSelectionRes(sdg4vsResults, _variableSelectionRes):
 
 _MultiRunRes = namedtuple(
     "MultiRunRes",
-    ("MultiRun", "lbd_set", "chrono", "N", "J", "P"),
+    ("MultiRun", "lbd_set", "chrono", "N", "J", "P", "C"),
 )
 
 
@@ -185,15 +188,28 @@ class MultiRunRes(sdg4vsResults, _MultiRunRes):
     def __init__(self, *args, **kwargs):
         pass
 
-    @staticmethod
-    def FromModel(multi_run, lbd_set, chrono, model):
-        return MultiRunRes(
+    @classmethod
+    def new_from_model(cls, multi_run, lbd_set, chrono, model, censoring_rate):
+        return cls(
             MultiRun=multi_run,
             lbd_set=lbd_set,
             chrono=chrono,
             N=model.N,
             J=model.J,
             P=model.DIM_HD,
+            C=censoring_rate,
+        )
+
+    @classmethod
+    def new_from_list(cls, multi_res):
+        return cls(
+            MultiRun=[res.MultiRun for res in multi_res],
+            lbd_set=multi_res[0].lbd_set,
+            chrono=[res.chrono for res in multi_res],
+            N=[res.N for res in multi_res],
+            J=[res.J for res in multi_res],
+            P=[res.P for res in multi_res],
+            C=[res.C for res in multi_res],
         )
 
 

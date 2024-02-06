@@ -41,13 +41,12 @@ lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 #     print(f"{filename} SAVED !")
 
 
-
 def testN(N):
     model = Logistic_JM(N=N, J=5, DIM_HD=800)
     params_star = get_params_star(model.DIM_HD)
 
     seed = 2
-    res, chrono = multi_run(
+    res, chrono, censoring_rate = multi_run(
         jrd.PRNGKey(seed),
         lbd_set,
         params_star,
@@ -57,8 +56,10 @@ def testN(N):
         save_all=False,
     )
 
-    all_results = MultiRunRes.FromModel(res, lbd_set, chrono, model)
-    all_results.save(model, "files", f"test_s{seed}")
+    all_results = MultiRunRes.new_from_model(
+        res, lbd_set, chrono, model, censoring_rate
+    )
+    all_results.save(model, "files", f"FR_s{seed}_C{int(censoring_rate)}")
 
 
 def testP(P):
@@ -66,7 +67,7 @@ def testP(P):
     params_star = get_params_star(model.DIM_HD)
 
     seed = 2
-    res, chrono = multi_run(
+    res, chrono, censoring_rate = multi_run(
         jrd.PRNGKey(seed),
         lbd_set,
         params_star,
@@ -76,7 +77,9 @@ def testP(P):
         save_all=False,
     )
 
-    all_results = MultiRunRes.FromModel(res, lbd_set, chrono, model)
+    all_results = MultiRunRes.new_from_model(
+        res, lbd_set, chrono, model, censoring_rate
+    )
     all_results.save(model, "files", f"test_s{seed}")
 
 
@@ -100,5 +103,5 @@ def testP(P):
 for i in (100, 200, 400, 600):
     testN(i)
 
-for i in (10, 50, 200, 400, 600, 1000):
-    testP(i)
+# for i in (10, 50, 200, 400, 600, 1000):
+#     testP(i)

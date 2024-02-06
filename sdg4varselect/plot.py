@@ -3,15 +3,16 @@ Module that define some ploting function.
 
 Create by antoine.caillebotte@inrae.fr
 """
+
 # pylint: disable=C0116
 
+from functools import wraps
 import matplotlib.pyplot as plt
 
 # import matplotlib.colors as colors
 import numpy as np
 import jax.numpy as jnp
 
-from functools import wraps
 
 FIGSIZE = 15
 
@@ -28,7 +29,6 @@ def plot(*args, **kwargs):
 
 
 def plot_sample(obs, sim, params_star, censoring_loc, a, b):
-    from matplotlib import pyplot as plt
 
     fig = plt.figure()
     fig.set_figheight(7)
@@ -227,8 +227,6 @@ def plot_box_plot_HD(theta, dim_ld, params_star, threshold=0):
 
 def plot_mcmc(x, id_max=None):
     """plot an MCMC_chain"""
-    import matplotlib.pyplot as plt
-    from sdg4varselect._MCMC import MCMC_chain
 
     if id_max is None:
         id_max = len(x.chain)
