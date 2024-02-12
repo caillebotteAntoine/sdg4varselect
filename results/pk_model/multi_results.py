@@ -66,11 +66,11 @@ if __name__ == "__main__":
 
     my_lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
 
-    myModel = Logistic_JM(N=50, J=5, DIM_HD=10)
-    params_star = get_params_star(myModel.DIM_HD)
+    myModel = Logistic_JM(N=100, J=5, DIM_HD=200)
+    my_params_star = get_params_star(myModel.DIM_HD)
 
     res, chrono = multi_run(
-        jrd.PRNGKey(0), my_lbd_set, params_star, myModel, nrun=1, censoring=2000
+        jrd.PRNGKey(0), my_lbd_set, my_params_star, myModel, nrun=1, censoring=2000
     )
     print(chrono)
 
@@ -78,12 +78,12 @@ if __name__ == "__main__":
     sres = res[0].estim_res
 
     # sdgplt.plot_theta(
-    #     sres.listSDGResults[-1], myModel.DIM_LD, params_star, myModel.params_names
+    #     sres.listSDGResults[-1], myModel.DIM_LD, my_params_star, myModel.params_names
     # )
     sdgplt.plot_theta_HD(
         sres.listSDGResults[sres.argmin_bic][-1],
         myModel.DIM_LD,
-        params_star,
+        my_params_star,
         myModel.params_names,
     )
 

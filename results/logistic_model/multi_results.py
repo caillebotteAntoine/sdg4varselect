@@ -8,11 +8,14 @@ from datetime import datetime
 import jax.random as jrd
 import jax.numpy as jnp
 
-from sdg4varselect import sample_model
 from sdg4varselect.exceptions import sdg4vsNanError
 
 from sdg4varselect.miscellaneous import step_message
 from results.logistic_model.one_result import one_result
+
+from sdg4varselect.outputs_new import MultiRegRes
+
+from sdg4varselect.outputs_new import sdg4vsResults
 
 
 # ====================================================== #
@@ -24,19 +27,19 @@ def multi_run(prngkey, lbd_set, params_star, model, nrun, censoring, save_all=Tr
 
     estim_res = []
     censoring_rate = []
-    chrono_time = []
+    end = "\r" if __name__ == "__main__" else "\n"
     for k in range(nrun):
-        print(step_message(k, nrun), end="\r")
-        dh = sample_model(
-            prngkey_list[k], params_star, model, weibull_censoring_loc=censoring
+        print("run", step_message(k, nrun), end=end)
+        data, _ = model.sample(
+            params_star, prngkey_list[k], weibull_censoring_loc=censoring
         )
 
         args = (
             prngkey_list[k],
             model.N,
             model.J,
-            model.DIM_HD,
-            dh,
+            model.DIMCovCox,
+            data,
             lbd_set,
             save_all,
         )
@@ -44,50 +47,43 @@ def multi_run(prngkey, lbd_set, params_star, model, nrun, censoring, save_all=Tr
             estim_res.append(
                 one_result(args),
             )
-            censoring_rate.append(1 - dh.data["delta"].mean())
+            censoring_rate.append(1 - data["delta"].mean())
 
         except sdg4vsNanError as err:
             print(f"{err} :  estimation cancelled !")
 
-    chrono_time = datetime.now() - chrono_start
-    print(f"duration time = {str(chrono_time)}")
-
-    return estim_res, chrono_time, jnp.array(censoring_rate).mean()
+    return MultiRegRes(estim_res), jnp.array(censoring_rate).mean()
 
 
 if __name__ == "__main__":
     import sdg4varselect.plot as sdgplt
-    from sdg4varselect.models.logistic_joint_model import (
-        Logistic_JM,
+    from sdg4varselect.models.wcox_mem_joint_model import (
         get_params_star,
+        create_logistic_weibull_jm,
     )
 
     my_lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+    myModel = create_logistic_weibull_jm(100, 5, 10)
+    p_star = get_params_star(myModel)
 
-    myModel = Logistic_JM(N=50, J=5, DIM_HD=10)
-    params_star = get_params_star(myModel.DIM_HD)
+    # res, censoring = multi_run(
+    #     jrd.PRNGKey(0), my_lbd_set, p_star, myModel, nrun=2, censoring=2000
+    # )
+    # print(censoring)
 
-    res, chrono = multi_run(
-        jrd.PRNGKey(0), my_lbd_set, params_star, myModel, nrun=1, censoring=2000
-    )
-    print(chrono)
+    res = sdg4vsResults.load(myModel)
 
     # === PLOT === #
-    sres = res[0].estim_res
 
     # sdgplt.plot_theta(
     #     sres.listSDGResults[-1], myModel.DIM_LD, params_star, myModel.params_names
     # )
-    sdgplt.plot_theta_HD(
-        sres.listSDGResults[sres.argmin_bic][-1],
-        myModel.DIM_LD,
-        params_star,
-        myModel.params_names,
+
+    sdgplt.plot(
+        res[0].final_result,
+        dim_ld=myModel.DIM_LD,
+        params_star=p_star,
+        params_names=myModel.params_names,
     )
 
-    sdgplt.plot_reg_path(
-        my_lbd_set,
-        [res[-1] for res in sres.listSDGResults],
-        sres.bic[-1],
-        myModel.DIM_LD,
-    )
+    sdgplt.plot(res[0], myModel.DIM_LD)

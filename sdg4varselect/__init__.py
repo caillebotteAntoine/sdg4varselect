@@ -1,14 +1,12 @@
 """
 Create by antoine.caillebotte@inrae.fr
 """
+
 from jax.config import config
 
 # from .learning_rate import LearningRate
 from ._MCMC import MCMC_chain
-from .algo.spg_fim import SPG_FIM
-from ._data_handler import DataHandler
 from ._regularization_function import eBIC, BIC, regularization_path
-from .models.abstract_joint_model import sample_model
 
 # import jax.numpy as jnp
 # jnp.set_printoptions(threshold=200)  # jnp.inf)

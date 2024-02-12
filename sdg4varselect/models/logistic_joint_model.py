@@ -3,6 +3,7 @@ Module for abstract class AbstractJointModel.
 
 Create by antoine.caillebotte@inrae.fr
 """
+
 # pylint: disable=C0116, W0221
 
 import functools
@@ -233,7 +234,7 @@ if __name__ == "__main__":
         )
         _, _ = plot_sample(myobs, mysim, my_params_star, censoring_loc, 80, 35)
 
-    # test_censoring_loc(1000)  # a = 80, b = 35
+    test_censoring_loc(1000)  # a = 80, b = 35
     # test_censoring_loc(85)  # ~20%
     # test_censoring_loc(80.5)  # ~40%
     # test_censoring_loc(77)  # ~60%

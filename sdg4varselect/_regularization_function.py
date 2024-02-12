@@ -1,10 +1,11 @@
+from typing import Callable
+
 import jax.numpy as jnp
 import jax.random as jrd
 import scipy.special
 
 from sdg4varselect.miscellaneous import step_message
-from sdg4varselect.exceptions import sdg4vsNanError
-from sdg4varselect.outputs import RegularizationPathRes
+from sdg4varselect.outputs_new import MultiRunRes, sdg4vsResults
 
 
 def eBIC(theta_HD, log_likelihood, n):
@@ -25,7 +26,7 @@ def eBIC(theta_HD, log_likelihood, n):
     return -2 * log_likelihood + k * jnp.log(n) + 2 * jnp.log(ebic_pen)
 
 
-def BIC(theta_HD, log_likelihood, n):
+def BIC(theta_hd, log_likelihood, n):
     """
     BIC = k*ln(n) - 2*ln(L)
 
@@ -34,25 +35,33 @@ def BIC(theta_HD, log_likelihood, n):
         - n is the sample size
         - L the maximzed value of the likelihood function
     """
-    k = (theta_HD != 0).sum(axis=1)
+    k = (theta_hd != 0).sum(axis=1)
     assert k.shape == log_likelihood.shape
 
     return -2 * log_likelihood + k * jnp.log(n)
 
 
 def _regularization_path(
-    estim_fct_with_flag, prngkey, lbd_set, verbatim=False, *args, **kwargs
-):
+    estim_fct_with_flag: Callable[[], tuple[type[sdg4vsResults], bool]],
+    prngkey,
+    lbd_set,
+    verbatim=False,
+    **kwargs
+) -> MultiRunRes:
+    """perform an regularization path according to a given estimation function"""
     prngkey_list = jrd.split(prngkey, num=len(lbd_set))
 
     def iter_estim():
         for i, lbd in enumerate(lbd_set):
             if verbatim:
-                print(step_message(i, len(lbd_set)), end="\r")
+                print(
+                    step_message(i, len(lbd_set)),
+                    end="\r" if __name__ == "__main__" else "\n",
+                )
 
             kwargs["lbd"] = lbd
             kwargs["prngkey"] = prngkey_list[i]
-            res_estim, flag_selection = estim_fct_with_flag(*args, **kwargs)
+            res_estim, flag_selection = estim_fct_with_flag(**kwargs)
 
             if flag_selection:
                 for _ in range(len(lbd_set) - i):
@@ -61,12 +70,19 @@ def _regularization_path(
             else:
                 yield res_estim
 
-    return [res for res in iter_estim()]
+    return MultiRunRes([res for res in iter_estim()])
 
 
 def regularization_path(
-    estim_fct_with_flag, prngkey, lbd_set, dim_ld, N, verbatim=False, *args, **kwargs
-):
+    estim_fct_with_flag: Callable[[], tuple[type[sdg4vsResults], bool]],
+    prngkey,
+    lbd_set,
+    dim_ld,
+    N,
+    verbatim=False,
+    **kwargs
+) -> tuple[MultiRunRes, jnp.ndarray]:
+    """perform an regularization path according to a given estimation function"""
     # === VARIABLE SELECTION === #
     list_sdg_results = _regularization_path(
         estim_fct_with_flag=estim_fct_with_flag,
@@ -76,8 +92,6 @@ def regularization_path(
         # additional parameter
         **kwargs
     )
-    if list_sdg_results is None:
-        raise sdg4vsNanError
 
     bic = jnp.array(
         [
@@ -90,7 +104,4 @@ def regularization_path(
         ]
     ).T
 
-    return RegularizationPathRes(
-        listSDGResults=list_sdg_results,
-        bic=bic,
-    )
+    return (list_sdg_results, bic)

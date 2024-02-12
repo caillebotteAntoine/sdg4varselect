@@ -8,13 +8,13 @@ import jax.random as jrd
 import jax.numpy as jnp
 
 
-from sdg4varselect.models.logistic_joint_model import (
-    Logistic_JM,
+from sdg4varselect.models.wcox_mem_joint_model import (
     get_params_star,
+    create_logistic_weibull_jm,
 )
 from results.logistic_model.multi_results import multi_run
 
-from sdg4varselect.outputs import MultiRunRes
+# from sdg4varselect.outputs import MultiRunRes
 
 nrun = 20
 lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
@@ -41,46 +41,23 @@ lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 #     print(f"{filename} SAVED !")
 
 
-def testN(N):
-    model = Logistic_JM(N=N, J=5, DIM_HD=800)
-    params_star = get_params_star(model.DIM_HD)
+def test(N, J, P, censoring=2000):
+    my_model = create_logistic_weibull_jm(N, J, P)
+    p_star = get_params_star(my_model)
 
     seed = 2
-    res, chrono, censoring_rate = multi_run(
+    res, censoring_rate = multi_run(
         jrd.PRNGKey(seed),
         lbd_set,
-        params_star,
-        model,
+        p_star,
+        my_model,
         nrun=nrun,
-        censoring=2000,
+        censoring=censoring,
         save_all=False,
     )
 
-    all_results = MultiRunRes.new_from_model(
-        res, lbd_set, chrono, model, censoring_rate
-    )
-    all_results.save(model, "files", f"FR_s{seed}_C{int(censoring_rate)}")
-
-
-def testP(P):
-    model = Logistic_JM(N=100, J=5, DIM_HD=P)
-    params_star = get_params_star(model.DIM_HD)
-
-    seed = 2
-    res, chrono, censoring_rate = multi_run(
-        jrd.PRNGKey(seed),
-        lbd_set,
-        params_star,
-        model,
-        nrun=nrun,
-        censoring=2000,
-        save_all=False,
-    )
-
-    all_results = MultiRunRes.new_from_model(
-        res, lbd_set, chrono, model, censoring_rate
-    )
-    all_results.save(model, "files", f"test_s{seed}")
+    C = "NA" if jnp.isnan(censoring_rate) else int(censoring_rate)
+    res.save(my_model, root="files", filename_add_on=f"C{C}_S{seed}")
 
 
 # for i in (50,):
@@ -100,8 +77,18 @@ def testP(P):
 
 # testC(1000, 85, 77)
 
-for i in (100, 200, 400, 600):
-    testN(i)
+test(100, 5, 100)
+test(200, 5, 100)
+test(300, 5, 100)
+
+test(100, 5, 30)
+test(100, 5, 100)
+test(100, 5, 200)
+
+
+test(100, 5, 500)
+test(100, 5, 800)
+
 
 # for i in (10, 50, 200, 400, 600, 1000):
 #     testP(i)

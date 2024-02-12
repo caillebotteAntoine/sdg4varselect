@@ -171,7 +171,7 @@ class SPG_FIM(AbstractAlgoMCMC):
         (DIM_THETA,) = theta0_reals1d.shape
 
         # mask for fisher preconditionning
-        FIM_MASK = jnp.arange(DIM_THETA) < DIM_THETA
+        FIM_MASK = jnp.arange(DIM_THETA) < DIM_THETA - DIM_HD
         # mask for proximal operator
         HD_MASK = jnp.arange(DIM_THETA) >= DIM_THETA - DIM_HD
 

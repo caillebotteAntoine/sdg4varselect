@@ -3,8 +3,31 @@ Module for jitted function used in stochastic gradient descent
 
 Create by antoine.caillebotte@inrae.fr
 """
+
 from jax import jit
 import jax.numpy as jnp
+
+
+@jit
+def gradient_descent_fisher_preconditionner(
+    jac: jnp.ndarray,
+    jac_current: jnp.ndarray,
+    # fisher_identity_mixture: bool,
+    step_size_approx_sto: float,
+    step_size_fisher: float,
+):
+    """Compute one step of a gradient with perconditionner"""
+    # Jacobian approximate
+    jac_approx = (1 - step_size_approx_sto) * jac + step_size_approx_sto * jac_current
+
+    # Gradient
+    grad = jac_approx.mean(axis=0)
+    fim = jac_approx.T @ jac_approx / jac_approx.shape[0]
+
+    fim = step_size_fisher * fim + (1 - step_size_fisher) * jnp.eye(fim.shape[0])
+    grad_precond = jnp.linalg.solve(fim, grad)
+
+    return jac_approx, fim, grad_precond
 
 
 @jit

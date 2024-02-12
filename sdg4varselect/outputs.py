@@ -132,6 +132,17 @@ class SDGResults(sdg4vsResults, _SDGResults):
         )
 
     @classmethod
+    def remove_zeros(cls, results):
+        preserved_component = results.last_theta != 0
+
+        return cls(
+            theta=results.theta[:, preserved_component],
+            FIM=results.FIM,
+            grad=results.grad[:, preserved_component],
+            likelihood=results.likelihood,
+        )
+
+    @classmethod
     def make_it_lighter(cls, results):
         return cls(
             theta=jnp.array([results.theta[0], results.theta[-1]]),

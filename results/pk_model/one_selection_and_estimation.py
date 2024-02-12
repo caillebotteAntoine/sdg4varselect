@@ -69,7 +69,7 @@ if __name__ == "__main__":
     from sdg4varselect.models.pharmacokinetic import get_params_star
 
     my_lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
-    myModel = model_jm(N=100, J=5, DIM_HD=10)
+    myModel = model_jm(N=100, J=5, DIM_HD=200)
     params_star = get_params_star(myModel.DIM_HD)
 
     myDH = sample_model(
@@ -83,11 +83,11 @@ if __name__ == "__main__":
     # === PLOT === #
     params_names = myModel.params_names
 
-    # sdgplt.plot_theta(lasso, myModel.DIM_LD, params_star, params_names)
-    sdgplt.plot_theta_HD(lasso_r, myModel.DIM_LD, params_star, params_names)
+    # # sdgplt.plot_theta(lasso, myModel.DIM_LD, params_star, params_names)
+    # sdgplt.plot_theta_HD(lasso_r, myModel.DIM_LD, params_star, params_names)
 
-    # sdgplt.plot_theta(adaptive_lasso, myModel.DIM_LD, params_star, params_names)
-    sdgplt.plot_theta_HD(adaptive_lasso_r, myModel.DIM_LD, params_star, params_names)
+    # # sdgplt.plot_theta(adaptive_lasso, myModel.DIM_LD, params_star, params_names)
+    # sdgplt.plot_theta_HD(adaptive_lasso_r, myModel.DIM_LD, params_star, params_names)
 
-    sdgplt.plot_theta(estim_r, myModel.DIM_LD, params_star, params_names)
-    sdgplt.plot_theta_HD(estim_r, myModel.DIM_LD, params_star, params_names)
+    sdgplt.plot_theta(estim_r, myModel.DIM_LD + 4, params_star, params_names)
+    # sdgplt.plot_theta_HD(estim_r, myModel.DIM_LD, params_star, params_names)
