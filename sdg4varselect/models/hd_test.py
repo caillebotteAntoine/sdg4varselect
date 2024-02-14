@@ -55,6 +55,10 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
     def P(self):
         return self._P
 
+    @property
+    def DIM_LD(self):
+        return self._parametrization.size - self.P
+
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
     def mixed_effect_function(
@@ -130,6 +134,21 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
 
 
 # ============================================================== #
+
+
+def get_params_star(model):
+
+    return model.new_params(
+        mu1=0.3,
+        mu2=90.0,
+        mu3=7.5,
+        gamma2_1=0.0025,
+        gamma2_2=20,
+        sigma2=0.001,
+        beta=jnp.concatenate(
+            [jnp.array([-3, -2, 2, 3]), jnp.zeros(shape=(model.P - 4,))]
+        ),
+    )
 
 
 if __name__ == "__main__":

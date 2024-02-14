@@ -38,7 +38,7 @@ def multi_run(prngkey, lbd_set, params_star, model, nrun, censoring, save_all=Tr
             prngkey_list[k],
             model.N,
             model.J,
-            model.DIMCovCox,
+            model.P,
             data,
             lbd_set,
             save_all,

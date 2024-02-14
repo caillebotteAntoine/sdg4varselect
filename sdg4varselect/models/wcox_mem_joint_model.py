@@ -84,7 +84,7 @@ def get_params_star(model):
         sigma2=0.001,
         alpha=110.11,
         beta=jnp.concatenate(
-            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(model.DIMCovCox - 4,))]
+            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(model.P - 4,))]
         ),
     )
 
@@ -103,7 +103,7 @@ if __name__ == "__main__":
         sigma2=0.001,
         alpha=110.1,
         beta=jnp.concatenate(
-            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.DIMCovCox - 4,))]
+            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.P - 4,))]
         ),
     )
 

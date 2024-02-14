@@ -31,7 +31,7 @@ import sdg4varselect.plot as sdgplt
 #     beta=jnp.concatenate([jnp.array([100, 50, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
 # )
 
-myModel = HDLogisticMixedEffectsModel(N=100, J=10, P=100)
+myModel = HDLogisticMixedEffectsModel(N=100, J=10, P=50)
 
 p_star = myModel.new_params(
     mu1=0.3,
@@ -112,7 +112,7 @@ def one_fit(theta0):
 
 
 res = []
-for i in range(10):
+for i in range(1):
     theta0 = 0.2 * jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
     res.append(one_fit(theta0))
 res = MultiRunRes(res)

@@ -19,8 +19,6 @@ from results.logistic_model.one_selection_and_estimation import (
     lasso_into_adaptive_into_estim,
 )
 
-from sdg4varselect.exceptions import sdg4vsNanError
-
 
 def estim_with_flag(model, *args, **kwargs) -> tuple[MultiRunRes, bool]:
     """must return the estimation results and
@@ -66,22 +64,24 @@ def one_result(args):
 
 if __name__ == "__main__":
     import sdg4varselect.plot as sdgplt
-    from sdg4varselect.models.wcox_mem_joint_model import get_params_star
+    from sdg4varselect.models.wcox_mem_joint_model import (
+        get_params_star,
+    )
 
-    my_lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+    my_lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
     myModel = create_logistic_weibull_jm(100, 5, 10)
     my_params_star = get_params_star(myModel)
 
-    myobs, _ = myModel.sample(my_params_star, jrd.PRNGKey(0), weibull_censoring_loc=77)
+    myobs, _ = myModel.sample(my_params_star, jrd.PRNGKey(10), weibull_censoring_loc=77)
 
-    sres = _one_result(jrd.PRNGKey(10), myModel, myobs, my_lbd_set, save_all=True)
+    sres = _one_result(jrd.PRNGKey(0), myModel, myobs, my_lbd_set, save_all=True)
 
     # === PLOT === #
 
     # sdgplt.plot_theta(
     #     sres.listSDGResults[-1], myModel.DIM_LD, params_star, myModel.params_names
     # )
-    sdgplt.plot_theta_HD(
+    sdgplt.plot_theta_hd(
         sres.multi_run[sres.argmin_bic][-1],
         myModel.DIM_LD,
         my_params_star,
@@ -89,5 +89,6 @@ if __name__ == "__main__":
     )
 
     sdgplt.plot_reg_path(sres, myModel.DIM_LD)
+    print(f"chrono = {sres.chrono}")
 
     x = RegularizationPathRes.switch_runs(sres)

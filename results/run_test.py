@@ -77,6 +77,9 @@ def test(N, J, P, censoring=2000):
 
 # testC(1000, 85, 77)
 
+test(100, 5, 10)
+test(100, 5, 50)
+
 test(100, 5, 100)
 test(200, 5, 100)
 test(300, 5, 100)

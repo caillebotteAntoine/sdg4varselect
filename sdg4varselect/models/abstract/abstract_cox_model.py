@@ -24,15 +24,15 @@ class AbstractCoxModel(AbstractModel):
     def __init__(self, N, P, **kwargs):
         AbstractModel.__init__(self, N=N, **kwargs)
 
-        self.P = P
+        self._P = P
 
     @property
     def DIM_LD(self):
         return self._parametrization.size - self.P
 
     @property
-    def DIMCovCox(self):
-        return self.P
+    def P(self):
+        return self._P
 
     @property
     def name(self):
@@ -137,9 +137,7 @@ class AbstractCoxModel(AbstractModel):
         # === cox_weibull_simulation === #
 
         uni = jrd.uniform(prngkey_uni, shape=(self.N,))
-        cov = cov_simulation(
-            prngkey_cov, cov_min=-1, cov_max=1, shape=(self.N, self.DIMCovCox)
-        )
+        cov = cov_simulation(prngkey_cov, cov_min=-1, cov_max=1, shape=(self.N, self.P))
 
         tmp = [0 for i in range(self.N)]
         for i in range(self.N):

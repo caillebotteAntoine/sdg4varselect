@@ -10,7 +10,7 @@ import jax.numpy as jnp
 from sdg4varselect.outputs import GDResults, MultiRunRes
 
 from sdg4varselect.models.wcox_mem_joint_model import (
-    create_logistic_weibull_jm,
+    create_logistic_weibull_jm as modelisation,
 )
 
 
@@ -25,7 +25,7 @@ def _estim_shrink_model(
     hd_selected = selected_component[dim_ld:]
     new_dim_hd = int(hd_selected.sum())
 
-    model_shrink = create_logistic_weibull_jm(N=model.N, J=model.J, P=new_dim_hd)
+    model_shrink = modelisation(N=model.N, J=model.J, P=new_dim_hd)
     data_shrink = data.copy()
     data_shrink["cov"] = data["cov"][:, hd_selected]
 
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     )
 
     my_lbd_set = 10 ** jnp.linspace(-2, 0, num=1)
-    myModel = create_logistic_weibull_jm(100, 5, 10)
+    myModel = modelisation(100, 5, 10)
     my_params_star = get_params_star(myModel)
 
     myobs, _ = myModel.sample(my_params_star, jrd.PRNGKey(0), weibull_censoring_loc=77)
