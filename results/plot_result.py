@@ -7,7 +7,7 @@ from sdg4varselect.models.wcox_mem_joint_model import (
 )
 
 import sdg4varselect.plot as sdgplt
-from sdg4varselect.outputs_new import TestResults
+from sdg4varselect.outputs import TestResults
 
 
 myModel = create_logistic_weibull_jm(50, 5, 5)

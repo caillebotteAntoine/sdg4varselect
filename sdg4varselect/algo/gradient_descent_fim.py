@@ -1,3 +1,9 @@
+"""
+Module for Gradient descent algorithm preconditioned by the fisher information matrix.
+
+Create by antoine.caillebotte@inrae.fr
+"""
+
 import itertools
 from collections import namedtuple
 
@@ -6,8 +12,8 @@ import jax.numpy as jnp
 from sdg4varselect.learning_rate import create_multi_step_size
 from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
-from sdg4varselect.algo.abstract_algo_fit import AbstractAlgoFit
-from sdg4varselect.outputs_new import GDResults
+from sdg4varselect.algo.abstract.abstract_algo_fit import AbstractAlgoFit
+from sdg4varselect.outputs import GDResults
 
 from sdg4varselect.algo.stochastic_gradient_descent_utils import (
     gradient_descent_fisher_preconditionner,
@@ -20,7 +26,32 @@ GradientDescentFIMSettings = namedtuple(
 )
 
 
+def get_GDFIM_settings(preheating, heating, learning_rate=1e-8):
+    return GradientDescentFIMSettings(
+        step_size_grad={
+            "learning_rate": learning_rate,
+            "preheating": preheating,
+            "heating": heating,
+            "max": 0.9,
+        },
+        step_size_approx_sto={
+            "learning_rate": learning_rate,
+            "preheating": preheating,
+            "heating": None,
+            "max": 1,
+        },
+        step_size_fisher={
+            "learning_rate": learning_rate,
+            "preheating": preheating,
+            "heating": None,
+            "max": 0.9,
+        },
+    )
+
+
 class GradientDescentFIM(AbstractAlgoFit):
+    """Gradient descent algorithm preconditioned by the fisher information matrix"""
+
     def __init__(
         self,
         max_iter: int,
@@ -51,14 +82,29 @@ class GradientDescentFIM(AbstractAlgoFit):
             else max([h for h in heating_list if h is not None])
         )
 
+        # initial algo parameter
+        self._jac = jnp.zeros(shape=(1, 1))
+
     def get_likelihood_kwargs(self, data):
         """return all the needed data"""
         return data
 
+    def _initialize_algo(
+        self,
+        model: type[AbstractModel],
+        likelihood_kwargs,
+        theta_reals1d: jnp.ndarray,
+    ) -> None:
+        """
+        Initialize the algorithm
+        """
+        jac_shape = model.jac_likelihood(theta_reals1d, **likelihood_kwargs).shape
+        self._jac = jnp.zeros(shape=jac_shape)
+
     # ============================================================== #
     def _one_gradient_descent(
         self,
-        model: type(AbstractModel),
+        model: type[AbstractModel],
         likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
         jac: jnp.ndarray,
@@ -74,7 +120,7 @@ class GradientDescentFIM(AbstractAlgoFit):
         jac_current = model.jac_likelihood(theta_reals1d, **likelihood_kwargs)
 
         (jac, fisher_info, grad_precond) = gradient_descent_fisher_preconditionner(
-            jac,
+            self._jac,
             jac_current,
             step_size_approx_sto=step_size[1],
             step_size_fisher=step_size[2],
@@ -92,20 +138,17 @@ class GradientDescentFIM(AbstractAlgoFit):
 
     def algorithm(
         self,
-        model: type(AbstractModel),
+        model: type[AbstractModel],
         likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ):
         """iterative algorithm"""
 
-        jac_shape = model.jac_likelihood(theta_reals1d, **likelihood_kwargs).shape
-        jac = jnp.zeros(shape=jac_shape)
-
         for step in itertools.count():
 
-            (theta_reals1d, jac, fisher_info, grad_precond) = (
+            (theta_reals1d, self._jac, fisher_info, grad_precond) = (
                 self._one_gradient_descent(
-                    model, likelihood_kwargs, theta_reals1d, jac, step
+                    model, likelihood_kwargs, theta_reals1d, self._jac, step
                 )
             )
 
@@ -129,35 +172,17 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     from sdg4varselect.models.linear_model import LinearModel
+    from sdg4varselect.outputs import MultiRunRes
     import jax.random as jrd
 
-    myModel = LinearModel()
-    my_params_star = myModel.new_params(intercept=1.5, slope=0.5, sigma2=0.1)
+    myModel = LinearModel(150)
+    p_star = myModel.new_params(intercept=1.5, slope=0.5, sigma2=0.1)
 
-    obs, sim = myModel.sample(my_params_star, jrd.PRNGKey(0))
+    obs, sim = myModel.sample(p_star, jrd.PRNGKey(0))
 
     plt.plot(obs["time"], obs["Y"], ".")
 
-    algo_settings = GradientDescentFIM.GradientDescentFIMSettings(
-        step_size_grad={
-            "learning_rate": 1e-8,
-            "preheating": 400,
-            "heating": 600,
-            "max": 0.9,
-        },
-        step_size_approx_sto={
-            "learning_rate": 1e-8,
-            "preheating": 400,
-            "heating": None,
-            "max": 1,
-        },
-        step_size_fisher={
-            "learning_rate": 1e-8,
-            "preheating": 400,
-            "heating": None,
-            "max": 0.9,
-        },
-    )
+    algo_settings = get_GDFIM_settings(preheating=400, heating=600)
 
     algo = GradientDescentFIM(1000, algo_settings)
 
@@ -165,7 +190,9 @@ if __name__ == "__main__":
     for i in range(10):
         theta0 = jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
         res.append(algo.fit(myModel, obs, theta0))
+    res = MultiRunRes(res)
 
     import sdg4varselect.plot as sdgplt
 
-    sdgplt.plot_theta(res, 3, my_params_star, myModel.params_names)
+    sdgplt.plot_theta(res, 3, p_star, myModel.params_names)
+    print(f"chrono = {res.chrono}")

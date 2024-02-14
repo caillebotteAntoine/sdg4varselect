@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import jax.random as jrd
 from jax import jit
 
-from sdg4varselect.models.abstract_model import AbstractModel
+from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
 
 @jit
@@ -23,16 +23,19 @@ class LinearModel(AbstractModel):
     Y-Yobs
     """
 
-    def __init__(
-        self,
-    ):
-        super().__init__()
+    def __init__(self, N, **kwargs):
+        AbstractModel.__init__(self, N, **kwargs)
 
         self._parametrization = pc.NamedTuple(
             intercept=pc.Real(scale=1),
             slope=pc.Real(scale=1),
             sigma2=pc.RealPositive(scale=0.1),
         )
+
+    @property
+    def name(self):
+        """return a str called name, based on the parameter of the model"""
+        return f"LM_N{self.N}"
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
@@ -54,7 +57,7 @@ class LinearModel(AbstractModel):
     ):
         obs, sim = {}, {}
 
-        obs["time"] = jnp.linspace(0, 2, num=15)
+        obs["time"] = jnp.linspace(0, 2, num=self.N)
         Y_without_noise = params_star.intercept + params_star.slope * obs["time"]
 
         key, prngkey = jrd.split(prngkey, num=2)
@@ -70,13 +73,13 @@ class LinearModel(AbstractModel):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    myModel = LinearModel()
+    myModel = LinearModel(150)
     my_params_star = myModel.new_params(intercept=1.5, slope=0.5, sigma2=0.1)
 
-    obs, _ = myModel.sample(my_params_star, jrd.PRNGKey(0))
+    myobs, _ = myModel.sample(my_params_star, jrd.PRNGKey(0))
 
-    plt.plot(obs["time"], obs["Y"], ".")
+    plt.plot(myobs["time"], myobs["Y"], ".")
 
     theta0 = jrd.normal(jrd.PRNGKey(0), shape=(myModel.parametrization.size,))
 
-    myModel.likelihood_array(theta0, **obs)
+    myModel.likelihood_array(theta0, **myobs)

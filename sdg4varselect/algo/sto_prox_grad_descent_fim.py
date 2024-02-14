@@ -1,3 +1,9 @@
+"""
+Module for Stochastic Proximal Gradient descent algorithm preconditioned by the fisher information matrix.
+
+Create by antoine.caillebotte@inrae.fr
+"""
+
 # pylint: disable=E1101
 import itertools
 
@@ -8,10 +14,8 @@ import jax.random as jrd
 from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
-from sdg4varselect.algo.gradient_descent_FIM import (
-    GradientDescentFIM,
-    GradientDescentFIMSettings,
-)
+from sdg4varselect.algo.gradient_descent_fim import GradientDescentFIMSettings
+
 from sdg4varselect.algo.sto_grad_descent_fim import StochasticGradientDescentFIM
 
 
@@ -19,6 +23,8 @@ from sdg4varselect.algo.stochastic_gradient_descent_utils import proximal_operat
 
 
 class StochasticProximalGradientDescentFIM(StochasticGradientDescentFIM):
+    """Stochastic Proximal Gradient descent algorithm preconditioned by the fisher information matrix"""
+
     def __init__(
         self,
         prngkey,
@@ -32,9 +38,27 @@ class StochasticProximalGradientDescentFIM(StochasticGradientDescentFIM):
         self._lbd = lbd
         self._alpha = alpha
 
+        # initial algo parameter
+        self._hd_mask = jnp.zeros(shape=(1,))
+
+    def _initialize_algo(
+        self,
+        model: type[AbstractModel],
+        likelihood_kwargs,
+        theta_reals1d: jnp.ndarray,
+    ) -> None:
+        """
+        Initialize the algorithm
+        """
+        super()._initialize_algo(model, likelihood_kwargs, theta_reals1d)
+
+        dim_theta = theta_reals1d.shape[0]
+
+        self._hd_mask = jnp.arange(dim_theta) >= dim_theta - model.P
+
     # ============================================================== #
 
-    def _one_proximal_operator(self, theta_reals1d, step, hd_mask):
+    def _one_proximal_operator(self, theta_reals1d, step):
         if self._lbd is None:
             return theta_reals1d
 
@@ -43,22 +67,16 @@ class StochasticProximalGradientDescentFIM(StochasticGradientDescentFIM):
             stepsize=self._step_size_grad(step),
             lbd=self._lbd,
             alpha=self._alpha,
-            hd_mask=hd_mask,
+            hd_mask=self._hd_mask,
         )
 
     def algorithm(
         self,
-        model: type(AbstractModel),
+        model: type[AbstractModel],
         likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ):
         """iterative algorithm"""
-        dim_theta = theta_reals1d.shape[0]
-
-        hd_mask = jnp.arange(dim_theta) >= dim_theta - model.DIMCovCox
-
-        jac_shape = model.jac_likelihood(theta_reals1d, **likelihood_kwargs).shape
-        jac = jnp.zeros(shape=jac_shape)
 
         for step in itertools.count():
 
@@ -66,9 +84,9 @@ class StochasticProximalGradientDescentFIM(StochasticGradientDescentFIM):
             self._one_simulation(likelihood_kwargs, theta_reals1d)
 
             # Gradient descent
-            (theta_reals1d, jac, fisher_info, grad_precond) = (
+            (theta_reals1d, self._jac, fisher_info, grad_precond) = (
                 self._one_gradient_descent(
-                    model, likelihood_kwargs, theta_reals1d, jac, step
+                    model, likelihood_kwargs, theta_reals1d, self._jac, step
                 )
             )
 
@@ -76,7 +94,6 @@ class StochasticProximalGradientDescentFIM(StochasticGradientDescentFIM):
             theta_reals1d = self._one_proximal_operator(
                 theta_reals1d=theta_reals1d,
                 step=step,
-                hd_mask=hd_mask,
             )
 
             if jnp.isnan(theta_reals1d).any():
@@ -91,18 +108,19 @@ class StochasticProximalGradientDescentFIM(StochasticGradientDescentFIM):
 
 if __name__ == "__main__":
 
+    from sdg4varselect.algo.gradient_descent_fim import (
+        get_GDFIM_settings,
+    )
     from sdg4varselect.plot import plot_sample
-    from sdg4varselect.models.logistic_mixed_effect_model import (
-        LogisticMixedEffectsModel,
-    )
+    from sdg4varselect.outputs import MultiRunRes
+    import sdg4varselect.plot as sdgplt
     from sdg4varselect.models.wcox_mem_joint_model import (
-        WeibullCoxMemJointModel,
+        create_logistic_weibull_jm,
     )
 
-    myMemModel = LogisticMixedEffectsModel(N=100, J=5)
-    myModel = WeibullCoxMemJointModel(myMemModel, P=10)
+    myModel = create_logistic_weibull_jm(N=100, J=5, P=10)
 
-    my_params_star = myModel.new_params(
+    p_star = myModel.new_params(
         mu1=0.3,
         mu2=90.0,
         mu3=7.5,
@@ -115,59 +133,42 @@ if __name__ == "__main__":
         ),
     )
 
-    myobs, mysim = myModel.sample(
-        my_params_star, jrd.PRNGKey(0), weibull_censoring_loc=77
-    )
+    myobs, mysim = myModel.sample(p_star, jrd.PRNGKey(0), weibull_censoring_loc=77)
 
-    _, _ = plot_sample(myobs, mysim, my_params_star, censoring_loc=77, a=80, b=35)
+    _, _ = plot_sample(myobs, mysim, p_star, censoring_loc=77, a=80, b=35)
 
-    algo_settings = GradientDescentFIM.GradientDescentFIMSettings(
-        step_size_grad={
-            "learning_rate": 1e-8,
-            "preheating": 400,
-            "heating": 600,
-            "max": 0.9,
-        },
-        step_size_approx_sto={
-            "learning_rate": 1e-8,
-            "preheating": 400,
-            "heating": None,
-            "max": 1,
-        },
-        step_size_fisher={
-            "learning_rate": 1e-8,
-            "preheating": 400,
-            "heating": None,
-            "max": 0.9,
-        },
-    )
+    algo_settings = get_GDFIM_settings(preheating=400, heating=600)
 
-    algo = StochasticGradientDescentFIM(jrd.PRNGKey(0), 1000, algo_settings)
-    # =================== MCMC configuration ==================== #
-    algo.add_mcmc(
-        float(my_params_star.mu1),
-        sd=0.001,
-        size=myModel.N,
-        likelihood=myModel.likelihood_array,
-        name="phi1",
-    )
-    algo.latent_variables["phi1"].adaptative_sd = True
-    algo.add_mcmc(
-        float(my_params_star.mu2),
-        sd=2,
-        size=myModel.N,
-        likelihood=myModel.likelihood_array,
-        name="phi2",
-    )
-    algo.latent_variables["phi2"].adaptative_sd = True
-    # ==================== END configuration ==================== #
+    def one_fit(theta0):
+        params = myModel.parametrization.reals1d_to_params(theta0)
+
+        algo = StochasticGradientDescentFIM(jrd.PRNGKey(0), 1000, algo_settings)
+        # =================== MCMC configuration ==================== #
+        algo.add_mcmc(
+            float(params.mu1),
+            sd=0.001,
+            size=myModel.N,
+            likelihood=myModel.likelihood_array,
+            name="phi1",
+        )
+        algo.latent_variables["phi1"].adaptative_sd = True
+        algo.add_mcmc(
+            float(params.mu2),
+            sd=2,
+            size=myModel.N,
+            likelihood=myModel.likelihood_array,
+            name="phi2",
+        )
+        algo.latent_variables["phi2"].adaptative_sd = True
+        # ==================== END configuration ==================== #
+        return algo.fit(myModel, myobs, theta0, ntry=5)
 
     res = []
     for i in range(10):
         theta0 = 0.2 * jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
-        res.append(algo.fit(myModel, myobs, theta0, partial_fit=True))
+        res.append(one_fit(theta0))
+    res = MultiRunRes(res)
 
-    import sdg4varselect.plot as sdgplt
-
-    sdgplt.plot_theta(res, 7, my_params_star, myModel.params_names)
-    sdgplt.plot_theta_HD(res, 7, my_params_star, myModel.params_names)
+    sdgplt.plot_theta(res, 7, p_star, myModel.params_names)
+    sdgplt.plot_theta_hd(res, 7, p_star, myModel.params_names)
+    print(f"chrono = {res.chrono}")

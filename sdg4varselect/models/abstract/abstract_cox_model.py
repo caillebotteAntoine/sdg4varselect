@@ -24,15 +24,15 @@ class AbstractCoxModel(AbstractModel):
     def __init__(self, N, P, **kwargs):
         AbstractModel.__init__(self, N=N, **kwargs)
 
-        self._dim_cov_cox = P
+        self.P = P
 
     @property
     def DIM_LD(self):
-        return self._parametrization.size - self._dim_cov_cox
+        return self._parametrization.size - self.P
 
     @property
     def DIMCovCox(self):
-        return self._dim_cov_cox
+        return self.P
 
     @property
     def name(self):

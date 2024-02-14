@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     myModel = Logistic_JM(N=100, J=5, DIM_HD=4)
 
-    my_params_star = myModel.new_params(
+    p_star = myModel.new_params(
         mu1=0.3,
         mu2=90.0,
         mu3=7.5,
@@ -230,9 +230,9 @@ if __name__ == "__main__":
 
     def test_censoring_loc(censoring_loc):
         myobs, mysim = myModel.sample(
-            my_params_star, jrd.PRNGKey(0), weibull_censoring_loc=censoring_loc
+            p_star, jrd.PRNGKey(0), weibull_censoring_loc=censoring_loc
         )
-        _, _ = plot_sample(myobs, mysim, my_params_star, censoring_loc, 80, 35)
+        _, _ = plot_sample(myobs, mysim, p_star, censoring_loc, 80, 35)
 
     test_censoring_loc(1000)  # a = 80, b = 35
     # test_censoring_loc(85)  # ~20%

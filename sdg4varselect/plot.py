@@ -8,7 +8,8 @@ Create by antoine.caillebotte@inrae.fr
 
 from functools import wraps
 import matplotlib.pyplot as plt
-from sdg4varselect.outputs_new import GDResults, MultiRunRes, RegularizationPathRes
+from sdg4varselect.outputs import GDResults, MultiRunRes, RegularizationPathRes
+from sdg4varselect._MCMC import MCMC_chain
 
 # import matplotlib.colors as colors
 import numpy as np
@@ -118,6 +119,14 @@ def plot(*args, **kwargs):
     if isinstance(x, RegularizationPathRes):
         return plot_reg_path(*args, **kwargs)
 
+    if isinstance(x, dict):
+        for v in x.values():
+            plot(v, **kwargs)
+        return None
+
+    if isinstance(x, MCMC_chain):
+        return plot_mcmc(*args, **kwargs)
+
     return plt.plot(*args, **kwargs)
 
 
@@ -133,17 +142,22 @@ def _plot_theta(multi_theta, dim_ld=None, params_star=None, params_names=None):
 
     if params_star is not None:
         params_star = jnp.hstack(params_star)
+    else:
+        params_names = [
+            [n] + ["" for _ in range(dt.shape[-1] - 1)] for n in params_names
+        ]
 
     fig = figure()
     for i in range(dim_ld):
         ax = fig.add_subplot(dim_ld, 1, i + 1)
 
-        ax.plot(dt[i], label=params_names[i])
-
         if params_star is not None:
+            ax.plot(dt[i])
             ax.axhline(
                 params_star[i], linestyle="--", label=params_names[i], color=f"C{i}"
             )
+        else:
+            ax.plot(dt[i], label=params_names[i])
 
         ax.legend(loc="center left")
 

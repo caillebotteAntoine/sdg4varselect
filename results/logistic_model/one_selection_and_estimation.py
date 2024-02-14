@@ -7,7 +7,7 @@ Create by antoine.caillebotte@inrae.fr"""
 import jax.random as jrd
 import jax.numpy as jnp
 
-from sdg4varselect.outputs_new import GDResults, MultiRunRes
+from sdg4varselect.outputs import GDResults, MultiRunRes
 
 from sdg4varselect.models.wcox_mem_joint_model import (
     create_logistic_weibull_jm,
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     params_names = myModel.params_names
 
     plot_theta(multi_estim, 7, my_params_star, params_names)
-    plot_theta_hdD(multi_estim, 7, my_params_star, params_names)
+    plot_theta_hd(multi_estim, 7, my_params_star, params_names)
 
     # # === PLOT === #
     # params_names = myModel.params_names

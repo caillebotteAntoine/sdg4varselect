@@ -37,19 +37,18 @@ def gaussian_prior(data, mean, variance) -> jnp.ndarray:
 
 
 class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
-    def __init__(self, P=1, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, N=1, J=1, P=1, **kwargs):
+        super().__init__(N=N, J=J, **kwargs)
         self._P = P
 
         self._parametrization = pc.NamedTuple(
-            eta1=pc.RealPositive(scale=300),
-            eta2=pc.RealPositive(scale=300),
-            gamma2_1=pc.RealPositive(scale=0.01),
-            gamma2_2=pc.RealPositive(scale=0.01),
-            mu=pc.RealPositive(scale=1500),
-            sigma2=pc.RealPositive(scale=50),
-            Gamma2=pc.RealPositive(scale=300),
-            beta=pc.RealPositive(scale=10, shape=(P,)),
+            mu1=pc.RealPositive(scale=0.5),
+            mu2=pc.RealPositive(scale=100),
+            mu3=pc.RealPositive(scale=5),
+            gamma2_1=pc.RealPositive(scale=0.001),
+            gamma2_2=pc.RealPositive(scale=10),
+            sigma2=pc.RealPositive(scale=0.001),
+            beta=pc.Real(scale=10, shape=(P,)),
         )
 
     @property
@@ -62,19 +61,18 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
         self,
         params,
         times: jnp.ndarray,  # shape = (J,) [None, :]
-        psi1: jnp.ndarray,  # shape = (N,) [:,None]
-        psi2: jnp.ndarray,  # shape = (N,) [:,None]
-        ksi: jnp.ndarray,  # shape = (N,) [:,None]
+        phi1: jnp.ndarray,  # shape = (N,) [:,None]
+        phi2: jnp.ndarray,  # shape = (N,) [:,None]
         cov: jnp.ndarray,  # shape = (N,p)
         **kwargs,
     ) -> jnp.ndarray:  # shape = (N,J)
         """logistic_curve
-        psi1 = supremum
-        psi2 = midpoint
+        phi1 = supremum
+        phi2 = midpoint
         """
 
-        phi = params.mu + cov @ params.beta + ksi
-        out = psi1[:, None] / (1 + jnp.exp(-(times - phi[:, None]) / psi2[:, None]))
+        ksi = cov @ params.beta + phi2
+        out = phi1[:, None] / (1 + jnp.exp(-(times - ksi[:, None]) / params.mu3))
         assert out.shape == times.shape
         return out
 
@@ -83,12 +81,12 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
     def likelihood_only_prior(self, params, **kwargs) -> jnp.ndarray:
         """return likelihood with only the gaussian prior"""
         latent_prior = gaussian_prior(
-            kwargs["psi1"],
-            params.eta1,
+            kwargs["phi1"],
+            params.mu1,
             params.gamma2_1,
         ) + gaussian_prior(
-            kwargs["psi2"],
-            params.eta2,
+            kwargs["phi2"],
+            params.mu2,
             params.gamma2_2,
         )
         return latent_prior
@@ -104,15 +102,11 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
     ):
         """Sample one data set for the model"""
 
-        (
-            prngkey_time,
-            prngkey_mem,
-            prngkey_cov,
-        ) = jrd.split(prngkey, num=3)
+        (prngkey_time, prngkey_mem, prngkey_cov) = jrd.split(prngkey, num=3)
 
         # === nlmem_simulation() === #
-        time = 150 + jnp.arange(0, self.J - 1) * (3000 - 150) / (self.J - 1)
-        time = jnp.repeat(time[None, :], self.N, axis=0)
+        time = jnp.repeat(jnp.linspace(60, 135, num=self.J)[None, :], self.N, axis=0)
+        time += jrd.uniform(prngkey_time, minval=-2, maxval=2, shape=time.shape)
 
         obs = {"mem_obs_time": time}
         cov = cov_simulation(prngkey_cov, min=-1, max=1, shape=(self.N, self.P))
@@ -124,13 +118,11 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
             noise_variance="sigma2",
             fct=self.mixed_effect_function,
             random_effects={
-                "psi1": ("eta1", "gamma2_1"),
-                "psi2": ("eta2", "gamma2_2"),
-                "ksi": (0, "gamma2_2"),
+                "phi1": ("mu1", "gamma2_1"),
+                "phi2": ("mu2", "gamma2_2"),
             },
             fct_kwargs={"times": obs["mem_obs_time"], "cov": cov},
         )
-
         obs.update(obs_mem)
         obs.update({"cov": cov})
 
@@ -143,18 +135,17 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    myModel = HDLogisticMixedEffectsModel(N=100, J=10, P=5)
+    myModel = HDLogisticMixedEffectsModel(N=100, J=5, P=10)
 
     p_star = myModel.new_params(
-        eta1=200,
-        eta2=300,
-        gamma2_1=0.1,
-        gamma2_2=0.1,
-        mu=1200,
-        sigma2=30,
-        Gamma2=200,
+        mu1=0.3,
+        mu2=90.0,
+        mu3=7.5,
+        gamma2_1=0.0025,
+        gamma2_2=20,
+        sigma2=0.001,
         beta=jnp.concatenate(
-            [jnp.array([100, 50, 20]), jnp.zeros(shape=(myModel.P - 3,))]
+            [jnp.array([-3, -2, 2, 3]), jnp.zeros(shape=(myModel.P - 4,))]
         ),
     )
 

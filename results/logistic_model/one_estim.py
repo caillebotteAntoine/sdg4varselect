@@ -8,7 +8,7 @@ import jax.random as jrd
 
 # import jax.numpy as jnp
 
-from sdg4varselect.outputs_new import GDResults, MultiRunRes
+from sdg4varselect.outputs import GDResults, MultiRunRes
 
 from sdg4varselect.algo import SPGD_FIM, GradFimSettings
 

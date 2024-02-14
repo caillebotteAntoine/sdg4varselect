@@ -59,10 +59,10 @@ class AbstractModel:
         return self._parametrization.reals1d_to_params(theta_reals1d)
 
     # ============================================================== #
-    @abstractmethod
-    @functools.partial(jit, static_argnums=0)
-    def likelihood_only_prior(self, params, **kwargs) -> jnp.ndarray:
-        """return likelihood with only the gaussian prior"""
+    # @abstractmethod
+    # @functools.partial(jit, static_argnums=0)
+    # def likelihood_only_prior(self, params, **kwargs) -> jnp.ndarray:
+    #     """return likelihood with only the gaussian prior"""
 
     @abstractmethod
     @functools.partial(jit, static_argnums=0)

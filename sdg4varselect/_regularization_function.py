@@ -5,7 +5,7 @@ import jax.random as jrd
 import scipy.special
 
 from sdg4varselect.miscellaneous import step_message
-from sdg4varselect.outputs_new import MultiRunRes, sdg4vsResults
+from sdg4varselect.outputs import MultiRunRes, sdg4vsResults
 
 
 def eBIC(theta_HD, log_likelihood, n):

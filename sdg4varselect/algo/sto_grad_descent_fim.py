@@ -1,3 +1,9 @@
+"""
+Module for Stochastic Gradient descent algorithm preconditioned by the fisher information matrix.
+
+Create by antoine.caillebotte@inrae.fr
+"""
+
 # pylint: disable=E1101
 import itertools
 
@@ -6,15 +12,18 @@ import jax.numpy as jnp
 from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
-from sdg4varselect.algo.gradient_descent_FIM import (
+from sdg4varselect.algo.gradient_descent_fim import (
     GradientDescentFIM,
     GradientDescentFIMSettings,
+    get_GDFIM_settings,
 )
-from sdg4varselect.algo.abstract_algo_mcmc2 import AbstractAlgoMCMC
-from sdg4varselect.outputs_new import GDResults
+from sdg4varselect.algo.abstract.abstract_algo_mcmc import AbstractAlgoMCMC
+from sdg4varselect.outputs import GDResults
 
 
 class StochasticGradientDescentFIM(AbstractAlgoMCMC, GradientDescentFIM):
+    """Stochastic Gradient descent algorithm preconditioned by the fisher information matrix"""
+
     def __init__(
         self,
         prngkey,
@@ -38,7 +47,7 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GradientDescentFIM):
     # ============================================================== #
     def algorithm(
         self,
-        model: type(AbstractModel),
+        model: type[AbstractModel],
         likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ):
@@ -72,14 +81,16 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GradientDescentFIM):
 if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
+    from sdg4varselect.outputs import MultiRunRes
     from sdg4varselect.models.logistic_mixed_effect_model import (
         LogisticMixedEffectsModel,
     )
     import jax.random as jrd
+    import sdg4varselect.plot as sdgplt
 
-    myModel = LogisticMixedEffectsModel(N=100, J=5)
+    myModel = LogisticMixedEffectsModel(N=1000, J=5)
 
-    my_params_star = myModel.new_params(
+    p_star = myModel.new_params(
         mu1=0.3,
         mu2=90.0,
         mu3=7.5,
@@ -88,58 +99,41 @@ if __name__ == "__main__":
         sigma2=0.001,
     )
 
-    obs, _ = myModel.sample(my_params_star, jrd.PRNGKey(0))
+    obs, _ = myModel.sample(p_star, jrd.PRNGKey(0))
 
     plt.plot(obs["mem_obs_time"].T, obs["Y"].T, "o-")
 
-    theta0 = 0.2 * jrd.normal(jrd.PRNGKey(0), shape=(myModel.parametrization.size,))
+    algo_settings = get_GDFIM_settings(preheating=400, heating=600)
 
-    algo_settings = GradientDescentFIM.GradientDescentFIMSettings(
-        step_size_grad={
-            "learning_rate": 1e-8,
-            "preheating": 400,
-            "heating": 600,
-            "max": 0.9,
-        },
-        step_size_approx_sto={
-            "learning_rate": 1e-8,
-            "preheating": 400,
-            "heating": None,
-            "max": 1,
-        },
-        step_size_fisher={
-            "learning_rate": 1e-8,
-            "preheating": 400,
-            "heating": None,
-            "max": 0.9,
-        },
-    )
+    def one_fit(theta0):
+        params = myModel.parametrization.reals1d_to_params(theta0)
 
-    algo = StochasticGradientDescentFIM(jrd.PRNGKey(0), 1000, algo_settings)
-    # =================== MCMC configuration ==================== #
-    algo.add_mcmc(
-        float(my_params_star.mu1),
-        sd=0.001,
-        size=myModel.N,
-        likelihood=myModel.likelihood_array,
-        name="phi1",
-    )
-    algo.latent_variables["phi1"].adaptative_sd = True
-    algo.add_mcmc(
-        float(my_params_star.mu2),
-        sd=2,
-        size=myModel.N,
-        likelihood=myModel.likelihood_array,
-        name="phi2",
-    )
-    algo.latent_variables["phi2"].adaptative_sd = True
-    # ==================== END configuration ==================== #
+        algo = StochasticGradientDescentFIM(jrd.PRNGKey(0), 1000, algo_settings)
+        # =================== MCMC configuration ==================== #
+        algo.add_mcmc(
+            float(params.mu1),
+            sd=0.001,
+            size=myModel.N,
+            likelihood=myModel.likelihood_array,
+            name="phi1",
+        )
+        algo.latent_variables["phi1"].adaptative_sd = True
+        algo.add_mcmc(
+            float(params.mu2),
+            sd=2,
+            size=myModel.N,
+            likelihood=myModel.likelihood_array,
+            name="phi2",
+        )
+        algo.latent_variables["phi2"].adaptative_sd = True
+        # ==================== END configuration ==================== #
+        return algo.fit(myModel, obs, theta0, ntry=5)
 
     res = []
     for i in range(10):
         theta0 = 0.2 * jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
-        res.append(algo.fit(myModel, obs, theta0, ntry=5))
+        res.append(one_fit(theta0))
+    res = MultiRunRes(res)
 
-    import sdg4varselect.plot as sdgplt
-
-    sdgplt.plot_theta(res, 3, my_params_star, myModel.params_names)
+    sdgplt.plot(res, params_star=p_star, params_names=myModel.params_names)
+    print(f"chrono = {res.chrono}")

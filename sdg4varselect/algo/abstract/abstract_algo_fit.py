@@ -13,6 +13,8 @@ from sdg4varselect.exceptions import sdg4vsNanError
 
 
 class AbstractAlgoFit:
+    """vraisseblance parameter estimation algorithm"""
+
     def __init__(self, max_iter: int):
         self._max_iter = max_iter
 
@@ -21,10 +23,22 @@ class AbstractAlgoFit:
         """return all the needed data"""
 
     # ============================================================== #
+
+    @abstractmethod
+    def _initialize_algo(
+        self,
+        model: type[AbstractModel],
+        likelihood_kwargs,
+        theta_reals1d: jnp.ndarray,
+    ) -> None:
+        """
+        Initialize the algorithm
+        """
+
     @abstractmethod
     def algorithm(
         self,
-        model: type(AbstractModel),
+        model: type[AbstractModel],
         likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ):
@@ -36,12 +50,14 @@ class AbstractAlgoFit:
 
     def fit(
         self,
-        model,
+        model: type[AbstractModel],
         data,
         theta0_reals1d: jnp.ndarray,
         ntry=1,
         partial_fit=False,
     ):
+
+        self._initialize_algo(model, self.get_likelihood_kwargs(data), theta0_reals1d)
 
         chrono_start = datetime.now()
         out = list(

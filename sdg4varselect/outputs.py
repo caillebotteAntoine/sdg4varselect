@@ -4,27 +4,105 @@ Module for results handling objects.
 Create by antoine.caillebotte@inrae.fr
 """
 
-# pylint: disable=C0116
-from collections import namedtuple
+# pylint: disable=C0116, E1133
 
 import gzip
 import pickle
 import jax.numpy as jnp
+from datetime import timedelta
+
+from sdg4varselect.exceptions import sdg4vsNanError
+from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
 
-from sdg4varselect.models.abstract_joint_model import AbstractJointModel
+def autoproperty(attribute_name: str):
+    attribute_name = "_" + attribute_name
+
+    def getter(self):
+        return getattr(self, attribute_name)
+
+    return property(getter, None)
+
+
+class is_iterable:
+    def __init__(self, name: str, results: list, len_name: str = None):
+        self._name = name
+        self.__dict__[self._name] = results
+
+        # setattr(is_iterable, name, autoproperty("results"))
+        self._len_name = len_name
+
+    def __getattr__(self, key):
+        if key == self._len_name:
+            return len(self)
+
+        return self.__dict__[key]
+
+    def __len__(self):
+        return len(self.__dict__[self._name])
+
+    def __getitem__(self, i):
+        return self.__dict__[self._name][i]
+
+    def __iter__(self):
+        for res in self.__dict__[self._name]:
+            yield res
+
+
+class has_last_theta:
+    def __init__(self):
+        pass
+
+    @property
+    def last_theta(self):
+        return [x.last_theta for x in self]
+
+
+class has_likelihood:
+    def __init__(self):
+        pass
+
+    @property
+    def likelihood(self):
+        return jnp.array([x.likelihood for x in self])
+
+
+class can_be_lightened:
+    def __init__(self):
+        pass
+
+    def make_it_lighter(self):
+        for res in self:
+            res.make_it_lighter()
+
+
+class has_chrono:
+    def __init__(self, list_with_chrono: list):
+        self._chrono = timedelta()
+
+        for item in list_with_chrono:
+            self._chrono += item.chrono
+
+    chrono = autoproperty("chrono")
+
+
+class GDResults_handler(can_be_lightened, has_last_theta, has_likelihood):
+    def __init__(self):
+        can_be_lightened.__init__(self)
+        has_last_theta.__init__(self)
+        has_likelihood.__init__(self)
 
 
 def _get_filename(
-    model: type(AbstractJointModel),
+    model: type[AbstractModel],
     root: str = "",
-    filename_default: str = "",
+    filename_add_on: str = "",
 ):
     """return filename"""
-    filename = f"N{model.N}_P{model.DIM_HD}_J{model.J}"
+    filename = model.name
 
-    if filename_default != "":
-        filename = filename_default + "_" + filename
+    if filename_add_on != "":
+        filename = filename + "_" + filename_add_on
 
     if root != "":
         filename = root + "/" + filename
@@ -33,64 +111,51 @@ def _get_filename(
 
 
 class sdg4vsResults:
-    def __new__(self, *args, **kwargs):
-        # self._model_cst = {"N": N, "J": J, "P": P}
-        return super(sdg4vsResults, self).__new__(self, *args, **kwargs)
-
-    # def __init__(self, *args, N=None,J=None,P=None, **kwargs):
-    #     if model is not None:
-    #         self.model_cst = {"N": model.N, "J": model.J, "P": model.DIM_HD}
-
-    # @property
-    # def model_cst(self):
-    #     return self._model_cst
 
     @staticmethod
     def load(
-        model: type(AbstractJointModel),
+        model: type[AbstractModel],
         root: str = "",
-        filename_default: str = "",
+        filename_add_on: str = "",
     ):
         """load object"""
-        filename = _get_filename(model, root, filename_default)
+        filename = _get_filename(model, root, filename_add_on)
         out = pickle.load(gzip.open(f"{filename}.pkl.gz", "rb"))
         print(f"{filename} LOADED !")
         return out
 
     def save(
         self,
-        model: type(AbstractJointModel),
+        model: type[AbstractModel],
         root: str = "",
-        filename_default: str = "",
+        filename_add_on: str = "",
     ):
         """save the object"""
-        filename = _get_filename(model, root, filename_default)
+        filename = _get_filename(model, root, filename_add_on)
         pickle.dump(self, gzip.open(f"{filename}.pkl.gz", "wb"))
         print(f"{filename} SAVED !")
 
 
 ###########################################################################################################
 
-_SDGResults = namedtuple("SDGResults", ("theta", "FIM", "grad", "likelihood"))
 
+class GDResults(sdg4vsResults):
 
-class SDGResults(sdg4vsResults, _SDGResults):
-    # def __new__(self, model: type(abstract_joint_model), *args, **kwargs):
-    # return super(SDGResults, self).__new__(self, model, *args, **kwargs)
+    def __init__(self, theta, FIM, grad, chrono=0, likelihood=jnp.nan, **kwargs):
+        self._theta = theta
+        self._FIM = FIM
+        self._grad = grad
+        self._chrono = chrono
+        self._likelihood = likelihood
 
-    def __init__(self, *args, **kwargs):
-        pass
-        # sdg4vsResults.__init__(self, *args, **kwargs)
-        # _SDGResults.__init__(self, *args, **kwargs)
+    theta = autoproperty("theta")
+    FIM = autoproperty("FIM")
+    grad = autoproperty("grad")
+    chrono = autoproperty("chrono")
+    likelihood = autoproperty("likelihood")
 
     @classmethod
-    def new_from_list(cls, sdg_res):
-        # assert isinstance(sdg_res, list)
-        # assert len(sdg_res) != 0
-        # assert isinstance(sdg_res[0], list)
-        # print(type(sdg_res))
-        # print(type(sdg_res[0]))
-
+    def new_from_list(cls, sdg_res, chrono):
         res = [
             [sdg_res[i][j] for i in range(len(sdg_res))] for j in range(len(sdg_res[0]))
         ]
@@ -99,28 +164,30 @@ class SDGResults(sdg4vsResults, _SDGResults):
             theta=jnp.array(res[0]),
             FIM=res[1],
             grad=jnp.array(res[2]),
-            likelihood=jnp.array(res[3]),
+            chrono=chrono,
+            likelihood=jnp.nan,
         )
 
     @property
     def last_theta(self):
         """return the last theta-array of attribut theta"""
-        return self.theta[-1]
+        return self._theta[-1]
 
     @classmethod
-    def compute_with_model(cls, prngkey, algo, model, sdg_res):
-        likelihood = algo.likelihood_marginal(model, prngkey, sdg_res.last_theta)
+    def compute_with_model(cls, model, sdg_res, likelihood=None) -> "GDResults":
+        # likelihood = algo.likelihood_marginal(model, sdg_res.last_theta)
         theta = jnp.array([model.reals1d_to_hstack_params(t) for t in sdg_res.theta])
 
         return cls(
             theta=theta,
             FIM=sdg_res.FIM,
             grad=sdg_res.grad,
-            likelihood=likelihood,
+            chrono=sdg_res.chrono,
+            likelihood=likelihood if likelihood is not None else sdg_res.likelihood,
         )
 
     @classmethod
-    def expand_theta(cls, results, preserved_component):
+    def expand_theta(cls, results, preserved_component) -> "GDResults":
         res = jnp.zeros(shape=(results.theta.shape[0], preserved_component.shape[0]))
         theta = res.at[:, jnp.where(preserved_component)].set(results.theta[:, None, :])
 
@@ -128,120 +195,110 @@ class SDGResults(sdg4vsResults, _SDGResults):
             theta=theta,
             FIM=results.FIM,
             grad=results.grad,
+            chrono=results.chrono,
             likelihood=results.likelihood,
         )
 
     @classmethod
-    def remove_zeros(cls, results):
+    def remove_zeros(cls, results) -> "GDResults":
         preserved_component = results.last_theta != 0
 
         return cls(
             theta=results.theta[:, preserved_component],
             FIM=results.FIM,
             grad=results.grad[:, preserved_component],
+            chrono=results.chrono,
             likelihood=results.likelihood,
         )
 
     @classmethod
-    def make_it_lighter(cls, results):
+    def make_it_lighter(cls, results) -> "GDResults":
         return cls(
             theta=jnp.array([results.theta[0], results.theta[-1]]),
             FIM=None,
             grad=jnp.array([results.grad[0], results.grad[-1]]),
+            chrono=results.chrono,
             likelihood=results.likelihood,
         )
 
 
 ###########################################################################################################
 
-_RegularizationPathRes = namedtuple(
-    "RegularizationPathRes",
-    ("listSDGResults", "bic"),
-)
+
+class MultiRunRes(sdg4vsResults, is_iterable, has_chrono, GDResults_handler):
+    def __init__(self, multi_run: list):
+        GDResults_handler.__init__(self)
+        while sdg4vsNanError in multi_run:
+            multi_run.remove(sdg4vsNanError)
+
+        has_chrono.__init__(self, multi_run)
+        is_iterable.__init__(self, "multi_run", multi_run, len_name="nrun")
 
 
-class RegularizationPathRes(sdg4vsResults, _RegularizationPathRes):
-    def __init__(self, *args, **kwargs):
-        pass
+###########################################################################################################
+
+
+class RegularizationPathRes(sdg4vsResults, is_iterable, has_chrono, can_be_lightened):
+    def __init__(self, multi_run: MultiRunRes, bic, argmin_bic, lbd_set):
+        has_chrono.__init__(self, multi_run)
+        is_iterable.__init__(self, "multi_run", multi_run)
+
+        self._bic = bic
+        self._argmin_bic = argmin_bic
+        self._lbd_set = lbd_set
+
+    bic = autoproperty("bic")
+    argmin_bic = autoproperty("argmin_bic")
+    lbd_set = autoproperty("lbd_set")
+
+    @property
+    def final_result(self):
+        return self.multi_run[self._argmin_bic]
 
     @classmethod
-    def make_it_lighter(cls, results):
-        listSDGResults = [SDGResults.make_it_lighter(r) for r in results.listSDGResults]
+    def switch_runs(cls, results):
+        nrun = len(results.multi_run)
+        nresolution = len(results.multi_run[0])
+        runs = [
+            MultiRunRes([results.multi_run[i][j] for i in range(nrun)])
+            for j in range(nresolution)
+        ]
 
         return cls(
-            listSDGResults=listSDGResults,
+            multi_run=runs,
             bic=results.bic,
+            argmin_bic=results.argmin_bic,
+            lbd_set=results.lbd_set,
         )
+
+    @property
+    def last_theta(self):
+        return self[self.argmin_bic].last_theta
 
 
 ###########################################################################################################
 
-_variableSelectionRes = namedtuple(
-    "VariableSelectionRes",
-    ("listSDGResults", "theta", "regularization_path", "bic", "argmin_bic"),
-)
 
-
-class VariableSelectionRes(sdg4vsResults, _variableSelectionRes):
-    def __init__(self, *args, **kwargs):
-        pass
+class MultiRegRes(sdg4vsResults, is_iterable, has_chrono, GDResults_handler):
+    def __init__(self, multi_run: list[RegularizationPathRes]):
+        GDResults_handler.__init__(self)
+        has_chrono.__init__(self, multi_run)
+        is_iterable.__init__(self, "multi_run", multi_run, len_name="nrun")
 
 
 ###########################################################################################################
 
-_MultiRunRes = namedtuple(
-    "MultiRunRes",
-    ("MultiRun", "lbd_set", "chrono", "N", "J", "P", "C"),
-)
 
+class TestResults(sdg4vsResults, is_iterable, has_chrono, GDResults_handler):
+    def __init__(self, tests: list[MultiRegRes], test_config: list[dict]):
+        GDResults_handler.__init__(self)
+        has_chrono.__init__(self, tests)
+        is_iterable.__init__(self, "tests", tests, len_name="ntest")
+        assert len(tests) == len(test_config)
 
-class MultiRunRes(sdg4vsResults, _MultiRunRes):
-    def __init__(self, *args, **kwargs):
-        pass
+        self._config = test_config
 
-    @classmethod
-    def new_from_model(cls, multi_run, lbd_set, chrono, model, censoring_rate):
-        return cls(
-            MultiRun=multi_run,
-            lbd_set=lbd_set,
-            chrono=chrono,
-            N=model.N,
-            J=model.J,
-            P=model.DIM_HD,
-            C=censoring_rate,
-        )
+    config = autoproperty("config")
 
-    @classmethod
-    def new_from_list(cls, multi_res):
-        return cls(
-            MultiRun=[res.MultiRun for res in multi_res],
-            lbd_set=multi_res[0].lbd_set,
-            chrono=[res.chrono for res in multi_res],
-            N=[res.N for res in multi_res],
-            J=[res.J for res in multi_res],
-            P=[res.P for res in multi_res],
-            C=[res.C for res in multi_res],
-        )
-
-
-if __name__ == "__main__":
-    myModel = AbstractJointModel()
-    print(sdg4vsResults())
-    print(SDGResults(1, 2, 3, 4))
-
-    x = SDGResults(1, 2, 3, 4)
-    print(x)
-
-    print(SDGResults(FIM=1, likelihood=2, grad=3, theta=4))
-
-    x.save(myModel, root="", filename_default="x")
-    print(sdg4vsResults.load(myModel, filename_default="x"))
-
-    # A = namedtuple("A",("a"))
-    # B = namedtuple("B",("b"))
-
-    # class C(A,B):
-    #     def __init__(self, *args, **kwargs):
-    #         pass
-
-    # print(C(a = 1, b = 2))
+    def get_scenarios_labels(self, key: str) -> list[str]:
+        return [f"{key} = {c[key]}" for c in self.config]

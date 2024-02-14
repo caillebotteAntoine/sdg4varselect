@@ -8,7 +8,7 @@ import jax.random as jrd
 import jax.numpy as jnp
 
 from sdg4varselect import regularization_path
-from sdg4varselect.outputs_new import RegularizationPathRes, MultiRunRes
+from sdg4varselect.outputs import RegularizationPathRes, MultiRunRes
 
 from sdg4varselect.models.wcox_mem_joint_model import (
     create_logistic_weibull_jm,

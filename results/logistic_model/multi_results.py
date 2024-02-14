@@ -13,9 +13,9 @@ from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.miscellaneous import step_message
 from results.logistic_model.one_result import one_result
 
-from sdg4varselect.outputs_new import MultiRegRes
+from sdg4varselect.outputs import MultiRegRes
 
-from sdg4varselect.outputs_new import sdg4vsResults
+from sdg4varselect.outputs import sdg4vsResults
 
 
 # ====================================================== #
