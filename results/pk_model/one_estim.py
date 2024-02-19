@@ -82,7 +82,6 @@ def one_estim(prngkey, model, dh, lbd=None, alpha=1.0, save_all=True):
 
 
 if __name__ == "__main__":
-    from sdg4varselect import sample_model
     import sdg4varselect.plot as sdgplt
     from sdg4varselect.models.pharmacokinetic import (
         PharmaJM,

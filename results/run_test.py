@@ -16,8 +16,8 @@ from results.logistic_model.multi_results import multi_run
 
 # from sdg4varselect.outputs import MultiRunRes
 
-nrun = 20
-lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
+nrun = 1
+lbd_set = 10 ** jnp.linspace(-2, 0, num=1)
 
 
 # def testC(*censoring_loc):
@@ -45,7 +45,7 @@ def test(N, J, P, censoring=2000):
     my_model = create_logistic_weibull_jm(N, J, P)
     p_star = get_params_star(my_model)
 
-    seed = 2
+    seed = 3
     res, censoring_rate = multi_run(
         jrd.PRNGKey(seed),
         lbd_set,
@@ -77,21 +77,19 @@ def test(N, J, P, censoring=2000):
 
 # testC(1000, 85, 77)
 
-
+test(100, 5, 5)
+test(100, 5, 6)
 
 test(100, 5, 10)
-test(100, 5, 50)
+test(200, 5, 10)
+test(300, 5, 10)
 
-test(100, 5, 100)
-test(200, 5, 100)
-test(300, 5, 100)
+# test(100, 5, 30)
+# test(100, 5, 100)
+# test(100, 5, 200)
 
-test(100, 5, 30)
-test(100, 5, 100)
-test(100, 5, 200)
-
-test(100, 5, 500)
-test(100, 5, 800)
+# test(100, 5, 500)
+# test(100, 5, 800)
 
 
 # for i in (10, 50, 200, 400, 600, 1000):

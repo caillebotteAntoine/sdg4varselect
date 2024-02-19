@@ -4,9 +4,12 @@ Module for Abstract class containing common method for algorithm based on Monte-
 Create by antoine.caillebotte@inrae.fr
 """
 
-# pylint: disable=C0116
+# pylint: disable=C0116, W0613
 from copy import deepcopy
+import jax.numpy as jnp
+
 from sdg4varselect._MCMC import MCMC_chain
+from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
 
 class AbstractAlgoMCMC:
@@ -26,6 +29,21 @@ class AbstractAlgoMCMC:
     def latent_data(self) -> dict:
         """Returns the latent_data dictionary."""
         return self._latent_data
+
+    def set_seed(self, prngkey) -> None:
+        self._prngkey = prngkey
+
+    def _initialize_algo(
+        self,
+        model: type[AbstractModel],
+        likelihood_kwargs,
+        theta_reals1d: jnp.ndarray,
+    ) -> None:
+        """
+        Initialize the algorithm
+        """
+        for var in self.latent_variables.values():
+            var.reset()
 
     # ============================================================== #
     def add_data(self, **kwargs) -> None:
@@ -49,8 +67,8 @@ class AbstractAlgoMCMC:
     # ============================================================== #
     def likelihood_marginal(self, model, data, theta, size=1000):
         var_lat_sample = {}
-        for var in self.latent_variables:
-            var_lat_sample[var] = self.latent_variables[var].sample(
+        for key, item in self.latent_variables.items():
+            var_lat_sample[key] = item.sample(
                 self._prngkey,
                 theta,
                 size=size,
@@ -92,60 +110,3 @@ class AbstractAlgoMCMC:
 
 if __name__ == "__main__":
     pass
-    # import jax.numpy as jnp
-
-    # import jax.random as jrd
-    # from sdg4varselect.models.logistic_joint_model import (
-    #     Logistic_JM,
-    #     sample_one,
-    # )
-
-    # myModel = Logistic_JM(N=100, J=5, DIM_HD=10)
-
-    # myDH = sample_one(jrd.PRNGKey(0), myModel, weibull_censoring_loc=2000)
-
-    # algo = AbstractAlgoMCMC(jrd.PRNGKey(0), myDH)
-    # # =================== MCMC configuration ==================== #
-    # algo.add_mcmc(
-    #     0.3,
-    #     sd=0.001,
-    #     size=myModel.N,
-    #     likelihood=myModel.likelihood_array,
-    #     name="phi1",
-    # )
-    # algo.latent_variables["phi1"].adaptative_sd = True
-    # algo.add_mcmc(
-    #     90,
-    #     sd=2,
-    #     size=myModel.N,
-    #     likelihood=myModel.likelihood_array,
-    #     name="phi2",
-    # )
-    # algo.latent_variables["phi2"].adaptative_sd = True
-
-    # params_star = myModel.new_params(
-    #     mu1=0.3,
-    #     mu2=90.0,
-    #     mu3=7.5,
-    #     gamma2_1=0.0025,
-    #     gamma2_2=20,
-    #     sigma2=0.001,
-    #     alpha=11.11,
-    #     beta=jnp.concatenate(
-    #         [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.DIM_HD - 4,))]
-    #     ),
-    # )
-
-    # myTheta = myModel.parametrization.params_to_reals1d(params_star)
-    # prngkey = jrd.PRNGKey(0)
-    # size = 1000
-
-    # # likelihood = [
-    # #     algo.likelihood_marginal(myModel, jrd.PRNGKey(0), myTheta, size=size)
-    # #     for size in [10 * i for i in range(100)]
-    # # ]
-
-    # import matplotlib.pyplot as plt
-
-    # plt.plot(jnp.array(out) / jnp.arange(1, n_simu + 1))
-    # # plt.plot([10 * i for i in range(100)], likelihood)

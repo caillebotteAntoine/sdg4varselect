@@ -8,37 +8,21 @@ import jax.random as jrd
 
 # import jax.numpy as jnp
 
+import sdg4varselect.plot as plt
 from sdg4varselect.outputs import GDResults, MultiRunRes
 
-from sdg4varselect.algo import SPGD_FIM, GradFimSettings
+from sdg4varselect.algo import SPGD_FIM, get_GDFIM_settings
 
 
-algo_settings = GradFimSettings(
-    step_size_grad={
-        "learning_rate": 1e-8,
-        "preheating": 1000,
-        "heating": 1400,
-        "max": 0.9,
-    },
-    step_size_approx_sto={
-        "learning_rate": 1e-8,
-        "preheating": 1000,
-        "heating": 2000,
-        "max": 1,
-    },
-    step_size_fisher={
-        "learning_rate": 1e-8,
-        "preheating": 1000,
-        "heating": 2000,
-        "max": 0.9,
-    },
-)
+algo_settings = get_GDFIM_settings(preheating=1000, heating=1400)
 
 
-def estim(prngkey, model, data, theta0, lbd=None, alpha=1.0):
+def one_estim(prngkey, model, data, lbd=None, alpha=1.0, save_all=True):
+    prngkey_theta, prngkey_estim = jrd.split(prngkey)
+    theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(model.parametrization_size,))
     params0 = model.parametrization.reals1d_to_params(theta0)
 
-    algo = SPGD_FIM(prngkey, 2000, algo_settings, lbd=lbd, alpha=alpha)
+    algo = SPGD_FIM(prngkey_estim, 2000, algo_settings, lbd=lbd, alpha=alpha)
     # =================== MCMC configuration ==================== #
     algo.add_mcmc(
         float(params0.mu1),
@@ -57,18 +41,12 @@ def estim(prngkey, model, data, theta0, lbd=None, alpha=1.0):
     )
     algo.latent_variables["phi2"].adaptative_sd = True
     # ==================== END configuration ==================== #
-    res = algo.fit(model, data, theta0, ntry=5, partial_fit=False)
+    res = algo.fit(model, data, theta0, ntry=5, partial_fit=True)
 
-    return res, algo
+    # for var in algo.latent_variables.values():
+    #     plt.plot(var)
 
-
-def one_estim(prngkey, model, dh, lbd=None, alpha=1.0, save_all=True):
-    prngkey_theta, prngkey_estim = jrd.split(prngkey)
-    theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(model.parametrization.size,))
-
-    res_estim, _ = estim(prngkey_estim, model, dh, theta0, lbd=lbd, alpha=alpha)
-
-    return res_estim if save_all else GDResults.make_it_lighter(res_estim)
+    return res if save_all else GDResults.make_it_lighter(res)
 
 
 if __name__ == "__main__":
@@ -92,11 +70,9 @@ if __name__ == "__main__":
     print(multi_estim.chrono)
 
     # === PLOT === #
-    import sdg4varselect.plot as plt
 
     names = myModel.params_names
 
-    plt.plot(multi_estim, 7, p_star, names)
-    plt.plot(multi_estim, 7, p_star, names)
+    plt.plot(multi_estim, dim_ld=7, params_star=p_star, params_names=names)
 
     # sdgplt.plot_mcmc(algo.mcmc)

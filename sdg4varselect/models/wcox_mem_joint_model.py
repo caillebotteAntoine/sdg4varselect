@@ -27,19 +27,26 @@ from sdg4varselect.models.logistic_mixed_effect_model import (
 
 
 class WeibullCoxMemJointModel(AbstractCoxMemJointModel):
-    def __init__(self, mem: type(AbstractMixedEffectsModel), P, a=80, b=35, **kwargs):
+    """define a joint model of an mixed effects model and a cox model with weibull baseline hazard"""
+
+    def __init__(self, mem: type[AbstractMixedEffectsModel], P, a=80, b=35, **kwargs):
         AbstractCoxMemJointModel.__init__(self, mem=mem, P=P, a=a, b=b, **kwargs)
 
+        self.init()
+
+    def init(self):
+        """here you define the parametrization of the model
+        and don't forget to call the mother init function at the end"""
         self._parametrization = pc.NamedTuple(
-            alpha=pc.Real(scale=10), beta=pc.Real(scale=1, shape=(P,))
+            alpha=pc.Real(scale=10), beta=pc.Real(scale=1, shape=(self.P,))
         )
 
-        self.init()
+        AbstractCoxMemJointModel.init(self)
 
     @property
     def name(self):
         """return a str called name, based on the parameter of the model"""
-        return f"WCoxMemJM_N{self.N}_J{self.J}_P{self.DIMCovCox}"
+        return f"WCoxMemJM_N{self.N}_J{self.J}_P{self.P}"
 
     # ============================================================== #
     @abstractmethod

@@ -9,13 +9,15 @@ import jax.random as jrd
 import jax.numpy as jnp
 
 from sdg4varselect.exceptions import sdg4vsNanError
-
-from sdg4varselect.miscellaneous import step_message
-from results.logistic_model.one_result import one_result
-
 from sdg4varselect.outputs import MultiRegRes
+import sdg4varselect.plot as sdgplt
+from sdg4varselect.miscellaneous import step_message
+from sdg4varselect.models.wcox_mem_joint_model import (
+    create_logistic_weibull_jm,
+    get_params_star,
+)
 
-from sdg4varselect.outputs import sdg4vsResults
+from results.logistic_model.one_result import one_result
 
 
 # ====================================================== #
@@ -56,22 +58,26 @@ def multi_run(prngkey, lbd_set, params_star, model, nrun, censoring, save_all=Tr
 
 
 if __name__ == "__main__":
-    import sdg4varselect.plot as sdgplt
-    from sdg4varselect.models.wcox_mem_joint_model import (
-        get_params_star,
-        create_logistic_weibull_jm,
-    )
+    my_lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
+    # my_lbd_set = [1.5 * 10**-1]
 
-    my_lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
     myModel = create_logistic_weibull_jm(100, 5, 10)
     p_star = get_params_star(myModel)
 
-    # res, censoring = multi_run(
-    #     jrd.PRNGKey(0), my_lbd_set, p_star, myModel, nrun=2, censoring=2000
-    # )
-    # print(censoring)
+    res, C = multi_run(
+        jrd.PRNGKey(0), my_lbd_set, p_star, myModel, nrun=5, censoring=2000
+    )
+    print(C)
 
-    res = sdg4vsResults.load(myModel)
+    # res = sdg4vsResults.load(myModel)
+
+    # === PLOT === #
+    params_names = myModel.params_names
+
+    sdgplt.plot_theta(res[0], 7, p_star, params_names)
+    sdgplt.plot_theta_hd(res[0], 7, p_star, params_names)
+    sdgplt.plot_reg_path(res[0], myModel.DIM_LD)
+    print(f"chrono = {res.chrono}")
 
     # === PLOT === #
 
@@ -79,11 +85,4 @@ if __name__ == "__main__":
     #     sres.listSDGResults[-1], myModel.DIM_LD, params_star, myModel.params_names
     # )
 
-    sdgplt.plot(
-        res[0].final_result,
-        dim_ld=myModel.DIM_LD,
-        params_star=p_star,
-        params_names=myModel.params_names,
-    )
-
-    sdgplt.plot(res[0], myModel.DIM_LD)
+    # sdgplt.plot(res[0], myModel.DIM_LD)

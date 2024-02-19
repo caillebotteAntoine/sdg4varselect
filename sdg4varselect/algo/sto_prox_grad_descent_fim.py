@@ -16,13 +16,15 @@ from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
 from sdg4varselect.algo.gradient_descent_fim import GradientDescentFIMSettings
 
-from sdg4varselect.algo.sto_grad_descent_fim import StochasticGradientDescentFIM
+from sdg4varselect.algo.sto_grad_descent_fim import (
+    StochasticGradientDescentFIM as SGD_FIM,
+)
 
 
 from sdg4varselect.algo.stochastic_gradient_descent_utils import proximal_operator
 
 
-class StochasticProximalGradientDescentFIM(StochasticGradientDescentFIM):
+class StochasticProximalGradientDescentFIM(SGD_FIM):
     """Stochastic Proximal Gradient descent algorithm preconditioned by the fisher information matrix"""
 
     def __init__(
@@ -33,7 +35,7 @@ class StochasticProximalGradientDescentFIM(StochasticGradientDescentFIM):
         lbd: Optional[float] = None,
         alpha: Optional[float] = 1.0,
     ):
-        StochasticGradientDescentFIM.__init__(self, prngkey, max_iter, settings)
+        SGD_FIM.__init__(self, prngkey, max_iter, settings)
 
         self._lbd = lbd
         self._alpha = alpha
@@ -50,7 +52,7 @@ class StochasticProximalGradientDescentFIM(StochasticGradientDescentFIM):
         """
         Initialize the algorithm
         """
-        super()._initialize_algo(model, likelihood_kwargs, theta_reals1d)
+        SGD_FIM._initialize_algo(self, model, likelihood_kwargs, theta_reals1d)
 
         dim_theta = theta_reals1d.shape[0]
 
@@ -129,7 +131,7 @@ if __name__ == "__main__":
         sigma2=0.001,
         alpha=110.11,
         beta=jnp.concatenate(
-            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.DIMCovCox - 4,))]
+            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.P - 4,))]
         ),
     )
 
@@ -142,7 +144,7 @@ if __name__ == "__main__":
     def one_fit(theta0):
         params = myModel.parametrization.reals1d_to_params(theta0)
 
-        algo = StochasticGradientDescentFIM(jrd.PRNGKey(0), 1000, algo_settings)
+        algo = StochasticProximalGradientDescentFIM(jrd.PRNGKey(0), 1000, algo_settings)
         # =================== MCMC configuration ==================== #
         algo.add_mcmc(
             float(params.mu1),

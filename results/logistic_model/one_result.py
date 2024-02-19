@@ -7,23 +7,23 @@ Create by antoine.caillebotte@inrae.fr"""
 import jax.random as jrd
 import jax.numpy as jnp
 
+import sdg4varselect.plot as sdgplt
+from sdg4varselect._estimation_method import lasso_into_adaptive_into_estim
 from sdg4varselect import regularization_path
 from sdg4varselect.outputs import RegularizationPathRes, MultiRunRes
-
 from sdg4varselect.models.wcox_mem_joint_model import (
     create_logistic_weibull_jm,
+    get_params_star,
 )
 
 
-from results.logistic_model.one_selection_and_estimation import (
-    lasso_into_adaptive_into_estim,
-)
+from results.logistic_model.one_estim import one_estim
 
 
-def estim_with_flag(model, *args, **kwargs) -> tuple[MultiRunRes, bool]:
+def estim_with_flag(model, **kwargs) -> tuple[MultiRunRes, bool]:
     """must return the estimation results and
     a flag which indicates if the regularization path is finished"""
-    res_estim = lasso_into_adaptive_into_estim(*args, model=model, **kwargs)
+    res_estim = lasso_into_adaptive_into_estim(one_estim, model=model, **kwargs)
     dim_ld = model.DIM_LD
     flag = (res_estim[-1].last_theta[dim_ld:] != 0).sum() == 0
 
@@ -63,32 +63,20 @@ def one_result(args):
 
 
 if __name__ == "__main__":
-    import sdg4varselect.plot as sdgplt
-    from sdg4varselect.models.wcox_mem_joint_model import (
-        get_params_star,
-    )
-
     my_lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
+    my_lbd_set = [2 * 10**-1]
+
     myModel = create_logistic_weibull_jm(100, 5, 10)
-    my_params_star = get_params_star(myModel)
+    p_star = get_params_star(myModel)
 
-    myobs, _ = myModel.sample(my_params_star, jrd.PRNGKey(10), weibull_censoring_loc=77)
+    myobs, _ = myModel.sample(p_star, jrd.PRNGKey(10), weibull_censoring_loc=77)
 
-    sres = _one_result(jrd.PRNGKey(0), myModel, myobs, my_lbd_set, save_all=True)
+    res = _one_result(jrd.PRNGKey(0), myModel, myobs, my_lbd_set, save_all=True)
 
     # === PLOT === #
+    params_names = myModel.params_names
 
-    # sdgplt.plot_theta(
-    #     sres.listSDGResults[-1], myModel.DIM_LD, params_star, myModel.params_names
-    # )
-    sdgplt.plot_theta_hd(
-        sres.multi_run[sres.argmin_bic][-1],
-        myModel.DIM_LD,
-        my_params_star,
-        myModel.params_names,
-    )
-
-    sdgplt.plot_reg_path(sres, myModel.DIM_LD)
-    print(f"chrono = {sres.chrono}")
-
-    x = RegularizationPathRes.switch_runs(sres)
+    sdgplt.plot_theta(res, 7, p_star, params_names)
+    sdgplt.plot_theta_hd(res, 7, p_star, params_names)
+    sdgplt.plot_reg_path(res, myModel.DIM_LD)
+    print(f"chrono = {res.chrono}")

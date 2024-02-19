@@ -13,7 +13,7 @@ from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
 from sdg4varselect.algo.gradient_descent_fim import (
-    GradientDescentFIM,
+    GradientDescentFIM as GD_FIM,
     GradientDescentFIMSettings,
     get_GDFIM_settings,
 )
@@ -21,7 +21,7 @@ from sdg4varselect.algo.abstract.abstract_algo_mcmc import AbstractAlgoMCMC
 from sdg4varselect.outputs import GDResults
 
 
-class StochasticGradientDescentFIM(AbstractAlgoMCMC, GradientDescentFIM):
+class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
     """Stochastic Gradient descent algorithm preconditioned by the fisher information matrix"""
 
     def __init__(
@@ -30,7 +30,7 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GradientDescentFIM):
         max_iter: int,
         settings: GradientDescentFIMSettings,
     ):
-        GradientDescentFIM.__init__(self, max_iter, settings)
+        GD_FIM.__init__(self, max_iter, settings)
         AbstractAlgoMCMC.__init__(self, prngkey)
 
     def get_likelihood_kwargs(self, data):
@@ -43,6 +43,18 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GradientDescentFIM):
         likelihood = self.likelihood_marginal(model, data, out.last_theta)
 
         return GDResults.compute_with_model(model, out, likelihood)
+
+    def _initialize_algo(
+        self,
+        model: type[AbstractModel],
+        likelihood_kwargs,
+        theta_reals1d: jnp.ndarray,
+    ) -> None:
+        """
+        Initialize the algorithm
+        """
+        AbstractAlgoMCMC._initialize_algo(self, model, likelihood_kwargs, theta_reals1d)
+        GD_FIM._initialize_algo(self, model, likelihood_kwargs, theta_reals1d)
 
     # ============================================================== #
     def algorithm(

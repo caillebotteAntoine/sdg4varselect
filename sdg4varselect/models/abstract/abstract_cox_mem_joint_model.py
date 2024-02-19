@@ -4,7 +4,7 @@ Module for abstract class AbstractCoxModel.
 Create by antoine.caillebotte@inrae.fr
 """
 
-# pylint: disable=C0116, W0221
+# pylint: disable=C0116, W0212
 
 from abc import abstractmethod
 import functools
@@ -23,15 +23,21 @@ from sdg4varselect.models.abstract.abstract_mixed_effect_model import (
 
 
 class AbstractCoxMemJointModel(AbstractCoxModel):
-    def __init__(self, mem: type(AbstractMixedEffectsModel), P, **kwargs):
+    """define a joint model of an mixed effects model and a cox model"""
+
+    def __init__(self, mem: type[AbstractMixedEffectsModel], P, **kwargs):
         AbstractCoxModel.__init__(self, N=mem.N, P=P, **kwargs)
 
         self._mem = mem
 
     def init(self):
+        """here you define the parametrization of the model
+        and don't forget to call the mother init function at the end"""
         params = self._mem.parametrization._params | self.parametrization._params
         self._parametrization = pc.NamedTuple(**params)
         self._mem._parametrization = pc.NamedTuple(**params)
+
+        AbstractCoxModel.init(self)
 
     @property
     def J(self):

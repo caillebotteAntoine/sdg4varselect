@@ -8,7 +8,7 @@ from sdg4varselect.miscellaneous import step_message
 from sdg4varselect.outputs import MultiRunRes, sdg4vsResults
 
 
-def eBIC(theta_HD, log_likelihood, n):
+def eBIC(theta_hd, log_likelihood, n):
     """
     eBIC = k*ln(n) - 2*ln(L) + 2*ln(C^p_k)
 
@@ -18,9 +18,9 @@ def eBIC(theta_HD, log_likelihood, n):
         - L the maximzed value of the likelihood function
     """
 
-    k = (theta_HD != 0).sum(axis=1)
+    k = (theta_hd != 0).sum(axis=1)
     assert k.shape == log_likelihood.shape
-    ebic_pen = scipy.special.binom(theta_HD.shape[1], k)
+    ebic_pen = scipy.special.binom(theta_hd.shape[1], k)
     assert ebic_pen.shape == log_likelihood.shape
 
     return -2 * log_likelihood + k * jnp.log(n) + 2 * jnp.log(ebic_pen)

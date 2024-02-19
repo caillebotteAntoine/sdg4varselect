@@ -1,5 +1,5 @@
 """
-Module for abstract class AbstractJointModel.
+Module for abstract class AbstractModel.
 
 Create by antoine.caillebotte@inrae.fr
 """
@@ -27,6 +27,11 @@ class AbstractModel:
 
         self._parametrization: pc.NamedTuple = None
 
+    @abstractmethod
+    def init(self):
+        """here you define the parametrization of the model
+        and don't forget to call the mother init function at the end"""
+
     @property
     def N(self):
         return self._n
@@ -35,6 +40,10 @@ class AbstractModel:
     @abstractmethod
     def name(self):
         """return a str called name, based on the parameter of the model"""
+
+    @property
+    def parametrization_size(self):
+        return self._parametrization.size
 
     @property
     def parametrization(self):

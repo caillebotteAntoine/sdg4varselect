@@ -4,7 +4,7 @@ Module for results handling objects.
 Create by antoine.caillebotte@inrae.fr
 """
 
-# pylint: disable=C0116, E1133
+# pylint: disable=C0116, E1133, C103
 
 import gzip
 import pickle
@@ -13,6 +13,24 @@ from datetime import timedelta
 
 from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
+
+
+def addprop(inst, name, method):
+    cls = type(inst)
+    if not hasattr(cls, "__perinstance"):
+        cls = type(cls.__name__, (cls,), {})
+        cls.__perinstance = True
+        inst.__class__ = cls
+    setattr(cls, name, method)
+
+
+def autolen(attribute_name: str):
+    attribute_name = "_" + attribute_name
+
+    def getter(self):
+        return len(getattr(self, attribute_name))
+
+    return property(getter, None)
 
 
 def autoproperty(attribute_name: str):
@@ -29,14 +47,7 @@ class is_iterable:
         self._name = name
         self.__dict__[self._name] = results
 
-        # setattr(is_iterable, name, autoproperty("results"))
-        self._len_name = len_name
-
-    def __getattr__(self, key):
-        if key == self._len_name:
-            return len(self)
-
-        return self.__dict__[key]
+        addprop(self, len_name, autolen("name"))
 
     def __len__(self):
         return len(self.__dict__[self._name])
@@ -253,7 +264,7 @@ class RegularizationPathRes(sdg4vsResults, is_iterable, has_chrono, can_be_light
 
     @property
     def final_result(self):
-        return self.multi_run[self._argmin_bic]
+        return self[self._argmin_bic]
 
     @classmethod
     def switch_runs(cls, results):

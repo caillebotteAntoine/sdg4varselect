@@ -3,6 +3,7 @@ Module for utiliy functions and chain class.
 
 Create by antoine.caillebotte@inrae.fr
 """
+
 from warnings import warn
 import numpy as np
 
@@ -98,7 +99,9 @@ class Chain:
     def reset(self):
         """Resets the chain to its initial state given when the object was created."""
         x0 = self._chain[0][0]
-        self._data = np.array([float(x0) for i in range(self._size)])
+        for i in range(self._size):
+            self._data[i] = x0
+
         self._chain = []
         self.update_chain()
 
