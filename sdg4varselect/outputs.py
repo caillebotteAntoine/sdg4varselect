@@ -47,7 +47,8 @@ class is_iterable:
         self._name = name
         self.__dict__[self._name] = results
 
-        addprop(self, len_name, autolen("name"))
+        if len_name is not None:
+            addprop(self, len_name, autolen("name"))
 
     def __len__(self):
         return len(self.__dict__[self._name])
