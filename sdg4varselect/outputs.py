@@ -15,24 +15,6 @@ from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
 
-def addprop(inst, name, method):
-    cls = type(inst)
-    if not hasattr(cls, "__perinstance"):
-        cls = type(cls.__name__, (cls,), {})
-        cls.__perinstance = True
-        inst.__class__ = cls
-    setattr(cls, name, method)
-
-
-def autolen(attribute_name: str):
-    attribute_name = "_" + attribute_name
-
-    def getter(self):
-        return len(getattr(self, attribute_name))
-
-    return property(getter, None)
-
-
 def autoproperty(attribute_name: str):
     attribute_name = "_" + attribute_name
 
@@ -43,12 +25,9 @@ def autoproperty(attribute_name: str):
 
 
 class is_iterable:
-    def __init__(self, name: str, results: list, len_name: str = None):
+    def __init__(self, name: str, results: list):
         self._name = name
         self.__dict__[self._name] = results
-
-        if len_name is not None:
-            addprop(self, len_name, autolen("name"))
 
     def __len__(self):
         return len(self.__dict__[self._name])
@@ -244,7 +223,12 @@ class MultiRunRes(sdg4vsResults, is_iterable, has_chrono, GDResults_handler):
             multi_run.remove(sdg4vsNanError)
 
         has_chrono.__init__(self, multi_run)
-        is_iterable.__init__(self, "multi_run", multi_run, len_name="nrun")
+        is_iterable.__init__(self, "multi_run", multi_run)
+
+    @property
+    def nrun(self):
+        """return number of run"""
+        return len(self)
 
 
 ###########################################################################################################
@@ -295,7 +279,12 @@ class MultiRegRes(sdg4vsResults, is_iterable, has_chrono, GDResults_handler):
     def __init__(self, multi_run: list[RegularizationPathRes]):
         GDResults_handler.__init__(self)
         has_chrono.__init__(self, multi_run)
-        is_iterable.__init__(self, "multi_run", multi_run, len_name="nrun")
+        is_iterable.__init__(self, "multi_run", multi_run)
+
+    @property
+    def nrun(self):
+        """return number of run"""
+        return len(self)
 
 
 ###########################################################################################################
@@ -305,12 +294,17 @@ class TestResults(sdg4vsResults, is_iterable, has_chrono, GDResults_handler):
     def __init__(self, tests: list[MultiRegRes], test_config: list[dict]):
         GDResults_handler.__init__(self)
         has_chrono.__init__(self, tests)
-        is_iterable.__init__(self, "tests", tests, len_name="ntest")
+        is_iterable.__init__(self, "tests", tests)
         assert len(tests) == len(test_config)
 
         self._config = test_config
 
     config = autoproperty("config")
+
+    @property
+    def ntest(self):
+        """return number of run"""
+        return len(self)
 
     def get_scenarios_labels(self, key: str) -> list[str]:
         return [f"{key} = {c[key]}" for c in self.config]
