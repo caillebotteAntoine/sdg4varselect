@@ -298,6 +298,9 @@ class MultiRegRes(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
         """return number of run"""
         return len(self)
 
+    def __add__(self, res):
+        return MultiRegRes(self.multi_run + res.multi_run)
+
 
 ###########################################################################################################
 

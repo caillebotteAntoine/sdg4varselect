@@ -13,9 +13,15 @@ import jax.random as jrd
 
 from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models import AbstractModel, AbstractHDModel
-from sdg4varselect.algo import SGD_FIM, GradFimSettings
+
+from .gradient_descent_fim import (
+    GradientDescentFIMSettings as GradFimSettings,
+)
 
 
+from sdg4varselect.algo.sto_grad_descent_fim import (
+    StochasticGradientDescentFIM as SGD_FIM,
+)
 from sdg4varselect.algo.stochastic_gradient_descent_utils import proximal_operator
 
 
