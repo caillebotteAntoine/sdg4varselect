@@ -14,14 +14,9 @@ import jax.numpy as jnp
 import jax.random as jrd
 from jax import jit
 
-from sdg4varselect.models.abstract.abstract_cox_mem_joint_model import (
+from sdg4varselect.models import (
     AbstractCoxMemJointModel,
-)
-from sdg4varselect.models.abstract.abstract_mixed_effect_model import (
     AbstractMixedEffectsModel,
-)
-
-from sdg4varselect.models.logistic_mixed_effect_model import (
     LogisticMixedEffectsModel,
 )
 

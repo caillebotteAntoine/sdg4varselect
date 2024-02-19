@@ -4,12 +4,12 @@ Module for results handling objects.
 Create by antoine.caillebotte@inrae.fr
 """
 
-# pylint: disable=C0116, E1133, C103
+# pylint: disable=C0116, E1133
 
 import gzip
 import pickle
-import jax.numpy as jnp
 from datetime import timedelta
+import jax.numpy as jnp
 
 from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
@@ -24,7 +24,9 @@ def autoproperty(attribute_name: str):
     return property(getter, None)
 
 
-class is_iterable:
+class IsIterable:
+    """define a object that can be iterable"""
+
     def __init__(self, name: str, results: list):
         self._name = name
         self.__dict__[self._name] = results
@@ -40,7 +42,9 @@ class is_iterable:
             yield res
 
 
-class has_last_theta:
+class HasLastTheta:
+    """define a object that has a last theta methode"""
+
     def __init__(self):
         pass
 
@@ -49,7 +53,9 @@ class has_last_theta:
         return [x.last_theta for x in self]
 
 
-class has_likelihood:
+class HasLikelihood:
+    """define a object that has a likelihood methode"""
+
     def __init__(self):
         pass
 
@@ -58,7 +64,9 @@ class has_likelihood:
         return jnp.array([x.likelihood for x in self])
 
 
-class can_be_lightened:
+class CanBeLightened:
+    """define a object that has can be lightened"""
+
     def __init__(self):
         pass
 
@@ -67,7 +75,9 @@ class can_be_lightened:
             res.make_it_lighter()
 
 
-class has_chrono:
+class HasChrono:
+    """define a object that has chrono property"""
+
     def __init__(self, list_with_chrono: list):
         self._chrono = timedelta()
 
@@ -77,11 +87,13 @@ class has_chrono:
     chrono = autoproperty("chrono")
 
 
-class GDResults_handler(can_be_lightened, has_last_theta, has_likelihood):
+class GDResultsHandler(CanBeLightened, HasLastTheta, HasLikelihood):
+    """define a object that handle GDResults"""
+
     def __init__(self):
-        can_be_lightened.__init__(self)
-        has_last_theta.__init__(self)
-        has_likelihood.__init__(self)
+        CanBeLightened.__init__(self)
+        HasLastTheta.__init__(self)
+        HasLikelihood.__init__(self)
 
 
 def _get_filename(
@@ -216,14 +228,14 @@ class GDResults(sdg4vsResults):
 ###########################################################################################################
 
 
-class MultiRunRes(sdg4vsResults, is_iterable, has_chrono, GDResults_handler):
+class MultiRunRes(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
     def __init__(self, multi_run: list):
-        GDResults_handler.__init__(self)
+        GDResultsHandler.__init__(self)
         while sdg4vsNanError in multi_run:
             multi_run.remove(sdg4vsNanError)
 
-        has_chrono.__init__(self, multi_run)
-        is_iterable.__init__(self, "multi_run", multi_run)
+        HasChrono.__init__(self, multi_run)
+        IsIterable.__init__(self, "multi_run", multi_run)
 
     @property
     def nrun(self):
@@ -234,10 +246,10 @@ class MultiRunRes(sdg4vsResults, is_iterable, has_chrono, GDResults_handler):
 ###########################################################################################################
 
 
-class RegularizationPathRes(sdg4vsResults, is_iterable, has_chrono, can_be_lightened):
+class RegularizationPathRes(sdg4vsResults, IsIterable, HasChrono, CanBeLightened):
     def __init__(self, multi_run: MultiRunRes, bic, argmin_bic, lbd_set):
-        has_chrono.__init__(self, multi_run)
-        is_iterable.__init__(self, "multi_run", multi_run)
+        HasChrono.__init__(self, multi_run)
+        IsIterable.__init__(self, "multi_run", multi_run)
 
         self._bic = bic
         self._argmin_bic = argmin_bic
@@ -275,11 +287,11 @@ class RegularizationPathRes(sdg4vsResults, is_iterable, has_chrono, can_be_light
 ###########################################################################################################
 
 
-class MultiRegRes(sdg4vsResults, is_iterable, has_chrono, GDResults_handler):
+class MultiRegRes(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
     def __init__(self, multi_run: list[RegularizationPathRes]):
-        GDResults_handler.__init__(self)
-        has_chrono.__init__(self, multi_run)
-        is_iterable.__init__(self, "multi_run", multi_run)
+        GDResultsHandler.__init__(self)
+        HasChrono.__init__(self, multi_run)
+        IsIterable.__init__(self, "multi_run", multi_run)
 
     @property
     def nrun(self):
@@ -290,11 +302,11 @@ class MultiRegRes(sdg4vsResults, is_iterable, has_chrono, GDResults_handler):
 ###########################################################################################################
 
 
-class TestResults(sdg4vsResults, is_iterable, has_chrono, GDResults_handler):
+class TestResults(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
     def __init__(self, tests: list[MultiRegRes], test_config: list[dict]):
-        GDResults_handler.__init__(self)
-        has_chrono.__init__(self, tests)
-        is_iterable.__init__(self, "tests", tests)
+        GDResultsHandler.__init__(self)
+        HasChrono.__init__(self, tests)
+        IsIterable.__init__(self, "tests", tests)
         assert len(tests) == len(test_config)
 
         self._config = test_config

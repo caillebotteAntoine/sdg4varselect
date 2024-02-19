@@ -12,13 +12,8 @@ import jax.numpy as jnp
 import jax.random as jrd
 
 from sdg4varselect.exceptions import sdg4vsNanError
-from sdg4varselect.models.abstract.abstract_model import AbstractModel
-
-from sdg4varselect.algo.gradient_descent_fim import GradientDescentFIMSettings
-
-from sdg4varselect.algo.sto_grad_descent_fim import (
-    StochasticGradientDescentFIM as SGD_FIM,
-)
+from sdg4varselect.models import AbstractModel, AbstractHDModel
+from sdg4varselect.algo import SGD_FIM, GradFimSettings
 
 
 from sdg4varselect.algo.stochastic_gradient_descent_utils import proximal_operator
@@ -31,7 +26,7 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
         self,
         prngkey,
         max_iter: int,
-        settings: GradientDescentFIMSettings,
+        settings: GradFimSettings,
         lbd: Optional[float] = None,
         alpha: Optional[float] = 1.0,
     ):
@@ -52,6 +47,9 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
         """
         Initialize the algorithm
         """
+        if not isinstance(model, AbstractHDModel):
+            raise ValueError("model must be a high dimensional one !")
+
         SGD_FIM._initialize_algo(self, model, likelihood_kwargs, theta_reals1d)
 
         dim_theta = theta_reals1d.shape[0]

@@ -7,9 +7,7 @@ Create by antoine.caillebotte@inrae.fr"""
 import jax.random as jrd
 import jax.numpy as jnp
 
-import sdg4varselect.plot as sdgplt
-from sdg4varselect._estimation_method import lasso_into_adaptive_into_estim
-from sdg4varselect import regularization_path
+from sdg4varselect import sdgplt, regularization_path, lasso_into_adaptive_into_estim
 from sdg4varselect.outputs import RegularizationPathRes, MultiRunRes
 from sdg4varselect.models.wcox_mem_joint_model import (
     create_logistic_weibull_jm,

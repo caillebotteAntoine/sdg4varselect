@@ -4,9 +4,13 @@ Create by antoine.caillebotte@inrae.fr
 
 from jax.config import config
 
+from . import plot as sdgplt
+
 # from .learning_rate import LearningRate
 from ._MCMC import MCMC_chain
 from ._regularization_function import eBIC, BIC, regularization_path
+from ._estimation_method import lasso_into_adaptive_into_estim
+
 
 # import jax.numpy as jnp
 # jnp.set_printoptions(threshold=200)  # jnp.inf)
