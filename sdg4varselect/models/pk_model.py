@@ -130,12 +130,12 @@ if __name__ == "__main__":
     myModel = PharmacoKineticMixedEffectsModel(N=100, J=15)
 
     p_star = myModel.new_params(
-        mu1=0.3,
-        mu2=90.0,
-        mu3=7.5,
-        gamma2_1=0.0025,
-        gamma2_2=20,
-        sigma2=0.001,
+        mu1=8,
+        mu2=6,
+        mu3=40,
+        gamma2_1=0.2,
+        gamma2_2=0.1,
+        sigma2=1e-3,
     )
 
     myobs, mysim = myModel.sample(p_star, jrd.PRNGKey(0))

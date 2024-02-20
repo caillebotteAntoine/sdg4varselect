@@ -5,6 +5,7 @@ Create by antoine.caillebotte@inrae.fr"""
 
 # pylint: disable=C0116
 import jax.random as jrd
+import jax.numpy as jnp
 
 # import jax.numpy as jnp
 
@@ -50,13 +51,21 @@ def one_estim(prngkey, model, data, lbd=None, alpha=1.0, save_all=True):
 
 
 if __name__ == "__main__":
-    from sdg4varselect.models.wcox_mem_joint_model import (
-        create_logistic_weibull_jm,
-        get_params_star,
-    )
+    from sdg4varselect.models import create_cox_mem_jm, logisticMEM
 
-    myModel = create_logistic_weibull_jm(100, 5, 10)
-    p_star = get_params_star(myModel)
+    myModel = create_cox_mem_jm(logisticMEM, 100, 5, 10)
+    p_star = myModel.new_params(
+        mu1=0.3,
+        mu2=90.0,
+        mu3=7.5,
+        gamma2_1=0.0025,
+        gamma2_2=20,
+        sigma2=0.001,
+        alpha=110.1,
+        beta=jnp.concatenate(
+            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.P - 4,))]
+        ),
+    )
 
     myobs, _ = myModel.sample(p_star, jrd.PRNGKey(0), weibull_censoring_loc=77)
 

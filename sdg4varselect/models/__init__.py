@@ -26,9 +26,6 @@ from .abstract.abstract_mixed_effect_model import (
 )
 
 
-from .logistic_mixed_effect_model import (
-    LogisticMixedEffectsModel,
-)
-
-
-from .pk_model import PharmacoKineticMixedEffectsModel
+from .wcox_mem_joint_model import create_cox_mem_jm
+from .logistic_mixed_effect_model import LogisticMixedEffectsModel as logisticMEM
+from .pk_model import PharmacoKineticMixedEffectsModel as pkMEM

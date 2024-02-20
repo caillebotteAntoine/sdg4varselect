@@ -17,7 +17,6 @@ from jax import jit
 from sdg4varselect.models import (
     AbstractCoxMemJointModel,
     AbstractMixedEffectsModel,
-    LogisticMixedEffectsModel,
 )
 
 
@@ -69,8 +68,8 @@ class WeibullCoxMemJointModel(AbstractCoxMemJointModel):
     # ============================================================== #
 
 
-def create_logistic_weibull_jm(N, J, P, **kwargs):
-    mem_model = LogisticMixedEffectsModel(N=N, J=J)
+def create_cox_mem_jm(mem, N, J, P, **kwargs):
+    mem_model = mem(N=N, J=J)
     model = WeibullCoxMemJointModel(mem_model, P=P)
     return model
 
@@ -93,8 +92,9 @@ def get_params_star(model):
 
 if __name__ == "__main__":
     from sdg4varselect.plot import plot_sample
+    from sdg4varselect.models import logisticMEM
 
-    myModel = create_logistic_weibull_jm(100, 5, 10)
+    myModel = create_cox_mem_jm(logisticMEM, 100, 5, 10)
 
     my_params_star = myModel.new_params(
         mu1=0.3,

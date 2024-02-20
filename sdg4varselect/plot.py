@@ -133,6 +133,8 @@ def plot(*args, **kwargs):
 # ===================================================== #
 def _plot_theta(multi_theta, dim_ld=None, params_star=None, params_names=None):
     dt = dim_standardize(multi_theta).T
+    if dt.shape[0] == 0:
+        return None
 
     if dim_ld is None:
         dim_ld = dt.shape[0]

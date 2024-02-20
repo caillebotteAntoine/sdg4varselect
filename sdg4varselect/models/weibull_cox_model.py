@@ -28,7 +28,7 @@ class WeibullCoxModel(AbstractCoxModel):
     @property
     def name(self):
         """return a str called name, based on the parameter of the model"""
-        return f"WCoxM_N{self.N}_P{self.DIMCovCox}"
+        return f"WCoxM_N{self.N}_P{self.P}"
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)

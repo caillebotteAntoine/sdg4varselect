@@ -36,6 +36,7 @@ class AbstractCoxMemJointModel(AbstractCoxModel):
         params = self._mem.parametrization._params | self.parametrization._params
         self._parametrization = pc.NamedTuple(**params)
         self._mem._parametrization = pc.NamedTuple(**params)
+        self._cst |= self._mem._cst
 
         AbstractCoxModel.init(self)
 
@@ -57,9 +58,9 @@ class AbstractCoxMemJointModel(AbstractCoxModel):
         times: jnp.ndarray,  # shape = (N,num)
         **kwargs,
     ):
-        logistic_value = self._mem.mixed_effect_function(params, times, **kwargs)
-        assert logistic_value.shape == times.shape
-        return alpha * logistic_value
+        mem_value = self._mem.mixed_effect_function(params, times, **kwargs)
+        assert mem_value.shape == times.shape
+        return alpha * mem_value
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)

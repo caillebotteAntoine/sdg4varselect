@@ -3,6 +3,7 @@ Module for LearningRate class.
 
 Create by antoine.caillebotte@inrae.fr
 """
+
 import numpy as np
 
 
@@ -221,6 +222,7 @@ def create_multi_step_size(settings: list[dict], num_step_size: int = 3):
     for setting in settings:
         setting["coef_burnin"] = 0.65
         setting["coef_preheating"] = float(np.log(setting["learning_rate"]))
+        setting["value_max"] = float(setting["max"])
         step_size.append(LearningRate(**setting))
 
     return step_size

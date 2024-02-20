@@ -9,11 +9,8 @@ import jax.numpy as jnp
 
 from sdg4varselect import sdgplt, regularization_path, lasso_into_adaptive_into_estim
 from sdg4varselect.outputs import RegularizationPathRes, MultiRunRes
-from sdg4varselect.models.wcox_mem_joint_model import (
-    create_logistic_weibull_jm,
-    get_params_star,
-)
 
+from sdg4varselect.models import create_cox_mem_jm, logisticMEM
 
 from results.logistic_model.one_estim import one_estim
 
@@ -55,7 +52,7 @@ def _one_result(prngkey, model, data, lbd_set, save_all=True):
 
 def one_result(args):
     prngkey, N, J, P, data, lbd_set, save_all = args
-    model = create_logistic_weibull_jm(N, J, P)
+    model = create_cox_mem_jm(logisticMEM, N, J, P)
 
     return _one_result(prngkey, model, data, lbd_set, save_all)
 
@@ -64,8 +61,19 @@ if __name__ == "__main__":
     my_lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
     my_lbd_set = [2 * 10**-1]
 
-    myModel = create_logistic_weibull_jm(100, 5, 10)
-    p_star = get_params_star(myModel)
+    myModel = create_cox_mem_jm(logisticMEM, 100, 5, 10)
+    p_star = myModel.new_params(
+        mu1=0.3,
+        mu2=90.0,
+        mu3=7.5,
+        gamma2_1=0.0025,
+        gamma2_2=20,
+        sigma2=0.001,
+        alpha=110.1,
+        beta=jnp.concatenate(
+            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.P - 4,))]
+        ),
+    )
 
     myobs, _ = myModel.sample(p_star, jrd.PRNGKey(10), weibull_censoring_loc=77)
 
