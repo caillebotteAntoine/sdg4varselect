@@ -17,14 +17,14 @@ def read_multi_files(N, P, C, S):
     for s in S[1:]:
         out += read(N, P, C, s=s)
 
-    out.save(model, root="../files", filename_add_on=f"C{C}_S({S[0]}, {S[-1]})")
+    out.save(model, root="", filename_add_on=f"C{C}_S({S[0]}, {S[-1]})")
 
     return out
 
 
 N = 100
-P = 100
+P = 10
 C = 0
 
 
-read_multi_files(N, P, C="NA", S=(9, 10))
+read_multi_files(N, P, C="0", S=(1, 10))
