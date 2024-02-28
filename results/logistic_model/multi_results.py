@@ -12,10 +12,9 @@ from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.outputs import MultiRegRes
 import sdg4varselect.plot as sdgplt
 from sdg4varselect.miscellaneous import step_message
-from sdg4varselect.models.wcox_mem_joint_model import (
-    create_logistic_weibull_jm,
-    get_params_star,
-)
+from sdg4varselect.models.wcox_mem_joint_model import get_params_star
+
+from sdg4varselect.models import create_cox_mem_jm, logisticMEM
 
 from results.logistic_model.one_result import one_result
 
@@ -61,7 +60,7 @@ if __name__ == "__main__":
     my_lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
     # my_lbd_set = [1.5 * 10**-1]
 
-    myModel = create_logistic_weibull_jm(100, 5, 10)
+    myModel = create_cox_mem_jm(logisticMEM, 100, 5, 10)
     p_star = get_params_star(myModel)
 
     res, C = multi_run(
