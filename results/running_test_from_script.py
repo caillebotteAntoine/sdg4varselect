@@ -39,10 +39,10 @@ def test(N, J, P, nrun=1, censoring=2000):
     C = "NA" if jnp.isnan(censoring_rate) else int(censoring_rate)
     res.save(my_model, root="files_unmerged", filename_add_on=f"C{C}_S{seed}")
 
-test(100, 5, 10)
+#test(100, 5, 10)
 #test(100, 5, 50)
 
-#test(100, 5, 100)
+test(100, 5, 100)
 #test(200, 5, 100)
 #test(300, 5, 100)
 
