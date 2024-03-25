@@ -1,3 +1,9 @@
+"""
+Module for Abstract class containing common method for algorithm based on Monte-Carlo Markov Chains.
+
+Create by antoine.caillebotte@inrae.fr
+"""
+
 # pylint: disable=C0116
 import itertools
 
@@ -13,14 +19,14 @@ from sdg4varselect.exceptions import sdg4vsNanError
 
 
 class AbstractAlgoFit:
-    """vraisseblance parameter estimation algorithm"""
+    """likelihood parameter estimation algorithm"""
 
     def __init__(self, max_iter: int):
         self._max_iter = max_iter
 
     @abstractmethod
     def get_likelihood_kwargs(self, data):
-        """return all the needed data"""
+        """return all the needed data for the likelihood computation"""
 
     # ============================================================== #
 
@@ -42,7 +48,7 @@ class AbstractAlgoFit:
         likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ):
-        """iterative algorithm"""
+        """iterative algorithm, must be iterable"""
 
     @abstractmethod
     def results_warper(self, model, data, results, chrono):
@@ -55,17 +61,24 @@ class AbstractAlgoFit:
         theta0_reals1d: jnp.ndarray,
         ntry=1,
         partial_fit=False,
+        save_all=True,
     ):
 
         self._initialize_algo(model, self.get_likelihood_kwargs(data), theta0_reals1d)
 
         chrono_start = datetime.now()
-        out = list(
-            itertools.islice(
-                self.algorithm(model, self.get_likelihood_kwargs(data), theta0_reals1d),
-                self._max_iter,
-            )
+
+        iter_algo = itertools.islice(
+            self.algorithm(model, self.get_likelihood_kwargs(data), theta0_reals1d),
+            self._max_iter,
         )
+        if save_all:
+            out = list(iter_algo)
+        else:
+            out = [next(iter_algo), None]
+            for last in iter_algo:
+                out[1] = last
+
         chrono_time = datetime.now() - chrono_start
 
         flag = out[-1]
@@ -87,4 +100,5 @@ class AbstractAlgoFit:
                 return self.results_warper(model, data, out, chrono_time)
             else:
                 raise flag
+        # every things is good
         return self.results_warper(model, data, out, chrono_time)

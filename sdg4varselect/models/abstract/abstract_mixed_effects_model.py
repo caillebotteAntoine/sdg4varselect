@@ -15,18 +15,25 @@ import jax.random as jrd
 from jax import jit
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
+from sdg4varselect.models.abstract.abstract_latent_variables_model import (
+    AbstractLatentVariablesModel,
+)
 
 
-@jit
-def gaussian_prior(data, mean, variance) -> jnp.ndarray:
-    """Computation of the current target distribution score"""
-    out = jnp.log(2 * jnp.pi * variance) + jnp.power(data - mean, 2) / variance
-    return -out / 2
+class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
+    """the most abstact model with mixed effects model that can be defined"""
 
-
-class AbstractMixedEffectsModel(AbstractModel):
-    def __init__(self, N, J, **kwargs):
+    def __init__(
+        self,
+        N: int,
+        J: int,
+        me_name: list[str],
+        **kwargs,
+    ):
         AbstractModel.__init__(self, N, **kwargs)
+        AbstractLatentVariablesModel.__init__(
+            self, me_name, me_size=[self.N for _ in me_name]
+        )
 
         self._j = J
 
@@ -40,11 +47,6 @@ class AbstractMixedEffectsModel(AbstractModel):
         """Function that return an non linear fct that define the mixed effect models"""
 
     # ============================================================== #
-    @abstractmethod
-    @functools.partial(jit, static_argnums=0)
-    def likelihood_only_prior(self, params, **kwargs) -> jnp.ndarray:
-        """return likelihood with only the gaussian prior"""
-
     @functools.partial(jit, static_argnums=0)
     def likelihood_without_prior(
         self, params, Y, mem_obs_time, **kwargs
@@ -59,9 +61,10 @@ class AbstractMixedEffectsModel(AbstractModel):
             params, mem_obs_time, **self._cst, **kwargs
         )  # shape = (N,J)
 
-        likelihood_mem = -J / 2 * jnp.log(2 * jnp.pi * params.sigma2) - jnp.nansum(
-            (Y - pred) ** 2, axis=1
-        ) / (2 * params.sigma2)
+        # mise à jours de J en fct des nan ?!
+        likelihood_mem = -J / 2 * jnp.log(
+            2 * jnp.pi * params.var_residual
+        ) - jnp.nansum((Y - pred) ** 2, axis=1) / (2 * params.var_residual)
 
         assert likelihood_mem.shape == (N,)
         return likelihood_mem
@@ -85,6 +88,36 @@ class AbstractMixedEffectsModel(AbstractModel):
         **kwargs,
     ):
         """Sample one data set for the model"""
+
+        key, prngkey = jrd.split(prngkey, num=2)
+
+        D = len(self.latent_variables_name)
+        assert len(params_star.mean_latent) == D
+
+        sim_latent = self.sample_normal(key, params_star, shape=(self.N, D))
+
+        sim = dict(
+            zip(
+                self.latent_variables_name,
+                [sim_latent[:, i] for i in range(D)],
+            )
+        )
+
+        y_without_noise = self.mixed_effect_function(
+            params_star, times=kwargs["mem_obs_time"], **sim
+        )
+
+        key, prngkey = jrd.split(prngkey, num=2)
+        sim["eps"] = jnp.sqrt(params_star.var_residual) * jrd.normal(
+            key, shape=y_without_noise.shape
+        )
+
+        Y = y_without_noise + sim["eps"]
+
+        return (
+            {"Y": Y},  # obs
+            sim,
+        )
 
 
 # ======================================================= #

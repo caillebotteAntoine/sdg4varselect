@@ -5,11 +5,12 @@ Create by antoine.caillebotte@inrae.fr
 """
 
 # pylint: disable=C0116, W0613
-from copy import deepcopy
 import jax.numpy as jnp
+import jax.random as jrd
 
 from sdg4varselect._MCMC import MCMC_chain
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
+from sdg4varselect.models import AbstractLatentVariablesModel
 
 
 class AbstractAlgoMCMC:
@@ -46,6 +47,30 @@ class AbstractAlgoMCMC:
             var.reset()
 
     # ============================================================== #
+    def init_mcmc(
+        self,
+        theta0,
+        model: type[AbstractLatentVariablesModel],
+        sd: dict[str, float] = None,
+    ):
+
+        params0 = model.parametrization.reals1d_to_params(theta0)
+        for new_mcmc_name in model.latent_variables_name:
+            data = model.latent_variables_data(params0, new_mcmc_name)
+
+            self.add_mcmc(
+                # (
+                #     0
+                #     if data["mean"] is None
+                #     else float(params0.__getattribute__(data["mean"]))
+                # ),
+                data["mean"],
+                sd=1 if sd is None else sd[new_mcmc_name],
+                size=data["size"],
+                likelihood=model.likelihood_array,
+                name=new_mcmc_name,
+            )
+
     def add_data(self, **kwargs) -> None:
         """adds variables to the solver data"""
         for key, item in kwargs.items():
@@ -65,34 +90,41 @@ class AbstractAlgoMCMC:
         self.add_data(**dict(((new_mcmc_name, new_mcmc.data),)))
 
     # ============================================================== #
-    def likelihood_marginal(self, model, data, theta, size=1000):
+    def likelihood_marginal(
+        self,
+        model: type[AbstractLatentVariablesModel],
+        data,
+        theta,
+        size=1000,
+    ):
+
+        return jnp.nan
         var_lat_sample = {}
-        for key, item in self.latent_variables.items():
-            var_lat_sample[key] = item.sample(
-                self._prngkey,
-                theta,
-                size=size,
-                **data,
-                **self.latent_data,
-            )
 
-        likelihood_kwargs = deepcopy(self.latent_data)
-        out = [model.likelihood(theta, **data, **likelihood_kwargs)]
+        params = model.parametrization.reals1d_to_params(theta)
 
-        def add_val(k):
-            for var in self.latent_variables:
-                likelihood_kwargs[var] = var_lat_sample[var][k]
+        data = model.latent_variables_data(params0, new_mcmc_name)
 
-            new_val = model.likelihood(theta, **data, **likelihood_kwargs)
-            out.append(out[-1] + new_val)
+        def new_likelihood():
+            for name, item in self.latent_variables.items():
+                self._prngkey, sample_key = jrd.split(self._prngkey, 2)
 
-        for k in range(1, 10):
-            add_val(k)
+                var_lat_sample[name] = model.sample_normal(
+                    sample_key, name, params, shape=(len(item),)
+                )
+
+            return model.likelihood(theta, **data, **var_lat_sample)
+
+        out = [new_likelihood()]
+        for _ in range(1, 10):
+            out.append(out[-1] + new_likelihood())
 
         n_simu = 10
         while n_simu < size and abs(out[-2] / (n_simu - 1) - out[-1] / n_simu) >= 1e-3:
-            add_val(n_simu)
+            out.append(out[-1] + new_likelihood())
             n_simu += 1
+
+        print(n_simu)
         return out[-1] / n_simu
 
     # ============================================================== #

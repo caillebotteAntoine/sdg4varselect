@@ -184,9 +184,9 @@ class LearningRate:
             if self.preheating == 0:
                 x = np.linspace(0, 200)
             else:
-                x = np.linspace(0, 2 * self.preheating, num=4 * self.preheating)
+                x = np.linspace(0, 5 * self.preheating, num=4 * self.preheating)
         else:
-            x = np.linspace(0, 2 * self.heating, num=4 * self.heating)
+            x = np.linspace(0, 5 * self.heating, num=4 * self.heating)
 
         y = [self.__call__(i) for i in x]
 

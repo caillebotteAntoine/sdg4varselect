@@ -10,7 +10,6 @@ from abc import abstractmethod
 import functools
 
 import numpy as np
-from scipy.optimize import brenth
 
 
 import jax.numpy as jnp
@@ -19,6 +18,28 @@ from jax import jit
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.models.abstract.abstract_high_dim_model import AbstractHDModel
+
+
+@functools.partial(jit, static_argnums=0)
+def bisection_method_step(fun, a, b):
+    m = (a + b) / 2
+
+    neg_id = fun(a) * fun(m) <= 0
+
+    b = jnp.where(neg_id, m, b)
+    a = jnp.where(1 - neg_id, m, a)
+    return a, b
+
+
+def bisection_method(fun, a, b, eps=1e-3):
+    eps0 = jnp.abs(b - a)
+    maxiter = int(jnp.log2(eps0 / eps).max())
+
+    for _ in range(maxiter):
+        a, b = bisection_method_step(fun, a, b)
+
+    print(jnp.abs(a - b).mean())
+    return a
 
 
 class AbstractCoxModel(AbstractModel, AbstractHDModel):
@@ -123,7 +144,18 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         weibull_censoring_loc,
         **kwargs,
     ):
-        """Sample one data set for the model"""
+        """Sample one data set for the model
+
+        For data generation we seek t such that : P(T <= t ) = U([0,1])         # = 1 - S(t)
+                                            ie : S(t) = 1 - U([0,1])
+
+        where S is the survival function  : S(t) = exp(-int_0^t lbd(s) ds )
+        where lbd is the hazard function : lbd(t) = lbd0(t) * exp(beta^T U  + alpha* m(t))
+                                    with : lbd0(t) = b a^-b t^{b-1} = b /a * (t/a)^{b-1}
+
+        so we seek t such that : - int_0^t lbd(s) ds = log(1 - U([0,1]))
+                            ie : int_0^t lbd(s) ds + log(1 - U([0,1])) = 0
+        """
         (
             prngkey_cov,
             prngkey_uni,
@@ -137,19 +169,27 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         cov = cov_simulation(prngkey_cov, cov_min=-1, cov_max=1, shape=(self.N, self.P))
 
         tmp = [0 for i in range(self.N)]
-        for i in range(self.N):
+        # for i in range(self.N):
 
-            def f(t):
-                T = jnp.array([t for i in range(self.N)])
+        @jit
+        def f(T):
+            # T = jnp.array([t for i in range(self.N)])
 
-                t_linspace = jnp.linspace(0, T, num=100)[1:].T
+            t_linspace = jnp.linspace(0, T, num=1000)[1:].T
 
-                y = self.log_hazard(params_star, t_linspace, cov, **kwargs, **self._cst)
-                rho = jnp.trapz(y=jnp.exp(y), x=t_linspace)
+            y = self.log_hazard(params_star, t_linspace, cov, **kwargs, **self._cst)
+            rho = jnp.trapz(y=jnp.exp(y), x=t_linspace)
 
-                return rho[i] + jnp.log(1 - uni[i])
+            return rho + jnp.log(1 - uni)
 
-            tmp[i] = brenth(f, a=0, b=1000)
+        tmp = bisection_method(
+            f,
+            a=jnp.zeros(shape=(self.N,)),
+            b=weibull_censoring_loc + jnp.zeros(shape=(self.N,)),
+            eps=1e-4,
+        )
+
+        # tmp[i] = brenth(f, a=0, b=1000, args=(rho[i], uni[i]))
 
         sim["T uncensored"] = jnp.array(tmp)
         obs["cov"] = cov
@@ -158,7 +198,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         censoring = jrd.weibull_min(
             prngkey_weibull,
             weibull_censoring_loc,
-            self._cst["b"],
+            self._cst["b"] if "b" in self._cst else params_star.b,
             shape=sim["T uncensored"].shape,
         )
 

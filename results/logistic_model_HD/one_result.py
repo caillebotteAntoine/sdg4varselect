@@ -10,9 +10,9 @@ import jax.numpy as jnp
 from sdg4varselect import sdgplt, regularization_path, lasso_into_adaptive_into_estim
 from sdg4varselect.outputs import RegularizationPathRes, MultiRunRes
 
-from sdg4varselect.models import create_cox_mem_jm, logisticMEM
+from sdg4varselect.models.hd_test import HDLogisticMixedEffectsModel
 
-from results.logistic_model.one_estim import one_estim
+from results.logistic_model_HD.one_estim import one_estim
 
 
 def estim_with_flag(model, **kwargs) -> tuple[MultiRunRes, bool]:
@@ -52,15 +52,15 @@ def _one_result(prngkey, model, data, lbd_set, save_all=True):
 
 def one_result(args):
     prngkey, N, J, P, data, lbd_set, save_all = args
-    model = create_cox_mem_jm(logisticMEM, N, J, P)
+    model = HDLogisticMixedEffectsModel(N, J, P)
 
     return _one_result(prngkey, model, data, lbd_set, save_all)
 
 
 if __name__ == "__main__":
-    my_lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+    my_lbd_set = 10 ** jnp.linspace(-2, 0, num=10)
 
-    myModel = create_cox_mem_jm(logisticMEM, 100, 5, 10)
+    myModel = HDLogisticMixedEffectsModel(100, 5, 100)
     p_star = myModel.new_params(
         mu1=0.3,
         mu2=90.0,
@@ -68,20 +68,19 @@ if __name__ == "__main__":
         gamma2_1=0.0025,
         gamma2_2=20,
         sigma2=0.001,
-        alpha=110.1,
         beta=jnp.concatenate(
             [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.P - 4,))]
         ),
     )
 
-    myobs, _ = myModel.sample(p_star, jrd.PRNGKey(10), weibull_censoring_loc=77)
+    myobs, _ = myModel.sample(p_star, jrd.PRNGKey(10))
 
     res = _one_result(jrd.PRNGKey(0), myModel, myobs, my_lbd_set, save_all=True)
 
     # === PLOT === #
     params_names = myModel.params_names
 
-    sdgplt.plot_theta(res, 7, p_star, params_names)
-    sdgplt.plot_theta_hd(res, 7, p_star, params_names)
+    sdgplt.plot_theta(res, myModel.DIM_LD, p_star, params_names)
+    sdgplt.plot_theta_hd(res, myModel.DIM_LD, p_star, params_names)
     sdgplt.plot_reg_path(res, myModel.DIM_LD)
     print(f"chrono = {res.chrono}")

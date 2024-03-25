@@ -120,11 +120,9 @@ if __name__ == "__main__":
     from sdg4varselect.plot import plot_sample
     from sdg4varselect.outputs import MultiRunRes
     import sdg4varselect.plot as sdgplt
-    from sdg4varselect.models.wcox_mem_joint_model import (
-        create_logistic_weibull_jm,
-    )
+    from sdg4varselect.models import create_cox_mem_jm, logisticMEM
 
-    myModel = create_logistic_weibull_jm(N=100, J=5, P=10)
+    myModel = create_cox_mem_jm(logisticMEM, N=100, J=5, P=10)
 
     p_star = myModel.new_params(
         mu1=0.3,

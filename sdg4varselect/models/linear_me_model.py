@@ -14,7 +14,7 @@ import jax.random as jrd
 from jax import jit
 import parametrization_cookbook.jax as pc
 
-from sdg4varselect.models.abstract.abstract_mixed_effect_model import (
+from sdg4varselect.models.abstract.abstract_mixed_effects_model import (
     AbstractMixedEffectsModel,
     mem_simulation,
 )

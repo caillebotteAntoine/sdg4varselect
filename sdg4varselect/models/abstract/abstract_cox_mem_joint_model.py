@@ -17,7 +17,7 @@ from jax import jit
 from sdg4varselect.models.abstract.abstract_cox_model import (
     AbstractCoxModel,
 )
-from sdg4varselect.models.abstract.abstract_mixed_effect_model import (
+from sdg4varselect.models.abstract.abstract_mixed_effects_model import (
     AbstractMixedEffectsModel,
 )
 
@@ -43,6 +43,13 @@ class AbstractCoxMemJointModel(AbstractCoxModel):
     @property
     def J(self):
         return self._mem.J
+
+    @property
+    def latent_variables_name(self):
+        return self._mem._latent_variables_name
+
+    def latent_variables_data(self, params, name):
+        return self._mem.latent_variables_data(params, name)
 
     # @property
     # def name(self):
@@ -112,3 +119,6 @@ class AbstractCoxMemJointModel(AbstractCoxModel):
         )
 
         return obs | coxobs, sim | coxsim
+
+    def sample_normal(self, prngkey, name, params, shape):
+        return self._mem.sample_normal(prngkey, name, params, shape)

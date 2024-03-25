@@ -50,7 +50,9 @@ class HasLastTheta:
 
     @property
     def last_theta(self):
-        return [x.last_theta for x in self]
+        return [
+            x.last_theta for x in self
+        ]  # can't return jnp.ndarray because all the last_theta might be not be the same size
 
 
 class HasLikelihood:

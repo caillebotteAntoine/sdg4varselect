@@ -7,24 +7,22 @@ Create by antoine.caillebotte@inrae.fr"""
 import jax.random as jrd
 import jax.numpy as jnp
 
-# import jax.numpy as jnp
-
 from sdg4varselect import sdgplt
-from sdg4varselect.outputs import MultiRunRes
+from sdg4varselect.outputs import GDResults, MultiRunRes
 
 from sdg4varselect.algo import SPGD_FIM, get_GDFIM_settings
 
 
-algo_settings = get_GDFIM_settings(preheating=1000, heating=1400)
+algo_settings = get_GDFIM_settings(preheating=400, heating=600)
 
 
 def one_estim(prngkey, model, data, lbd=None, alpha=1.0, save_all=True):
     prngkey_theta, prngkey_estim = jrd.split(prngkey)
-    theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(model.parametrization.size,))
+    theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(model.parametrization_size,))
 
-    algo = SPGD_FIM(prngkey_estim, 2000, algo_settings, lbd=lbd, alpha=alpha)
+    algo = SPGD_FIM(prngkey_estim, 1000, algo_settings, lbd=lbd, alpha=alpha)
     # =================== MCMC configuration ==================== #
-    algo.init_mcmc(theta0, model, sd={"phi1": 0.001, "phi2": 2})
+    algo.init_mcmc(theta0, model, sd={"phi1": 0.001, "phi2": 1})
 
     algo.latent_variables["phi1"].adaptative_sd = True
     algo.latent_variables["phi2"].adaptative_sd = True
@@ -38,38 +36,39 @@ def one_estim(prngkey, model, data, lbd=None, alpha=1.0, save_all=True):
 
 
 if __name__ == "__main__":
-    from sdg4varselect.models import create_cox_mem_jm, logisticMEM
+    from sdg4varselect.models.hd_test import HDLogisticMixedEffectsModel
 
-    myModel = create_cox_mem_jm(logisticMEM, 100, 5, 10)
+    myModel = HDLogisticMixedEffectsModel(N=100, J=10, P=50)
 
     p_star = myModel.new_params(
-        mean_latent={"mu1": 0.3, "mu2": 90.0},
+        mu1=0.3,
+        mu2=90.0,
         mu3=7.5,
-        cov_latent=jnp.diag(jnp.array([0.0025, 20])),
-        var_residual=0.001,
-        alpha=110.1,
+        gamma2_1=0.0025,
+        gamma2_2=20,
+        sigma2=0.001,
         beta=jnp.concatenate(
             [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.P - 4,))]
         ),
     )
 
-    myobs, _ = myModel.sample(p_star, jrd.PRNGKey(0), weibull_censoring_loc=7700)
+    myobs, _ = myModel.sample(p_star, jrd.PRNGKey(0), weibull_censoring_loc=77)
 
     multi_estim = MultiRunRes(
         [
-            one_estim(jrd.PRNGKey(key), myModel, myobs, lbd=None, save_all=True)
-            for key in range(20)
+            one_estim(jrd.PRNGKey(key), myModel, myobs, lbd=0.005, save_all=True)
+            for key in range(2)
         ]
     )
 
     print(multi_estim.chrono)
 
     # === PLOT === #
+
+    names = myModel.params_names
+
     sdgplt.plot(
-        multi_estim,
-        dim_ld=myModel.DIM_LD,
-        params_star=myModel.hstack_params(p_star),
-        # params_names=myModel.params_names,
+        multi_estim, dim_ld=myModel.DIM_LD + 4, params_star=p_star, params_names=names
     )
 
-    # sdgplt.plot_mcmc(algo.mcmc)
+    # algo.likelihood_marginal(myModel, myobs, paramslist_to_reals1d(params), size=11)

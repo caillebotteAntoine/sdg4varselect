@@ -1,5 +1,20 @@
 """
 Create by antoine.caillebotte@inrae.fr
+
+            AbstractAlgoMCMC       AbstractAlgoFit
+                   |                    | 
+                   |                    | 
+                   |                    | 
+                   |                GradientDescentFIM
+                   |                /
+                   |               /
+                   |              /          
+        StochasticGradientDescentFIM
+                   |
+                   |
+                   |            
+        StochasticProximalGradientDescentFIM
+
 """
 
 from .sto_prox_grad_descent_fim import (

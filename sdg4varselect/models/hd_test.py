@@ -15,32 +15,34 @@ import jax.random as jrd
 from jax import jit
 import parametrization_cookbook.jax as pc
 
-from sdg4varselect.models.abstract.abstract_mixed_effect_model import (
+from sdg4varselect.models import (
     AbstractMixedEffectsModel,
+    AbstractHDModel,
+    cov_simulation,
     mem_simulation,
 )
 
 
-def cov_simulation(prngkey, min, max, shape):
-    cov = jrd.uniform(prngkey, minval=min, maxval=max, shape=shape)
-    cov = cov - cov.mean(axis=0)[None, :]
-    cov = jnp.array(cov, dtype=jnp.float32)
-
-    return cov
-
-
-@jit
-def gaussian_prior(data, mean, variance) -> jnp.ndarray:
-    """Computation of the current target distribution score"""
-    out = jnp.log(2 * jnp.pi * variance) + jnp.power(data - mean, 2) / variance
-    return -out / 2
-
-
-class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
+class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
     def __init__(self, N=1, J=1, P=1, **kwargs):
-        super().__init__(N=N, J=J, **kwargs)
-        self._P = P
+        AbstractHDModel.__init__(self, P=P, **kwargs)
+        AbstractMixedEffectsModel.__init__(
+            self,
+            N=N,
+            J=J,
+            me_name=["phi1", "phi2"],
+            me_mean=["mu1", "mu2"],
+            me_var=["gamma2_1", "gamma2_2"],
+            me_size=[N, N],
+            **kwargs,
+        )
 
+        self.init()
+        AbstractHDModel.init_dim(self, self.parametrization_size)
+
+    def init(self):
+        """here you define the parametrization of the model
+        and don't forget to call the mother init function at the end"""
         self._parametrization = pc.NamedTuple(
             mu1=pc.RealPositive(scale=0.5),
             mu2=pc.RealPositive(scale=100),
@@ -48,16 +50,8 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
             gamma2_1=pc.RealPositive(scale=0.001),
             gamma2_2=pc.RealPositive(scale=10),
             sigma2=pc.RealPositive(scale=0.001),
-            beta=pc.Real(scale=10, shape=(P,)),
+            beta=pc.Real(scale=10, shape=(self.P,)),
         )
-
-    @property
-    def P(self):
-        return self._P
-
-    @property
-    def DIM_LD(self):
-        return self._parametrization.size - self.P
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
@@ -81,21 +75,6 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
         return out
 
     # ============================================================== #
-    @functools.partial(jit, static_argnums=0)
-    def likelihood_only_prior(self, params, **kwargs) -> jnp.ndarray:
-        """return likelihood with only the gaussian prior"""
-        latent_prior = gaussian_prior(
-            kwargs["phi1"],
-            params.mu1,
-            params.gamma2_1,
-        ) + gaussian_prior(
-            kwargs["phi2"],
-            params.mu2,
-            params.gamma2_2,
-        )
-        return latent_prior
-
-    # ============================================================== #
 
     @abstractmethod
     def sample(
@@ -113,7 +92,7 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel):
         time += jrd.uniform(prngkey_time, minval=-2, maxval=2, shape=time.shape)
 
         obs = {"mem_obs_time": time}
-        cov = cov_simulation(prngkey_cov, min=-1, max=1, shape=(self.N, self.P))
+        cov = cov_simulation(prngkey_cov, cov_min=-1, cov_max=1, shape=(self.N, self.P))
 
         obs_mem, sim = mem_simulation(
             params_star,

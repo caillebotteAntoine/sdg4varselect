@@ -43,7 +43,12 @@ class AbstractModel:
 
     @property
     def parametrization_size(self):
-        return self._parametrization.size
+        zeros = self._parametrization.reals1d_to_params(
+            jnp.zeros(
+                shape=self._parametrization.size,
+            )
+        )
+        return self.hstack_params(zeros).shape[0]
 
     @property
     def parametrization(self):
@@ -52,7 +57,14 @@ class AbstractModel:
     @property
     def params_names(self):
         idx_params = self._parametrization.idx_params
-        rep_num = [idx.stop - idx.start for idx in idx_params]
+
+        zeros = self._parametrization.reals1d_to_params(
+            jnp.zeros(
+                shape=self._parametrization.size,
+            )
+        )
+        rep_num = [jnp.array(p).flatten("C").shape[0] for p in zeros]
+        # [idx.stop - idx.start for idx in idx_params]
         repeat_name = np.repeat(idx_params._fields, rep_num)
 
         index_rep = np.concatenate(
@@ -60,8 +72,20 @@ class AbstractModel:
         )
         return np.char.add(repeat_name, index_rep)
 
+    def paramslist_to_reals1d(self, params):
+        params_dict = dict(
+            [(key, params[item]) for key, item in self.parametrization._idx.items()]
+        )
+
+        return self.parametrization.params_to_reals1d(params_dict)
+
+    def hstack_params(self, params):
+        return jnp.hstack([jnp.array(p).flatten("C") for p in list(params)])
+
     def reals1d_to_hstack_params(self, theta_reals1d):
-        return jnp.hstack(list(self._parametrization.reals1d_to_params(theta_reals1d)))
+        params = self._parametrization.reals1d_to_params(theta_reals1d)
+
+        return self.hstack_params(params)
 
     def new_params(self, **kwargs):
         theta_reals1d = self._parametrization.params_to_reals1d(**kwargs)

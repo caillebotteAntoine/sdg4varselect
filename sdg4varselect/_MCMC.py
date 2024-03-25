@@ -1,7 +1,7 @@
 from functools import partial
+import numpy as np
 
 import jax.numpy as jnp
-import numpy as np
 from jax import jit
 from jax import random as jrd
 
@@ -113,7 +113,7 @@ class MCMC_chain(Chain):
     def sample(self, key, theta_reals1d, size=1, **kwargs):
         out = []
         for _ in range(size):
-            key, data, nacceptance = gibbs_sampler(
+            key, data, _ = gibbs_sampler(
                 key, self.name, self.__sd[-1], self._likelihood, theta_reals1d, **kwargs
             )
 
@@ -146,14 +146,15 @@ class MCMC_chain(Chain):
         sd_prop = self.__sd[-1]
         rate = self.acceptance_rate(-1)
 
-        if rate < 0.6:
+        if rate < 0.4:
             sd_prop /= 1 + self.__lambda
 
-        if rate > 0.6:
+        else:  # if rate > 0.6:
             sd_prop *= 1 + self.__lambda
 
-        self.__lambda *= 0.999
+        # self.__lambda *= 0.999
         self.__sd.append(sd_prop)
+        return None
 
 
 if __name__ == "__main__":

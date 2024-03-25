@@ -48,12 +48,12 @@ def gradient_descent_fisher_preconditionner_with_mask(
     FIM = J_S.T @ J_S/N + diag(not mask) =| 0        I_p |
 
     """
+    # Gradient
+    grad = jac_current.mean(axis=0)
     # Jacobian approximate
     jac = (1 - step_size_approx_sto) * jac + step_size_approx_sto * jac_current
     jac_shrink = jnp.where(fisher_mask, jac, 0)
 
-    # Gradient
-    grad = jac.mean(axis=0)
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
     # for i in range(0, 5):
     #     grad = grad.at[i].set(0)
