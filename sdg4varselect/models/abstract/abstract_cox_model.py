@@ -15,6 +15,7 @@ import numpy as np
 import jax.numpy as jnp
 import jax.random as jrd
 from jax import jit
+from jax.scipy import integrate
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.models.abstract.abstract_high_dim_model import AbstractHDModel
@@ -115,7 +116,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         )
         assert times.shape == log_hazard_value.shape
 
-        log_survival_fct = -jnp.trapz(jnp.exp(log_hazard_value), times)
+        log_survival_fct = -integrate.trapezoid(jnp.exp(log_hazard_value), times)
         assert log_survival_fct.shape == (N,)
         # =============== end survival_fct =============== #
 
@@ -178,7 +179,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
             t_linspace = jnp.linspace(0, T, num=1000)[1:].T
 
             y = self.log_hazard(params_star, t_linspace, cov, **kwargs, **self._cst)
-            rho = jnp.trapz(y=jnp.exp(y), x=t_linspace)
+            rho = integrate.trapezoid(y=jnp.exp(y), x=t_linspace)
 
             return rho + jnp.log(1 - uni)
 
@@ -222,65 +223,3 @@ def cov_simulation(prngkey, cov_min, cov_max, shape):
     cov = jnp.array(cov, dtype=jnp.float32)
 
     return cov
-
-
-# def cox_simulation(
-#     params, prngkey, beta_prod_cov, log_baseline_fct, log_baseline_kwargs, link_kwargs
-# ):
-#     """
-#     lbd(t) = baseline_fct(t) * exp(beta^T U + linkfct(alpha, t, ...))
-#     """
-
-#     (n_ind,) = beta_prod_cov.shape
-
-#     tmp = [0 for i in range(n_ind)]
-#     key, prngkey = jrd.split(prngkey, num=2)
-#     # rem : c'est pas pratique si uni est très très petit le log explose ...
-#     uni = jrd.uniform(key, shape=(n_ind,))
-
-#     beta_prod_cov_ind = beta_prod_cov[0]
-#     link_ind_args = link_kwargs.copy()
-#     for i in range(n_ind):
-#         beta_prod_cov_ind = beta_prod_cov[i]
-
-#         # extract individual argument for the link function
-#         for key, value in enumerate(link_kwargs):
-#             if isinstance(value, (np.ndarray, jnp.ndarray)) and value.shape != ():
-#                 link_ind_args[key] = value[i]
-#             else:
-#                 link_ind_args[key] = value
-
-#         print(log_baseline_kwargs)
-#         print(link_ind_args)
-
-#         def f(t):
-#             """
-#             example if baseline_fct = lbd_0 = weibull and linkfct = m the logistic function
-
-#             For data generation we seek t such that : P(T <= t ) = U([0,1])         # = 1 - S(t)
-#                                                 ie : S(t) = 1 - U([0,1])
-
-#             where S is the survival function  : S(t) = exp(-int_0^t lbd(s) ds )
-#             where lbd is the hazard function : lbd(t) = lbd0(t) * exp(beta^T U  + alpha* m(t))
-#                                         with : lbd0(t) = b a^-b t^{b-1} = b /a * (t/a)^{b-1}
-
-#             so we seek t such that : - int_0^t lbd(s) ds = log(1 - U([0,1]))
-#                                 ie : int_0^t lbd(s) ds + log(1 - U([0,1])) = 0      # f(t) = 0
-#             """
-
-#             def lbd(s):
-#                 """baseline_fct * exp[ beta^T U + linkfct(alpha, M(t, ...)) ]"""
-#                 log_lbd0 = log_baseline_fct(s, **log_baseline_kwargs, **link_ind_args)
-#                 return jnp.exp(log_lbd0 + beta_prod_cov_ind)
-
-#             t_linspace = jnp.linspace(0, t, num=100)
-#             return jnp.trapz(y=lbd(t_linspace), x=t_linspace) + jnp.log(1 - uni[i])
-
-#         f = jnp.vectorize(f)
-
-#         # Find a root of a function in the interval [a,b]
-#         tmp[i] = brenth(f, a=0, b=1000)
-
-#     sim = {"T uncensored": jnp.array(tmp)}
-
-#     return {}, sim

@@ -18,10 +18,6 @@ pytest-cov = "^4.0.0"
 parametrization-cookbook = "^0.18"
 pylint = "^2.16.2"
 pandas = "^2.0.1"
-plotnine = "^0.12.1"
-seaborn = "^0.12.2"
-tqdm = "^4.66.1"
-lifelines = "^0.28.0"
 
 
 [tool.poetry.group.dev.dependencies]

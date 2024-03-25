@@ -35,7 +35,7 @@ def _estim_shrink_model(
 
 def lasso_into_adaptive_into_estim(
     estim_fct: Callable[
-        [jrd.PRNGKeyArray, type[AbstractModel], dict, int], tuple[type[sdg4vsResults]]
+        [jnp.ndarray, type[AbstractModel], dict, int], tuple[type[sdg4vsResults]]
     ],
     prngkey,
     model: type[AbstractHDModel],

@@ -2,7 +2,7 @@
 Create by antoine.caillebotte@inrae.fr
 """
 
-from jax.config import config
+from jax import config
 
 from . import plot as sdgplt
 
