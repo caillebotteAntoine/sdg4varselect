@@ -40,7 +40,7 @@ def test(N, J, P, nrun=1, censoring=2000):
     res.save(my_model, root="files_unmerged", filename_add_on=f"C{C}_S{seed}")
 
 
-test(100, 5, 5)
+test(1000, 5, 20)
 # test(100, 5, 50)
 
 # test(100, 5, 100)
