@@ -7,6 +7,7 @@ Create by antoine.caillebotte@inrae.fr
 # pylint: disable=C0116
 
 from copy import deepcopy
+import jax.numpy as jnp
 
 
 class AbstractHDModel:
@@ -16,8 +17,8 @@ class AbstractHDModel:
         self._p = P
         self._dim = None
 
-    def init_dim(self, dim):
-        self._dim = dim
+    def init_dim(self):
+        self._dim = self.parametrization.size
 
     @property
     def DIM_LD(self):
@@ -31,12 +32,16 @@ class AbstractHDModel:
     def P(self, P):
         self._p = P
 
+    @property
+    def hd_mask(self):
+        return jnp.arange(self._dim) >= self.DIM_LD
+
     @classmethod
     def shrink_model_and_data(cls, model, data, selected_component):
 
         # === MODEL SHRINKAGE === #
-        dim_ld = model.DIM_LD
-        hd_selected = selected_component[dim_ld:]
+        P = model.P
+        hd_selected = selected_component[-P:]
         new_dim_hd = int(hd_selected.sum())
 
         model_shrink = deepcopy(model)

@@ -58,9 +58,8 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
 
         SGD_FIM._initialize_algo(self, model, likelihood_kwargs, theta_reals1d)
 
-        dim_theta = theta_reals1d.shape[0]
-
-        self._hd_mask = jnp.arange(dim_theta) >= dim_theta - model.P
+        self._hd_mask = model.hd_mask
+        self._fisher_mask = jnp.invert(self._hd_mask)
 
     # ============================================================== #
 
@@ -90,10 +89,8 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
             self._one_simulation(likelihood_kwargs, theta_reals1d)
 
             # Gradient descent
-            (theta_reals1d, self._jac, fisher_info, grad_precond) = (
-                self._one_gradient_descent(
-                    model, likelihood_kwargs, theta_reals1d, self._jac, step
-                )
+            (theta_reals1d, fisher_info, grad_precond) = self._one_gradient_descent(
+                model, likelihood_kwargs, theta_reals1d, step
             )
 
             # Proximal operator

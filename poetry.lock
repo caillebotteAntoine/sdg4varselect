@@ -2664,6 +2664,17 @@ files = [
 ]
 
 [[package]]
+name = "sklearn"
+version = "0.0.post12"
+description = "deprecated sklearn package, use scikit-learn instead"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "sklearn-0.0.post12.tar.gz", hash = "sha256:54cff9e20839b7b202321178228af4d9388bedf78425d9299fd9ee170d68802e"},
+]
+
+[[package]]
 name = "sniffio"
 version = "1.3.0"
 description = "Sniff out which async library your code is running under"
@@ -2993,4 +3004,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "41b2d587cbfc8a8df1f3cda7dcb9afb4d14b61cc88213fb9fdd00b9b736276d1"
+content-hash = "eaf4b3d1eb159914f4d43fea8f4de2dd1f179203084ca52f1c6ff7dd074bb21f"

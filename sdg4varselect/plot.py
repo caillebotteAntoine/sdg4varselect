@@ -102,7 +102,7 @@ def dim_standardize(list_x: list):
             jnp.pad(
                 x,
                 ((0, max_row - x.shape[0]), (0, max_col - x.shape[1])),
-                constant_values=None,
+                constant_values=jnp.nan,
             )
             for x in list_x
         ]

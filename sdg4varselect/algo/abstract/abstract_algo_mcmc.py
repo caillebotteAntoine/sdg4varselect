@@ -98,20 +98,21 @@ class AbstractAlgoMCMC:
         size=1000,
     ):
 
-        return jnp.nan
-        var_lat_sample = {}
-
         params = model.parametrization.reals1d_to_params(theta)
 
-        data = model.latent_variables_data(params0, new_mcmc_name)
+        # data = model.latent_variables_data(params0, new_mcmc_name)
 
         def new_likelihood():
-            for name, item in self.latent_variables.items():
-                self._prngkey, sample_key = jrd.split(self._prngkey, 2)
+            self._prngkey, sample_key = jrd.split(self._prngkey, 2)
 
-                var_lat_sample[name] = model.sample_normal(
-                    sample_key, name, params, shape=(len(item),)
+            sim_latent = model.sample_normal(sample_key, params=params, N=model.N)
+
+            var_lat_sample = dict(
+                zip(
+                    model.latent_variables_name,
+                    [sim_latent[:, i] for i in range(sim_latent.shape[1])],
                 )
+            )
 
             return model.likelihood(theta, **data, **var_lat_sample)
 

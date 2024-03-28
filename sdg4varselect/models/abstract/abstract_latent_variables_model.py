@@ -108,11 +108,12 @@ class AbstractLatentVariablesModel:
         # ]
         # return jnp.array(latent_prior).sum(axis=0)
 
-    def sample_normal(self, prngkey, params, shape):
+    def sample_normal(self, prngkey, params, N):
         # mean, var = self.get_mean_var(name, params)
         # return mean + jnp.sqrt(var) * jrd.normal(prngkey, shape=shape)
 
         mean = jnp.array(params.mean_latent)
+        shape = (N, mean.shape[0])
         return (
             mean
             + jrd.normal(prngkey, shape=shape)

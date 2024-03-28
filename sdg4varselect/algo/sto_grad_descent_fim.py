@@ -65,19 +65,14 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
     ):
         """iterative algorithm"""
 
-        jac_shape = model.jac_likelihood(theta_reals1d, **likelihood_kwargs).shape
-        jac = jnp.zeros(shape=jac_shape)
-
         for step in itertools.count():
 
             # Simulation
             self._one_simulation(likelihood_kwargs, theta_reals1d)
 
             # Gradient descent
-            (theta_reals1d, jac, fisher_info, grad_precond) = (
-                self._one_gradient_descent(
-                    model, likelihood_kwargs, theta_reals1d, jac, step
-                )
+            (theta_reals1d, fisher_info, grad_precond) = self._one_gradient_descent(
+                model, likelihood_kwargs, theta_reals1d, step
             )
 
             if jnp.isnan(theta_reals1d).any():

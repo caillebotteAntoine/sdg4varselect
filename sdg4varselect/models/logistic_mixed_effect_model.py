@@ -29,14 +29,23 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel):
             **kwargs,
         )
 
+        # self._parametrization = pc.NamedTuple(
+        #     mean_latent=pc.NamedTuple(
+        #         mu1=pc.RealPositive(scale=0.5),
+        #         mu2=pc.Real(loc=50, scale=100),
+        #     ),
+        #     mu3=pc.RealPositive(scale=5),
+        #     cov_latent=pc.MatrixSymPosDef(dim=2, scale=(0.001, 10)),
+        #     var_residual=pc.RealPositive(scale=0.001),
+        # )
         self._parametrization = pc.NamedTuple(
             mean_latent=pc.NamedTuple(
-                mu1=pc.RealPositive(scale=0.5),
-                mu2=pc.Real(loc=50, scale=100),
+                mu1=pc.RealPositive(scale=100),
+                mu2=pc.Real(loc=100, scale=100),
             ),
-            mu3=pc.RealPositive(scale=5),
-            cov_latent=pc.MatrixSymPosDef(dim=2, scale=(0.001, 10)),
-            var_residual=pc.RealPositive(scale=0.001),
+            mu3=pc.RealPositive(scale=100),
+            cov_latent=pc.MatrixSymPosDef(dim=2, scale=(200, 200)),
+            var_residual=pc.RealPositive(scale=100),
         )
 
     # ============================================================== #
@@ -75,8 +84,9 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel):
         ) = jrd.split(prngkey, num=2)
 
         # === nlmem_simulation() === #
-        time = jnp.repeat(jnp.linspace(60, 135, num=self.J)[None, :], self.N, axis=0)
-        time += jrd.uniform(prngkey_time, minval=-2, maxval=2, shape=time.shape)
+        time = jnp.linspace(100, 1500, self.J)
+        time = jnp.tile(time, (self.N, 1))
+        time += 10 * jrd.uniform(prngkey_time, minval=-2, maxval=2, shape=time.shape)
 
         obs, sim = AbstractMixedEffectsModel.sample(
             self, params_star, prngkey_mem, mem_obs_time=time

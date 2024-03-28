@@ -120,5 +120,5 @@ class AbstractCoxMemJointModel(AbstractCoxModel):
 
         return obs | coxobs, sim | coxsim
 
-    def sample_normal(self, prngkey, name, params, shape):
-        return self._mem.sample_normal(prngkey, name, params, shape)
+    def sample_normal(self, *args, **kwargs):
+        return self._mem.sample_normal(*args, **kwargs)

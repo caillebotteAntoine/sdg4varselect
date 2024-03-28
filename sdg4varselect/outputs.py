@@ -216,15 +216,12 @@ class GDResults(sdg4vsResults):
             likelihood=results.likelihood,
         )
 
-    @classmethod
-    def make_it_lighter(cls, results) -> "GDResults":
-        return cls(
-            theta=jnp.array([results.theta[0], results.theta[-1]]),
-            FIM=None,
-            grad=jnp.array([results.grad[0], results.grad[-1]]),
-            chrono=results.chrono,
-            likelihood=results.likelihood,
-        )
+    def make_it_lighter(self):
+        self._theta = jnp.array([self.theta[0], self.theta[-1]])
+        self._FIM = None
+        self._grad = jnp.array([self.grad[0], self.grad[-1]])
+        self._chrono = self.chrono
+        self._likelihood = self.likelihood
 
 
 ###########################################################################################################

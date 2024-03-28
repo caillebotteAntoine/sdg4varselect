@@ -16,7 +16,7 @@ from sdg4varselect.algo.abstract.abstract_algo_fit import AbstractAlgoFit
 from sdg4varselect.outputs import GDResults
 
 from sdg4varselect.algo.stochastic_gradient_descent_utils import (
-    gradient_descent_fisher_preconditionner,
+    gradient_descent_fisher_preconditionner_with_mask,
 )
 
 
@@ -84,6 +84,7 @@ class GradientDescentFIM(AbstractAlgoFit):
 
         # initial algo parameter
         self._jac = jnp.zeros(shape=(1, 1))
+        self._fisher_mask = jnp.zeros(shape=(1,))
 
     def get_likelihood_kwargs(self, data):
         """return all the needed data"""
@@ -101,13 +102,14 @@ class GradientDescentFIM(AbstractAlgoFit):
         jac_shape = model.jac_likelihood(theta_reals1d, **likelihood_kwargs).shape
         self._jac = jnp.zeros(shape=jac_shape)
 
+        self._fisher_mask = jnp.ones(shape=jac_shape[1], dtype=jnp.bool)
+
     # ============================================================== #
     def _one_gradient_descent(
         self,
         model: type[AbstractModel],
         likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
-        jac: jnp.ndarray,
         step: int,
     ):
         step_size = [
@@ -118,12 +120,16 @@ class GradientDescentFIM(AbstractAlgoFit):
 
         # Gradient descent
         jac_current = model.jac_likelihood(theta_reals1d, **likelihood_kwargs)
+        # self._jac = jnp.zeros(shape=self._jac.shape)
 
-        (jac, fisher_info, grad_precond) = gradient_descent_fisher_preconditionner(
-            self._jac,
-            jac_current,
-            step_size_approx_sto=step_size[1],
-            step_size_fisher=step_size[2],
+        (self._jac, fisher_info, grad_precond) = (
+            gradient_descent_fisher_preconditionner_with_mask(
+                self._jac,
+                jac_current,
+                step_size_approx_sto=step_size[1],
+                step_size_fisher=step_size[2],
+                fisher_mask=self._fisher_mask,
+            )
         )
 
         grad_precond *= step_size[0]
@@ -131,7 +137,6 @@ class GradientDescentFIM(AbstractAlgoFit):
 
         return (
             theta_reals1d,
-            jac,
             fisher_info,
             grad_precond,
         )
@@ -146,10 +151,8 @@ class GradientDescentFIM(AbstractAlgoFit):
 
         for step in itertools.count():
 
-            (theta_reals1d, self._jac, fisher_info, grad_precond) = (
-                self._one_gradient_descent(
-                    model, likelihood_kwargs, theta_reals1d, self._jac, step
-                )
+            (theta_reals1d, fisher_info, grad_precond) = self._one_gradient_descent(
+                model, likelihood_kwargs, theta_reals1d, step
             )
 
             if jnp.isnan(theta_reals1d).any():
@@ -175,14 +178,37 @@ if __name__ == "__main__":
     from sdg4varselect.outputs import MultiRunRes
     import jax.random as jrd
 
-    myModel = LinearModel(150)
-    p_star = myModel.new_params(intercept=1.5, slope=0.5, sigma2=0.1)
+    myModel = LinearModel(10)
+    p_star = myModel.new_params(intercept=1.5, slope=2, sigma2=0.01)
 
     obs, sim = myModel.sample(p_star, jrd.PRNGKey(0))
+    # obs["time"] = jnp.array(
+    #     [5, 10, 12, 14, 16, 25, 30, 50, 150, 200, 250, 300], dtype=jnp.float64
+    # )
+    # myModel = LinearModel(obs["time"].shape[0])
+    # obs["Y"] = (p_star.slope) * obs["time"]
+    # obs["Y"] = jnp.array(
+    #     [
+    #         0.28,
+    #         0.33,
+    #         0.33,
+    #         0.35,
+    #         0.47,
+    #         0.43,
+    #         0.51,
+    #         0.65,
+    #         3.44,
+    #         4.28,
+    #         6.14,
+    #         7.04,
+    #     ]
+    # )
+
+    # obs["Y"] = obs["Y"].at[5].set(0.35)
 
     plt.plot(obs["time"], obs["Y"], ".")
 
-    algo_settings = get_GDFIM_settings(preheating=400, heating=600)
+    algo_settings = get_GDFIM_settings(preheating=400, heating=600, learning_rate=1e-3)
 
     algo = GradientDescentFIM(1000, algo_settings)
 
@@ -194,5 +220,5 @@ if __name__ == "__main__":
 
     import sdg4varselect.plot as sdgplt
 
-    sdgplt.plot_theta(res, 3, p_star, myModel.params_names)
+    fig, axs = sdgplt.plot_theta(res, 3, p_star, myModel.params_names)
     print(f"chrono = {res.chrono}")

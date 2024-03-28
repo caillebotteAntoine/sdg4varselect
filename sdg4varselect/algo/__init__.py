@@ -25,6 +25,7 @@ from sdg4varselect.algo.sto_grad_descent_fim import (
 )
 
 from .gradient_descent_fim import (
+    GradientDescentFIM as GD_FIM,
     GradientDescentFIMSettings as GradFimSettings,
     get_GDFIM_settings,
 )

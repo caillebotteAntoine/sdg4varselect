@@ -48,29 +48,23 @@ def gradient_descent_fisher_preconditionner_with_mask(
     FIM = J_S.T @ J_S/N + diag(not mask) =| 0        I_p |
 
     """
-    # Gradient
-    grad = jac_current.mean(axis=0)
+    # ' jnp.where(jnp.array([True, False]), jnp.array([[1,2],[3,4]]),0)
+    # '  = Array([[1, 0], [3, 0]])
+
     # Jacobian approximate
-    jac = (1 - step_size_approx_sto) * jac + step_size_approx_sto * jac_current
-    jac_shrink = jnp.where(fisher_mask, jac, 0)
+    jac_approx = (1 - step_size_approx_sto) * jac + step_size_approx_sto * jac_current
+    # Gradient
+    grad = jac_approx.mean(axis=0)
+
+    # Shrinkage
+    jac_shrink = jnp.where(fisher_mask, jac_approx, 0)
+    grad_shrink = jnp.where(fisher_mask, grad, 0)
 
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
     # for i in range(0, 5):
     #     grad = grad.at[i].set(0)
-
-    # for i in range(0, 6):
-    #     grad = grad.at[i].set(0)
-
-    # for i in range(10, 14):
-    #     grad = grad.at[i].set(0)
-
-    # grad = grad.at[6].set(0)
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
-    grad_shrink = jnp.where(fisher_mask, grad, 0)
 
-    # ' jnp.where(jnp.array([True, False]), jnp.array([[1,2],[3,4]]),0)
-    # '  = Array([[1, 0], [3, 0]])
-    # '
     fim = jac_shrink.T @ jac_shrink / jac_shrink.shape[0] + jnp.diag(
         jnp.where(fisher_mask, 0, 1)
     )
@@ -79,7 +73,7 @@ def gradient_descent_fisher_preconditionner_with_mask(
 
     grad_precond = jnp.where(fisher_mask, pred_grad_shrink, grad)
 
-    return jac_shrink, fim, grad, grad_precond
+    return jac_shrink, fim, grad_precond
 
 
 @jit

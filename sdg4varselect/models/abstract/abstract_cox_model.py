@@ -58,7 +58,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
     def init(self):
         """here you define the parametrization of the model
         and don't forget to call the mother init function at the end"""
-        AbstractHDModel.init_dim(self, self.parametrization_size)
+        AbstractHDModel.init_dim(self)
 
     # ============================================================== #
     @abstractmethod

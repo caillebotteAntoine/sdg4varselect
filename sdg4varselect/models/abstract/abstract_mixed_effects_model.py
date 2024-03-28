@@ -94,7 +94,7 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
         D = len(self.latent_variables_name)
         assert len(params_star.mean_latent) == D
 
-        sim_latent = self.sample_normal(key, params_star, shape=(self.N, D))
+        sim_latent = self.sample_normal(key, params_star, N=self.N)
 
         sim = dict(
             zip(

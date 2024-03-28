@@ -10,7 +10,7 @@ import jax.numpy as jnp
 from sdg4varselect import sdgplt, regularization_path, lasso_into_adaptive_into_estim
 from sdg4varselect.outputs import RegularizationPathRes, MultiRunRes
 
-from sdg4varselect.models import create_cox_mem_jm, logisticMEM
+from sdg4varselect.models import WeibullCoxJM, logisticMEM
 
 from results.logistic_model.one_estim import one_estim
 
@@ -52,36 +52,39 @@ def _one_result(prngkey, model, data, lbd_set, save_all=True):
 
 def one_result(args):
     prngkey, N, J, P, data, lbd_set, save_all = args
-    model = create_cox_mem_jm(logisticMEM, N, J, P)
+
+    model = WeibullCoxJM(logisticMEM(N=N, J=J), P=P, alpha_scale=0.001, a=800, b=10)
 
     return _one_result(prngkey, model, data, lbd_set, save_all)
 
 
 if __name__ == "__main__":
     my_lbd_set = 10 ** jnp.linspace(-2, 0, num=5)
+    myModel = WeibullCoxJM(
+        logisticMEM(N=500, J=15), P=50, alpha_scale=0.001, a=800, b=10
+    )
 
-    myModel = create_cox_mem_jm(logisticMEM, 100, 5, 10)
+    print(f"Estimation of computation time {myModel.P*0.023}")
+
     p_star = myModel.new_params(
-        mu1=0.3,
-        mu2=90.0,
-        mu3=7.5,
-        gamma2_1=0.0025,
-        gamma2_2=20,
-        sigma2=0.001,
-        alpha=110.1,
-        beta=jnp.concatenate(
+        mean_latent={"mu1": 200, "mu2": 500},
+        mu3=150,
+        cov_latent=jnp.diag(jnp.array([40, 100])),
+        var_residual=100,
+        alpha=0.005,
+        beta=jnp.concatenate(  # jnp.zeros(shape=(myModel.P,)),  #
             [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.P - 4,))]
         ),
     )
 
-    myobs, _ = myModel.sample(p_star, jrd.PRNGKey(10), weibull_censoring_loc=77)
+    myobs, _ = myModel.sample(p_star, jrd.PRNGKey(0), weibull_censoring_loc=7700)
 
     res = _one_result(jrd.PRNGKey(0), myModel, myobs, my_lbd_set, save_all=True)
 
     # === PLOT === #
     params_names = myModel.params_names
 
-    sdgplt.plot_theta(res, 7, p_star, params_names)
-    sdgplt.plot_theta_hd(res, 7, p_star, params_names)
+    sdgplt.plot_theta(res, 9, myModel.hstack_params(p_star), params_names)
+    sdgplt.plot_theta_hd(res, 9, myModel.hstack_params(p_star), params_names)
     sdgplt.plot_reg_path(res, myModel.DIM_LD)
     print(f"chrono = {res.chrono}")
