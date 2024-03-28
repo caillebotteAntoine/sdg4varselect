@@ -8,8 +8,6 @@ import jax.random as jrd
 import jax.numpy as jnp
 
 
-from sdg4varselect.models.wcox_mem_joint_model import get_params_star
-
 from sdg4varselect.models import WeibullCoxJM, logisticMEM
 from results.logistic_model.multi_results import multi_run
 
