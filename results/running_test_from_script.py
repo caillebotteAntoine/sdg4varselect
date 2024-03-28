@@ -10,7 +10,7 @@ import jax.numpy as jnp
 
 from sdg4varselect.models.wcox_mem_joint_model import get_params_star
 
-from sdg4varselect.models import create_cox_mem_jm, logisticMEM
+from sdg4varselect.models import WeibullCoxJM, logisticMEM
 from results.logistic_model.multi_results import multi_run
 
 
@@ -23,21 +23,32 @@ lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
 
 
 def test(N, J, P, nrun=1, censoring=2000):
-    my_model = create_cox_mem_jm(logisticMEM, N, J, P)
-    p_star = get_params_star(my_model)
 
+    # joint model with coxModel is all ready implement in sdg4varselect for all MixedEffectsModel
+    myModel = WeibullCoxJM(logisticMEM(N=N, J=J), P=P, alpha_scale=0.001, a=800, b=10)
+
+    p_star = myModel.new_params(
+        mean_latent={"mu1": 200, "mu2": 500},
+        mu3=150,
+        cov_latent=jnp.diag(jnp.array([40, 100])),
+        var_residual=100,
+        alpha=0.005,
+        beta=jnp.concatenate(  # jnp.zeros(shape=(myModel.P,)),  #
+            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.P - 4,))]
+        ),
+    )
     res, censoring_rate = multi_run(
         jrd.PRNGKey(seed),
         lbd_set,
         p_star,
-        my_model,
+        myModel,
         nrun=nrun,
         censoring=censoring,
         save_all=False,
     )
 
     C = "NA" if jnp.isnan(censoring_rate) else int(censoring_rate)
-    res.save(my_model, root="files_unmerged", filename_add_on=f"C{C}_S{seed}")
+    res.save(myModel, root="files_unmerged", filename_add_on=f"C{C}_S{seed}")
 
 
 test(1000, 5, 20)
