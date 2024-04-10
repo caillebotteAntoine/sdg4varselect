@@ -6,7 +6,6 @@ Create by antoine.caillebotte@inrae.fr
 
 # pylint: disable=C0116, W0212
 
-from abc import abstractmethod
 import functools
 import parametrization_cookbook.jax as pc
 
@@ -88,19 +87,20 @@ class AbstractCoxMemJointModel(AbstractCoxModel):
         return log_h + link_values
 
     @functools.partial(jit, static_argnums=0)
-    def likelihood_array(self, theta_reals1d, **kwargs):
-        mem_likelihood = self._mem.likelihood_array(theta_reals1d, **kwargs)
-        cox_likelihood = AbstractCoxModel.likelihood_array(
-            self, theta_reals1d, **kwargs
+    def log_likelihood_without_prior(self, params, **kwargs):
+
+        mem_log_likelihood = self._mem.log_likelihood_without_prior(params, **kwargs)
+        cox_log_likelihood = AbstractCoxModel.log_likelihood_without_prior(
+            self, params, **kwargs
         )
 
-        return mem_likelihood + cox_likelihood
+        return mem_log_likelihood + cox_log_likelihood
 
     # ============================================================== #
-    @abstractmethod
     @functools.partial(jit, static_argnums=0)
-    def likelihood_only_prior(self, params, **kwargs) -> jnp.ndarray:
-        """return likelihood with only the gaussian prior"""
+    def log_likelihood_only_prior(self, params, **kwargs) -> jnp.ndarray:
+        """return log likelihood with only the gaussian prior"""
+        return self._mem.log_likelihood_only_prior(params, **kwargs)
 
     # ============================================================== #
     def sample(

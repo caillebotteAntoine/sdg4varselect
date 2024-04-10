@@ -34,6 +34,16 @@ class IsIterable:
     def __len__(self):
         return len(self.__dict__[self._name])
 
+    @property
+    def iterable_data(self):
+        self.__dict__[self._name]
+
+    @property
+    def total_number_res(self):
+        if isinstance(self.__dict__[self._name][0], IsIterable):
+            return sum([iter.total_number_res for iter in self])
+        return len(self)
+
     def __getitem__(self, i):
         return self.__dict__[self._name][i]
 
@@ -298,7 +308,7 @@ class MultiRegRes(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
         return len(self)
 
     def __add__(self, res):
-        return MultiRegRes(self.multi_run + res.multi_run)
+        return MultiRegRes(self.iterable_data + res.iterable_data)
 
 
 ###########################################################################################################

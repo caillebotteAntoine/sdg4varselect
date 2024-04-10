@@ -19,14 +19,14 @@ from sdg4varselect.exceptions import sdg4vsNanError
 
 
 class AbstractAlgoFit:
-    """likelihood parameter estimation algorithm"""
+    """log likelihood parameter estimation algorithm"""
 
     def __init__(self, max_iter: int):
         self._max_iter = max_iter
 
     @abstractmethod
-    def get_likelihood_kwargs(self, data):
-        """return all the needed data for the likelihood computation"""
+    def get_log_likelihood_kwargs(self, data):
+        """return all the needed data for the log likelihood computation"""
 
     # ============================================================== #
 
@@ -34,7 +34,7 @@ class AbstractAlgoFit:
     def _initialize_algo(
         self,
         model: type[AbstractModel],
-        likelihood_kwargs,
+        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ) -> None:
         """
@@ -45,7 +45,7 @@ class AbstractAlgoFit:
     def algorithm(
         self,
         model: type[AbstractModel],
-        likelihood_kwargs,
+        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ):
         """iterative algorithm, must be iterable"""
@@ -64,12 +64,14 @@ class AbstractAlgoFit:
         save_all=True,
     ):
 
-        self._initialize_algo(model, self.get_likelihood_kwargs(data), theta0_reals1d)
+        self._initialize_algo(
+            model, self.get_log_likelihood_kwargs(data), theta0_reals1d
+        )
 
         chrono_start = datetime.now()
 
         iter_algo = itertools.islice(
-            self.algorithm(model, self.get_likelihood_kwargs(data), theta0_reals1d),
+            self.algorithm(model, self.get_log_likelihood_kwargs(data), theta0_reals1d),
             self._max_iter,
         )
         if save_all:

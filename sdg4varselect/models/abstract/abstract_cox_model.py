@@ -92,11 +92,11 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
 
         return beta_prod_cov + h0_values
 
+    # ============================================================== #
     @functools.partial(jit, static_argnums=0)
-    def likelihood_survival_without_prior(
-        self, params, T, delta, cov, **kwargs
-    ) -> jnp.ndarray:
-        """return likelihood without the gaussian prior"""
+    def log_likelihood_without_prior(self, params, T, delta, cov, **kwargs):
+        """return likelihood as array each component for each individuals"""
+
         (N,) = T.shape
         (p,) = params.beta.shape
         assert T.shape == (N,)
@@ -131,11 +131,18 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
-    def likelihood_array(self, theta_reals1d, **kwargs):
+    def log_likelihood_only_prior(self, params, **kwargs):
+        return jnp.array([0])
+
+    # ============================================================== #
+    @functools.partial(jit, static_argnums=0)
+    def log_likelihood_array(self, theta_reals1d, **kwargs):
         """return likelihood as array each component for each individuals"""
         params = self._parametrization.reals1d_to_params(theta_reals1d)
 
-        return self.likelihood_survival_without_prior(params, **kwargs)
+        return self.log_likelihood_without_prior(
+            params, **kwargs
+        ) + self.log_likelihood_only_prior(params, **kwargs)
 
     # ============================================================== #
     def sample(

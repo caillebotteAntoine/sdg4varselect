@@ -6,7 +6,6 @@ Create by antoine.caillebotte@inrae.fr
 
 # pylint: disable=C0116, W0613
 import jax.numpy as jnp
-import jax.random as jrd
 
 from sdg4varselect._MCMC import MCMC_chain
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
@@ -67,7 +66,7 @@ class AbstractAlgoMCMC:
                 data["mean"],
                 sd=1 if sd is None else sd[new_mcmc_name],
                 size=data["size"],
-                likelihood=model.likelihood_array,
+                likelihood=model.log_likelihood_array,
                 name=new_mcmc_name,
             )
 
@@ -88,45 +87,6 @@ class AbstractAlgoMCMC:
             )
         self._latent_variables[new_mcmc_name] = new_mcmc
         self.add_data(**dict(((new_mcmc_name, new_mcmc.data),)))
-
-    # ============================================================== #
-    def likelihood_marginal(
-        self,
-        model: type[AbstractLatentVariablesModel],
-        data,
-        theta,
-        size=1000,
-    ):
-
-        params = model.parametrization.reals1d_to_params(theta)
-
-        # data = model.latent_variables_data(params0, new_mcmc_name)
-
-        def new_likelihood():
-            self._prngkey, sample_key = jrd.split(self._prngkey, 2)
-
-            sim_latent = model.sample_normal(sample_key, params=params, N=model.N)
-
-            var_lat_sample = dict(
-                zip(
-                    model.latent_variables_name,
-                    [sim_latent[:, i] for i in range(sim_latent.shape[1])],
-                )
-            )
-
-            return model.likelihood(theta, **data, **var_lat_sample)
-
-        out = [new_likelihood()]
-        for _ in range(1, 10):
-            out.append(out[-1] + new_likelihood())
-
-        n_simu = 10
-        while n_simu < size and abs(out[-2] / (n_simu - 1) - out[-1] / n_simu) >= 1e-3:
-            out.append(out[-1] + new_likelihood())
-            n_simu += 1
-
-        print(n_simu)
-        return out[-1] / n_simu
 
     # ============================================================== #
 

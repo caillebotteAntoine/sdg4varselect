@@ -42,6 +42,34 @@ def _estim_shrink_model(
     return GDResults.expand_theta(res_estim, selected_component)
 
 
+def lasso_into_estim(
+    estim_fct: Callable[
+        [jnp.ndarray, type[AbstractModel], dict, int], tuple[type[sdg4vsResults]]
+    ],
+    prngkey,
+    model: type[AbstractHDModel],
+    data,
+    lbd,
+    **kwargs,
+):
+    """perform first a lasso and an adapative lasso with the previous results
+    and finally estim the parameter on the selected component by the adaptative lasso"""
+    prngkey_lasso, prngkey_estim = jrd.split(prngkey, 2)
+    lasso = estim_fct(prngkey_lasso, model, data, lbd=lbd, **kwargs)
+
+    estim = _estim_shrink_model(
+        estim_fct,
+        prngkey_estim,
+        model,
+        data,
+        theta_first_estim=lasso.last_theta,
+        lbd=None,
+        **kwargs,
+    )
+
+    return MultiRunRes([lasso, estim])
+
+
 def lasso_into_adaptive_into_estim(
     estim_fct: Callable[
         [jnp.ndarray, type[AbstractModel], dict, int], tuple[type[sdg4vsResults]]

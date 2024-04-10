@@ -47,7 +47,7 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
     def _initialize_algo(
         self,
         model: type[AbstractModel],
-        likelihood_kwargs,
+        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ) -> None:
         """
@@ -56,7 +56,7 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
         if not isinstance(model, AbstractHDModel):
             raise ValueError("model must be a high dimensional one !")
 
-        SGD_FIM._initialize_algo(self, model, likelihood_kwargs, theta_reals1d)
+        SGD_FIM._initialize_algo(self, model, log_likelihood_kwargs, theta_reals1d)
 
         self._hd_mask = model.hd_mask
         self._fisher_mask = jnp.invert(self._hd_mask)
@@ -78,7 +78,7 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
     def algorithm(
         self,
         model: type[AbstractModel],
-        likelihood_kwargs,
+        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ):
         """iterative algorithm"""
@@ -86,11 +86,11 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
         for step in itertools.count():
 
             # Simulation
-            self._one_simulation(likelihood_kwargs, theta_reals1d)
+            self._one_simulation(log_likelihood_kwargs, theta_reals1d)
 
             # Gradient descent
             (theta_reals1d, fisher_info, grad_precond) = self._one_gradient_descent(
-                model, likelihood_kwargs, theta_reals1d, step
+                model, log_likelihood_kwargs, theta_reals1d, step
             )
 
             # Proximal operator
@@ -149,7 +149,7 @@ if __name__ == "__main__":
             float(params.mu1),
             sd=0.001,
             size=myModel.N,
-            likelihood=myModel.likelihood_array,
+            likelihood=myModel.log_likelihood_array,
             name="phi1",
         )
         algo.latent_variables["phi1"].adaptative_sd = True
@@ -157,7 +157,7 @@ if __name__ == "__main__":
             float(params.mu2),
             sd=2,
             size=myModel.N,
-            likelihood=myModel.likelihood_array,
+            likelihood=myModel.log_likelihood_array,
             name="phi2",
         )
         algo.latent_variables["phi2"].adaptative_sd = True

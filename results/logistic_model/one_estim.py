@@ -63,8 +63,8 @@ if __name__ == "__main__":
 
     multi_estim = MultiRunRes(
         [
-            one_estim(jrd.PRNGKey(key), myModel, myobs, lbd=None, save_all=True)
-            for key in range(10)
+            one_estim(jrd.PRNGKey(key), myModel, myobs, lbd=None, save_all=False)
+            for key in range(50)
         ]
     )
 

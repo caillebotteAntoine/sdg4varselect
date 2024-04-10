@@ -75,7 +75,7 @@ if __name__ == "__main__":
     )
 
     res, C = multi_run(
-        jrd.PRNGKey(0), my_lbd_set, p_star, myModel, nrun=5, censoring=2000
+        jrd.PRNGKey(0), my_lbd_set, p_star, myModel, nrun=50, censoring=2000
     )
     print(C)
 

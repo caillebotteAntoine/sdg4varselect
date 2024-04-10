@@ -131,7 +131,13 @@ def plot(*args, **kwargs):
 
 
 # ===================================================== #
-def _plot_theta(multi_theta, dim_ld=None, params_star=None, params_names=None):
+def _plot_theta(
+    multi_theta,
+    dim_ld=None,
+    params_star=None,
+    params_names=None,
+    log_scale=True,
+):
     dt = dim_standardize(multi_theta).T
     if dt.shape[0] == 0:
         return None
@@ -161,6 +167,9 @@ def _plot_theta(multi_theta, dim_ld=None, params_star=None, params_names=None):
         else:
             ax.plot(dt[i], label=params_names[i])
 
+        if log_scale and (dt[i] > 0).all():
+            ax.set_yscale("log")
+
         ax.legend(loc="center left")
 
     if dim_ld != 0:
@@ -170,7 +179,9 @@ def _plot_theta(multi_theta, dim_ld=None, params_star=None, params_names=None):
     return fig, fig.axes
 
 
-def plot_theta(multi_estim, dim_ld=None, params_star=None, params_names=None):
+def plot_theta(
+    multi_estim, dim_ld=None, params_star=None, params_names=None, log_scale=True
+):
     if isinstance(multi_estim, RegularizationPathRes):
         return plot_theta(
             multi_estim[multi_estim.argmin_bic],
@@ -187,7 +198,7 @@ def plot_theta(multi_estim, dim_ld=None, params_star=None, params_names=None):
     else:
         raise TypeError("multi_estim must be MultiRunRes or GDResults")
 
-    return _plot_theta(multi_theta, dim_ld, params_star, params_names)
+    return _plot_theta(multi_theta, dim_ld, params_star, params_names, log_scale=True)
 
 
 def plot_theta_hd(multi_estim, dim_ld=None, params_star=None, params_names=None):

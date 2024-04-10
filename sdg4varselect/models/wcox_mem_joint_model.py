@@ -6,7 +6,6 @@ Create by antoine.caillebotte@inrae.fr
 
 # pylint: disable=C0116, W0221
 
-from abc import abstractmethod
 import functools
 import parametrization_cookbook.jax as pc
 
@@ -47,13 +46,6 @@ class WeibullCoxMemJointModel(AbstractCoxMemJointModel):
         return f"WCoxMemJM_N{self.N}_J{self.J}_P{self.P}"
 
     # ============================================================== #
-    @abstractmethod
-    @functools.partial(jit, static_argnums=0)
-    def likelihood_only_prior(self, params, **kwargs) -> jnp.ndarray:
-        """return likelihood with only the gaussian prior"""
-        return jnp.array([0])
-
-    # ============================================================== #
     @functools.partial(jit, static_argnums=0)
     def log_baseline_hazard(
         self,
@@ -76,25 +68,21 @@ class WeibullCoxMemJointModel(AbstractCoxMemJointModel):
     # ============================================================== #
 
 
-def create_cox_mem_jm(mem, N, J, P, **kwargs):
-    mem_model = mem(N=N, J=J)
-    model = WeibullCoxMemJointModel(mem_model, P=P)
-    return model
-
-
 if __name__ == "__main__":
     from sdg4varselect.plot import plot_sample
     from sdg4varselect.models import logisticMEM
 
-    myModel = create_cox_mem_jm(logisticMEM, N=1000, J=5, P=10, a=80, b=35)
+    myModel = WeibullCoxMemJointModel(
+        logisticMEM(N=1000, J=15), P=5, alpha_scale=0.001, a=800, b=10
+    )
 
     p_star = myModel.new_params(
-        mean_latent={"mu1": 0.3, "mu2": 90.0},
-        mu3=7.5,
-        cov_latent=jnp.diag(jnp.array([0.0025, 20])),
-        var_residual=0.001,
-        alpha=10,
-        beta=jnp.zeros(shape=(myModel.P,)),  # jnp.concatenate(  # ,
+        mean_latent={"mu1": 200, "mu2": 500},
+        mu3=150,
+        cov_latent=jnp.diag(jnp.array([40, 100])),
+        var_residual=100,
+        alpha=0.005,
+        beta=jnp.zeros(shape=(myModel.P,)),  # jnp.concatenate(  #
         #     [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.P - 4,))]
         # ),
     )
