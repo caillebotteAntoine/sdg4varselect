@@ -14,7 +14,7 @@ from results.logistic_model.multi_results import multi_run
 
 import sys
 
-seed = 0  # int(sys.argv[1])
+seed = int(sys.argv[1])
 print(seed)
 
 lbd_set = 10 ** jnp.linspace(-2, 0, num=15)
@@ -49,7 +49,7 @@ def test(N, J, P, nrun=1, censoring=2000):
     res.save(myModel, root="files_unmerged", filename_add_on=f"C{C}_S{seed}")
 
 
-test(1000, 5, 20)
+test(1000, 5, 5)
 # test(100, 5, 50)
 
 # test(100, 5, 100)

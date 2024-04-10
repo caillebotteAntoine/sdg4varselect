@@ -17,6 +17,7 @@ from jax import jit
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.models.abstract.abstract_latent_variables_model import (
     AbstractLatentVariablesModel,
+    sample_normal,
 )
 
 
@@ -48,7 +49,7 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
-    def likelihood_without_prior(
+    def log_likelihood_without_prior(
         self, params, Y, mem_obs_time, **kwargs
     ) -> jnp.ndarray:
         """return likelihood without the gaussian prior"""
@@ -62,22 +63,22 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
         )  # shape = (N,J)
 
         # mise à jours de J en fct des nan ?!
-        likelihood_mem = -J / 2 * jnp.log(
+        log_likelihood_mem = -J / 2 * jnp.log(
             2 * jnp.pi * params.var_residual
         ) - jnp.nansum((Y - pred) ** 2, axis=1) / (2 * params.var_residual)
 
-        assert likelihood_mem.shape == (N,)
-        return likelihood_mem
+        assert log_likelihood_mem.shape == (N,)
+        return log_likelihood_mem
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
-    def likelihood_array(self, theta_reals1d, **kwargs):
+    def log_likelihood_array(self, theta_reals1d, **kwargs):
         """return likelihood as array each component for each individuals"""
         params = self._parametrization.reals1d_to_params(theta_reals1d)
 
-        return self.likelihood_without_prior(
+        return self.log_likelihood_without_prior(
             params, **kwargs
-        ) + self.likelihood_only_prior(params, **kwargs)
+        ) + self.log_likelihood_only_prior(params, **kwargs)
 
     # ============================================================== #
     @abstractmethod
@@ -94,7 +95,7 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
         D = len(self.latent_variables_name)
         assert len(params_star.mean_latent) == D
 
-        sim_latent = self.sample_normal(key, params_star, N=self.N)
+        sim_latent = sample_normal(key, params_star, N=self.N)
 
         sim = dict(
             zip(
@@ -104,7 +105,7 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
         )
 
         y_without_noise = self.mixed_effect_function(
-            params_star, times=kwargs["mem_obs_time"], **sim
+            params_star, times=kwargs["mem_obs_time"], **sim, **kwargs
         )
 
         key, prngkey = jrd.split(prngkey, num=2)

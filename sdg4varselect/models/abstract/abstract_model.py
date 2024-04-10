@@ -94,21 +94,21 @@ class AbstractModel:
     # ============================================================== #
     # @abstractmethod
     # @functools.partial(jit, static_argnums=0)
-    # def likelihood_only_prior(self, params, **kwargs) -> jnp.ndarray:
+    # def log_likelihood_only_prior(self, params, **kwargs) -> jnp.ndarray:
     #     """return likelihood with only the gaussian prior"""
 
     @abstractmethod
     @functools.partial(jit, static_argnums=0)
-    def likelihood_array(self, theta_reals1d, **kwargs):
-        """return likelihood as array each component for each individuals"""
+    def log_likelihood_array(self, theta_reals1d, **kwargs):
+        """return log likelihood as array each component for each individuals"""
 
     @functools.partial(jit, static_argnums=0)
-    def likelihood(self, theta_reals1d, **kwargs):
-        return self.likelihood_array(theta_reals1d, **kwargs).sum()
+    def log_likelihood(self, theta_reals1d, **kwargs):
+        return self.log_likelihood_array(theta_reals1d, **kwargs).sum()
 
     @functools.partial(jit, static_argnums=0)
-    def jac_likelihood(self, theta_reals1d, **kwargs):
-        return jacfwd(self.likelihood_array)(theta_reals1d, **kwargs)
+    def jac_log_likelihood(self, theta_reals1d, **kwargs):
+        return jacfwd(self.log_likelihood_array)(theta_reals1d, **kwargs)
 
     # ============================================================== #
     @abstractmethod

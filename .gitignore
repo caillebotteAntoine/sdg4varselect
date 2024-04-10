@@ -1,7 +1,7 @@
 
-
+*/__pycache__/*
 *.out
-.mypy_cache/
+*.mypy_cache/
 *.pyc
 *.pkl.gz
 *.nfs

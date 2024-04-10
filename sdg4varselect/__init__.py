@@ -9,7 +9,7 @@ from . import plot as sdgplt
 # from .learning_rate import LearningRate
 from ._MCMC import MCMC_chain
 from ._regularization_function import eBIC, BIC, regularization_path
-from ._estimation_method import lasso_into_adaptive_into_estim
+from ._estimation_method import lasso_into_adaptive_into_estim, lasso_into_estim
 
 
 # import jax.numpy as jnp

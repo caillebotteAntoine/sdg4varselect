@@ -11,6 +11,9 @@ import jax.numpy as jnp
 
 from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
+from sdg4varselect.models.abstract.abstract_latent_variables_model import (
+    log_likelihood_marginal,
+)
 
 from sdg4varselect.algo.gradient_descent_fim import (
     GradientDescentFIM as GD_FIM,
@@ -33,34 +36,36 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
         GD_FIM.__init__(self, max_iter, settings)
         AbstractAlgoMCMC.__init__(self, prngkey)
 
-    def get_likelihood_kwargs(self, data):
+    def get_log_likelihood_kwargs(self, data):
         """return all the needed data"""
         return data | self.latent_data
 
     def results_warper(self, model, data, results, chrono):
         """warp results"""
         out = GDResults.new_from_list(results, chrono)
-        likelihood = self.likelihood_marginal(model, data, out.last_theta)
+        likelihood = log_likelihood_marginal(model, self._prngkey, data, out.last_theta)
 
         return GDResults.compute_with_model(model, out, likelihood)
 
     def _initialize_algo(
         self,
         model: type[AbstractModel],
-        likelihood_kwargs,
+        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ) -> None:
         """
         Initialize the algorithm
         """
-        AbstractAlgoMCMC._initialize_algo(self, model, likelihood_kwargs, theta_reals1d)
-        GD_FIM._initialize_algo(self, model, likelihood_kwargs, theta_reals1d)
+        AbstractAlgoMCMC._initialize_algo(
+            self, model, log_likelihood_kwargs, theta_reals1d
+        )
+        GD_FIM._initialize_algo(self, model, log_likelihood_kwargs, theta_reals1d)
 
     # ============================================================== #
     def algorithm(
         self,
         model: type[AbstractModel],
-        likelihood_kwargs,
+        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ):
         """iterative algorithm"""
@@ -68,11 +73,11 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
         for step in itertools.count():
 
             # Simulation
-            self._one_simulation(likelihood_kwargs, theta_reals1d)
+            self._one_simulation(log_likelihood_kwargs, theta_reals1d)
 
             # Gradient descent
             (theta_reals1d, fisher_info, grad_precond) = self._one_gradient_descent(
-                model, likelihood_kwargs, theta_reals1d, step
+                model, log_likelihood_kwargs, theta_reals1d, step
             )
 
             if jnp.isnan(theta_reals1d).any():
@@ -121,7 +126,7 @@ if __name__ == "__main__":
             float(params.mu1),
             sd=0.001,
             size=myModel.N,
-            likelihood=myModel.likelihood_array,
+            likelihood=myModel.log_likelihood_array,
             name="phi1",
         )
         algo.latent_variables["phi1"].adaptative_sd = True
@@ -129,7 +134,7 @@ if __name__ == "__main__":
             float(params.mu2),
             sd=2,
             size=myModel.N,
-            likelihood=myModel.likelihood_array,
+            likelihood=myModel.log_likelihood_array,
             name="phi2",
         )
         algo.latent_variables["phi2"].adaptative_sd = True

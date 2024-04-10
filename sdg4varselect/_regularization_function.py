@@ -33,7 +33,7 @@ def BIC(theta_hd, log_likelihood, n):
     where :
         - k is the number of parameter estimated (ie non zero parameter in HD parameter)
         - n is the sample size
-        - L the maximzed value of the likelihood function
+        - L the maximazed value of the likelihood function
     """
     k = (theta_hd != 0).sum(axis=1)
     assert k.shape == log_likelihood.shape

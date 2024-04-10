@@ -86,20 +86,22 @@ class GradientDescentFIM(AbstractAlgoFit):
         self._jac = jnp.zeros(shape=(1, 1))
         self._fisher_mask = jnp.zeros(shape=(1,))
 
-    def get_likelihood_kwargs(self, data):
+    def get_log_likelihood_kwargs(self, data):
         """return all the needed data"""
         return data
 
     def _initialize_algo(
         self,
         model: type[AbstractModel],
-        likelihood_kwargs,
+        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ) -> None:
         """
         Initialize the algorithm
         """
-        jac_shape = model.jac_likelihood(theta_reals1d, **likelihood_kwargs).shape
+        jac_shape = model.jac_log_likelihood(
+            theta_reals1d, **log_likelihood_kwargs
+        ).shape
         self._jac = jnp.zeros(shape=jac_shape)
 
         self._fisher_mask = jnp.ones(shape=jac_shape[1], dtype=jnp.bool)
@@ -108,7 +110,7 @@ class GradientDescentFIM(AbstractAlgoFit):
     def _one_gradient_descent(
         self,
         model: type[AbstractModel],
-        likelihood_kwargs,
+        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
         step: int,
     ):
@@ -119,7 +121,7 @@ class GradientDescentFIM(AbstractAlgoFit):
         ]
 
         # Gradient descent
-        jac_current = model.jac_likelihood(theta_reals1d, **likelihood_kwargs)
+        jac_current = model.jac_log_likelihood(theta_reals1d, **log_likelihood_kwargs)
         # self._jac = jnp.zeros(shape=self._jac.shape)
 
         (self._jac, fisher_info, grad_precond) = (
@@ -144,7 +146,7 @@ class GradientDescentFIM(AbstractAlgoFit):
     def algorithm(
         self,
         model: type[AbstractModel],
-        likelihood_kwargs,
+        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ):
         """iterative algorithm"""
@@ -152,7 +154,7 @@ class GradientDescentFIM(AbstractAlgoFit):
         for step in itertools.count():
 
             (theta_reals1d, fisher_info, grad_precond) = self._one_gradient_descent(
-                model, likelihood_kwargs, theta_reals1d, step
+                model, log_likelihood_kwargs, theta_reals1d, step
             )
 
             if jnp.isnan(theta_reals1d).any():
