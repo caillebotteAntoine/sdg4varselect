@@ -1,6 +1,26 @@
 [0;1;31mCommand line to execute required.[0m
-Traceback (most recent call last):
-  File "/save_home/acaillebotte/sdg4varselect/results/running_test_from_script.py", line 11, in <module>
-    from sdg4varselect.models.wcox_mem_joint_model import get_params_star
-ImportError: cannot import name 'get_params_star' from 'sdg4varselect.models.wcox_mem_joint_model' (/save_home/acaillebotte/sdg4varselect/sdg4varselect/models/wcox_mem_joint_model.py)
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
+[0;1;31mCommand line to execute required.[0m
 [0;1;31mCommand line to execute required.[0m

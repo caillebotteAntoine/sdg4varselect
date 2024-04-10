@@ -2,9 +2,9 @@
 
 systemd-run --user --scope -p CPUQuota=1000% 
 
-seed=$((SLURM_ARRAY_TASK_ID))
+seed=$((SGE_TASK_ID))
 
-poetry run python3  running_test_from_script.py $seed
+poetry run python3  senescence/multi_results.py $seed
 
 #run_test.py
 ## Pour lancer mon code (code qui parallélise lui même)

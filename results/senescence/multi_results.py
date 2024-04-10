@@ -223,12 +223,12 @@ res = multi_run(
     mylbd_set,
     p_star,
     myHDModel,
-    nrun=2,
+    nrun=5,
     save_all=True,
 )
-res.save(myHDModel, filename_add_on=f"_S{seed}")
+res.save(myHDModel, root="files_unmerged", filename_add_on=f"_S{seed}")
 
-if __name__ == "__main__":
+if __name__ == "__main__d":
     sdgplt.FIGSIZE = 10
 
     fig, axs = sdgplt.plot_theta(
