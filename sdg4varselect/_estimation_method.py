@@ -38,8 +38,8 @@ def _estim_shrink_model(
     # === THETA RE CONSTRUCTION === #
     # dim_ld = model.DIM_LD
     # non_zero_component = jnp.concatenate([jnp.repeat(True, dim_ld), hd_selected])
-
-    return GDResults.expand_theta(res_estim, selected_component)
+    res_estim.expand_theta(selected_component)
+    return res_estim
 
 
 def lasso_into_estim(

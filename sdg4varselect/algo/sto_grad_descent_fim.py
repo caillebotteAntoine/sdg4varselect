@@ -8,6 +8,7 @@ Create by antoine.caillebotte@inrae.fr
 import itertools
 
 import jax.numpy as jnp
+from datetime import datetime
 
 from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
@@ -42,10 +43,16 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
 
     def results_warper(self, model, data, results, chrono):
         """warp results"""
-        out = GDResults.new_from_list(results, chrono)
-        likelihood = log_likelihood_marginal(model, self._prngkey, data, out.last_theta)
+        chrono_start = datetime.now()
 
-        return GDResults.compute_with_model(model, out, likelihood)
+        out = GDResults.new_from_list(results, chrono)
+
+        out.likelihood = log_likelihood_marginal(
+            model, self._prngkey, data, out.last_theta
+        )
+        out.reals1d_to_hstack_params(model)
+        out.chrono += datetime.now() - chrono_start
+        return out
 
     def _initialize_algo(
         self,

@@ -7,6 +7,8 @@ Create by antoine.caillebotte@inrae.fr
 from warnings import warn
 import numpy as np
 
+from datetime import datetime, timedelta
+
 
 class Chain:
     """
@@ -207,6 +209,24 @@ def loadnumber(
     return os
 
 
+def timer(step_msg):
+    chrono = timedelta()
+    time = datetime.now()
+
+    def f(iteration: int, max_iter: int, **kwargs):
+        nonlocal chrono, time
+
+        os = step_msg(iteration, max_iter, **kwargs)
+        chrono += datetime.now() - time
+        time = datetime.now()
+
+        os += f"(end in ~ {chrono/(iteration+1)*(max_iter-iteration)} )"
+        return os
+
+    return f
+
+
+@timer
 def step_message(iteration: int, max_iter: int, **kwargs) -> str:
     """
     Generates a step message with a progress bar and load number representation.
@@ -237,7 +257,12 @@ if __name__ == "__main__":
     print("HELLO WORLD")
 
     # 25/12
-    # x = np.arange(0, 1e6)
+    x = np.arange(0, 1e6)
+
+    for k in range(10):
+        print(step_message(k, 10))
+        for i in range(1000):
+            np.sum(x)
 
     # def np_sum(x):
     #     np.sum(x)

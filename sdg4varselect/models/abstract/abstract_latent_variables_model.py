@@ -171,6 +171,30 @@ class AbstractLatentVariablesModel:
         # return jnp.array(latent_prior).sum(axis=0)
 
 
+@functools.partial(jit, static_argnums=0)
+def new_likelihood(
+    model: Union[Type[AbstractModel], Type[AbstractLatentVariablesModel]],
+    sample_key,
+    data,
+    params,
+) -> jnp.ndarray:
+
+    sim_latent = sample_normal(sample_key, params=params, N=model.N)
+
+    var_lat_sample = dict(
+        zip(
+            model.latent_variables_name,
+            [sim_latent[:, i] for i in range(sim_latent.shape[1])],
+        )
+    )
+
+    return jnp.exp(
+        model.log_likelihood_without_prior(
+            params, **data, **var_lat_sample
+        )  # log(f(Y|phi_sim)) ; shape = (N,)
+    )  # f(Y|phi_sim) ; shape = (N,)
+
+
 def log_likelihood_marginal(
     model: Union[Type[AbstractModel], Type[AbstractLatentVariablesModel]],
     prngkey,
@@ -181,36 +205,53 @@ def log_likelihood_marginal(
     params = model.parametrization.reals1d_to_params(theta)
 
     # data = model.latent_variables_data(params0, new_mcmc_name)
-
-    def new_likelihood(sample_key) -> jnp.ndarray:
-
-        sim_latent = sample_normal(sample_key, params=params, N=model.N)
-
-        var_lat_sample = dict(
-            zip(
-                model.latent_variables_name,
-                [sim_latent[:, i] for i in range(sim_latent.shape[1])],
-            )
-        )
-
-        return jnp.exp(
-            model.log_likelihood_without_prior(
-                params, **data, **var_lat_sample
-            )  # log(f(Y|phi_sim)) ; shape = (N,)
-        )
-
-    out = [new_likelihood(prngkey)]
-    n_simu = 200
-    for _ in range(1, n_simu):
+    out = []
+    for _ in range(size):
         prngkey, sample_key = jrd.split(prngkey, 2)
-        out.append(out[-1] + new_likelihood(sample_key))
+        out.append(new_likelihood(model, sample_key, data, params))
 
-    while (
-        n_simu < size and abs(out[-2] / (n_simu - 1) - out[-1] / n_simu).all() >= 1e-3
-    ):
-        prngkey, sample_key = jrd.split(prngkey, 2)
-        out.append(out[-1] + new_likelihood(sample_key))
-        n_simu += 1
+    return jnp.log((jnp.array(out) / len(out)).sum())
 
-    # print(n_simu)
-    return jnp.log(out[-1] / n_simu).sum()
+
+# def log_likelihood_marginal(
+#     model: Union[Type[AbstractModel], Type[AbstractLatentVariablesModel]],
+#     prngkey,
+#     data,
+#     theta,
+#     size=2000,
+# ) -> jnp.ndarray:
+#     params = model.parametrization.reals1d_to_params(theta)
+
+#     # data = model.latent_variables_data(params0, new_mcmc_name)
+#     def new_likelihood(sample_key) -> jnp.ndarray:
+
+#         sim_latent = sample_normal(sample_key, params=params, N=model.N)
+
+#         var_lat_sample = dict(
+#             zip(
+#                 model.latent_variables_name,
+#                 [sim_latent[:, i] for i in range(sim_latent.shape[1])],
+#             )
+#         )
+
+#         return jnp.exp(
+#             model.log_likelihood_without_prior(
+#                 params, **data, **var_lat_sample
+#             )  # log(f(Y|phi_sim)) ; shape = (N,)
+#         )
+
+#     out = [new_likelihood(prngkey)]
+#     n_simu = 200
+#     for _ in range(1, n_simu):
+#         prngkey, sample_key = jrd.split(prngkey, 2)
+#         out.append(out[-1] + new_likelihood(sample_key))
+
+#     while (
+#         n_simu < size and abs(out[-2] / (n_simu - 1) - out[-1] / n_simu).all() >= 1e-3
+#     ):
+#         prngkey, sample_key = jrd.split(prngkey, 2)
+#         out.append(out[-1] + new_likelihood(sample_key))
+#         n_simu += 1
+
+#     # print(n_simu)
+#     return jnp.log(out[-1] / n_simu).sum()

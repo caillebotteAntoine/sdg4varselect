@@ -25,7 +25,7 @@ from sdg4varselect.models import (
 from sdg4varselect.algo import SPGD_FIM, get_GDFIM_settings
 
 from sdg4varselect import regularization_path, lasso_into_estim
-from sdg4varselect.outputs import RegularizationPathRes, MultiRunRes, MultiRegRes
+from sdg4varselect.outputs import RegularizationPathRes, MultiRunRes
 from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.miscellaneous import step_message
 
@@ -192,14 +192,14 @@ def multi_run(prngkey, lbd_set, params_star, model, nrun, save_all=True):
         except sdg4vsNanError as err:
             print(f"{err} :  estimation cancelled !")
 
-    return MultiRegRes(estim_res)
+    return MultiRunRes(estim_res)
 
 
 # ====================================================== #
 # ====================================================== #
 # ====================================================== #
 
-myHDModel = HDLogisticMixedEffectsModel(N=1000, J=10, P=50)
+myHDModel = HDLogisticMixedEffectsModel(N=200, J=10, P=500)
 
 p_star = myHDModel.new_params(
     mean_latent={"mu": 1200},
@@ -223,19 +223,21 @@ res = multi_run(
     mylbd_set,
     p_star,
     myHDModel,
-    nrun=5,
-    save_all=True,
+    nrun=3,
+    save_all=False,
 )
 res.save(myHDModel, root="files_unmerged", filename_add_on=f"_S{seed}")
 
-if __name__ == "__main__d":
+if __name__ == "__main__":
     sdgplt.FIGSIZE = 10
 
-    fig, axs = sdgplt.plot_theta(
-        res[0].final_result,
-        dim_ld=myHDModel.DIM_LD,
-        params_star=myHDModel.hstack_params(p_star),
-        params_names=myHDModel.params_names,
+    fig = sdgplt.boxplot_estimation(
+        res.last_theta[:, 1, : myHDModel.DIM_LD + 4].T,
+        hline=myHDModel.hstack_params(p_star)[: myHDModel.DIM_LD + 4],
+        labels=myHDModel.params_names[: myHDModel.DIM_LD + 4],
+        nrows=2,
+        ncols=5,
+        fig=sdgplt.figure(height=4, width=15),
     )
-
-    _ = sdgplt.plot_reg_path(res[0], myHDModel.DIM_LD)
+    fig.tight_layout()
+    _ = fig.suptitle("MLE of the parameter", fontsize=15, y=1.05)

@@ -64,24 +64,23 @@ class AbstractAlgoFit:
         save_all=True,
     ):
 
+        chrono_start = datetime.now()
+
         self._initialize_algo(
             model, self.get_log_likelihood_kwargs(data), theta0_reals1d
         )
-
-        chrono_start = datetime.now()
 
         iter_algo = itertools.islice(
             self.algorithm(model, self.get_log_likelihood_kwargs(data), theta0_reals1d),
             self._max_iter,
         )
+
         if save_all:
             out = list(iter_algo)
         else:
             out = [next(iter_algo), None]
             for last in iter_algo:
                 out[1] = last
-
-        chrono_time = datetime.now() - chrono_start
 
         flag = out[-1]
         if isinstance(flag, sdg4vsNanError):
@@ -93,14 +92,18 @@ class AbstractAlgoFit:
                     theta0_reals1d,
                     ntry=ntry - 1,
                     partial_fit=partial_fit,
+                    save_all=save_all,
                 )
             # ie all attempts have failed
             if partial_fit:
                 print(f"{flag} : partial result returned !")
                 while isinstance(out[-1], sdg4vsNanError):
                     out.pop()  # remove error
-                return self.results_warper(model, data, out, chrono_time)
             else:
                 raise flag
         # every things is good
-        return self.results_warper(model, data, out, chrono_time)
+
+        out = self.results_warper(
+            model, data, out, chrono=datetime.now() - chrono_start
+        )
+        return out
