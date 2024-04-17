@@ -199,7 +199,7 @@ def multi_run(prngkey, lbd_set, params_star, model, nrun, save_all=True):
 # ====================================================== #
 # ====================================================== #
 
-myHDModel = HDLogisticMixedEffectsModel(N=200, J=10, P=50)
+myHDModel = HDLogisticMixedEffectsModel(N=200, J=10, P=500)
 
 p_star = myHDModel.new_params(
     mean_latent={"mu": 1200},
