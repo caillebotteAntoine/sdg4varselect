@@ -202,6 +202,22 @@ def log_likelihood_marginal(
     theta,
     size=2000,
 ) -> jnp.ndarray:
+    """_summary_
+
+    Args:
+        model (Union[Type[AbstractModel], Type[AbstractLatentVariablesModel]]): _description_
+        prngkey (_type_): _description_
+        data (_type_): _description_
+        theta (_type_): _description_
+        size (int, optional): _description_. Defaults to 2000.
+
+    Returns:
+        log_likelihood_marginal (jnp.ndarray) :
+
+        log[ 1/K\sum_{k=1}^K \prod_{i=1}^n f(Y_i|Z_i^{(k)}) ] =
+        \sum_{i=1}^n ( log[\sum_{k=1}^K  f(Y_i|Z_i^{(k)})/K ] )
+
+    """
     params = model.parametrization.reals1d_to_params(theta)
 
     # data = model.latent_variables_data(params0, new_mcmc_name)
@@ -210,7 +226,7 @@ def log_likelihood_marginal(
         prngkey, sample_key = jrd.split(prngkey, 2)
         out.append(new_likelihood(model, sample_key, data, params))
 
-    return jnp.log((jnp.array(out) / len(out)).sum())
+    return jnp.log((jnp.array(out) / len(out)).sum(axis=0)).sum()
 
 
 # def log_likelihood_marginal(

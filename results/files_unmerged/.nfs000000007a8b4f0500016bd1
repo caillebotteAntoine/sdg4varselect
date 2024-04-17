@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "/save_home/acaillebotte/sdg4varselect/results/files_unmerged/merge_file.py", line 3, in <module>
-    from sdg4varselect.outputs import MultiRegRes
-ImportError: cannot import name 'MultiRegRes' from 'sdg4varselect.outputs' (/save_home/acaillebotte/sdg4varselect/sdg4varselect/outputs.py)

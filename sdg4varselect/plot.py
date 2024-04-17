@@ -9,6 +9,12 @@ from copy import copy
 from functools import wraps
 import matplotlib
 import matplotlib.pyplot as plt
+import pandas as pd
+
+import numpy as np
+import jax.numpy as jnp
+
+
 from sdg4varselect.outputs import (
     get_all_theta,
     GDResults,
@@ -18,8 +24,6 @@ from sdg4varselect.outputs import (
 from sdg4varselect._MCMC import MCMC_chain
 
 # import matplotlib.colors as colors
-import numpy as np
-import jax.numpy as jnp
 
 
 FIGSIZE = 15
@@ -429,3 +433,18 @@ def plot_mcmc(x, id_max=None):
     axs[-1].set_xlabel("Iteration")
 
     return fig, axs
+
+
+def get_dataframe_results(x, x_star, rows_names):
+    x = jnp.array(x)
+
+    rmse = jnp.sqrt(((x - x_star) ** 2).mean(axis=0))
+    df = jnp.array(
+        [rmse, x.mean(axis=0), x.var(axis=0), x_star, rmse / jnp.abs(x_star)]
+    ).T
+    id_non_zero = jnp.logical_or(df[:, 1] != 0, df[:, 1] != df[:, 2])
+    return pd.DataFrame(
+        df[id_non_zero, :],
+        columns=["rmse", "value", "variance", "real value", "rrmse"],
+        index=rows_names[id_non_zero],
+    )

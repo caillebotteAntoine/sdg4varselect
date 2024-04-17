@@ -199,7 +199,7 @@ def multi_run(prngkey, lbd_set, params_star, model, nrun, save_all=True):
 # ====================================================== #
 # ====================================================== #
 
-myHDModel = HDLogisticMixedEffectsModel(N=200, J=10, P=500)
+myHDModel = HDLogisticMixedEffectsModel(N=200, J=10, P=50)
 
 p_star = myHDModel.new_params(
     mean_latent={"mu": 1200},
@@ -213,7 +213,7 @@ p_star = myHDModel.new_params(
 )
 
 
-mylbd_set = 10 ** jnp.linspace(-2.5, -0.5, num=15)
+mylbd_set = 10 ** jnp.linspace(-1.5, -1, num=10)
 
 seed = int(sys.argv[1])
 print(seed)
@@ -223,7 +223,7 @@ res = multi_run(
     mylbd_set,
     p_star,
     myHDModel,
-    nrun=1,
+    nrun=5,
     save_all=False,
 )
 res.save(myHDModel, root="files_unmerged", filename_add_on=f"S{seed}")
