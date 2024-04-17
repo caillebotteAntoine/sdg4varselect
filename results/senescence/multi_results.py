@@ -223,10 +223,10 @@ res = multi_run(
     mylbd_set,
     p_star,
     myHDModel,
-    nrun=3,
+    nrun=1,
     save_all=False,
 )
-res.save(myHDModel, root="files_unmerged", filename_add_on=f"_S{seed}")
+res.save(myHDModel, root="files_unmerged", filename_add_on=f"S{seed}")
 
 if __name__ == "__main__":
     sdgplt.FIGSIZE = 10

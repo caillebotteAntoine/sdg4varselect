@@ -1,0 +1,40 @@
+1
+start at 17/04/2024 09:32:08
+run 0/1 [>                                                  ](end in ~ 0:00:01.440429 )
+ 0/15 [>                                                  ](end in ~ 0:00:43.576095 )
+the model have been shrink to P = 10
+(200, 10)
+ 1/15 [===>                                               ](end in ~ 0:01:20.432156 )
+the model have been shrink to P = 10
+(200, 10)
+ 2/15 [======>                                            ](end in ~ 0:01:06.317550 )
+the model have been shrink to P = 10
+(200, 10)
+ 3/15 [==========>                                        ](end in ~ 0:00:57.220380 )
+the model have been shrink to P = 8
+(200, 8)
+ 4/15 [=============>                                     ](end in ~ 0:00:53.909372 )
+the model have been shrink to P = 8
+(200, 8)
+ 5/15 [================>                                  ](end in ~ 0:00:47.311370 )
+the model have been shrink to P = 8
+(200, 8)
+ 6/15 [====================>                              ](end in ~ 0:00:41.396517 )
+the model have been shrink to P = 6
+(200, 6)
+ 7/15 [=======================>                           ](end in ~ 0:00:37.733552 )
+the model have been shrink to P = 4
+(200, 4)
+ 8/15 [==========================>                        ](end in ~ 0:00:33.498612 )
+the model have been shrink to P = 3
+(200, 3)
+ 9/15 [==============================>                    ](end in ~ 0:00:29.105982 )
+the model have been shrink to P = 1
+(200, 1)
+10/15 [=================================>                 ](end in ~ 0:00:24.589095 )
+the model have been shrink to P = 1
+(200, 1)
+11/15 [====================================>              ](end in ~ 0:00:19.296468 )
+the model have been shrink to P = 0
+(200, 0)
+files_unmerged/HDLogisticMEM_N200_J10_P10_S1 SAVED !

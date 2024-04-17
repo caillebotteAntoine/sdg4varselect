@@ -1,6 +1,6 @@
 # pylint: disable=C0114
 
-from sdg4varselect.outputs import MultiRegRes
+from sdg4varselect.outputs import MultiRunRes
 
 from sdg4varselect.models import AbstractModel
 
@@ -19,12 +19,12 @@ class m:
         return f"HDLogisticMEM_N{self.N}_J{self.J}_P{self.P}"
 
 
-model = m(n=1000, j=10, p=50)
+model = m(n=200, j=10, p=10)
 
 
 def read(s):
     """read files results for n and p as parameter"""
-    r = MultiRegRes.load(model, "", f"_S{s}")
+    r = MultiRunRes.load(model, "", f"S{s}")
     r.make_it_lighter()
     return r
 
@@ -40,4 +40,4 @@ def read_multi_files(S):
     return out
 
 
-read_multi_files(S=[i + 1 for i in range(10)])
+read_multi_files(S=[i + 1 for i in range(50)])
