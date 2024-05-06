@@ -199,7 +199,7 @@ def multi_run(prngkey, lbd_set, params_star, model, nrun, save_all=True):
 # ====================================================== #
 # ====================================================== #
 
-myHDModel = HDLogisticMixedEffectsModel(N=200, J=10, P=500)
+myHDModel = HDLogisticMixedEffectsModel(N=200, J=10, P=1000)
 
 p_star = myHDModel.new_params(
     mean_latent={"mu": 1200},
@@ -223,7 +223,7 @@ res = multi_run(
     mylbd_set,
     p_star,
     myHDModel,
-    nrun=5,
+    nrun=1,
     save_all=False,
 )
 res.save(myHDModel, root="files_unmerged", filename_add_on=f"S{seed}")

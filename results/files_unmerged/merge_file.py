@@ -19,7 +19,7 @@ class m:
         return f"HDLogisticMEM_N{self.N}_J{self.J}_P{self.P}"
 
 
-model = m(n=200, j=10, p=50)
+model = m(n=200, j=10, p=1000)
 
 
 def read(s):
@@ -40,4 +40,4 @@ def read_multi_files(S):
     return out
 
 
-read_multi_files(S=[i + 1 for i in range(10)])
+read_multi_files(S=[i + 1 for i in range(0,60)])
