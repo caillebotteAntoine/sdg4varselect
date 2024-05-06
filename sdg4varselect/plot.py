@@ -175,6 +175,10 @@ def scatter_estimation(x, y=None, vline=None, labels=None, nrows=3, ncols=10, fi
 
 @add_figure
 def myBoxplot(ax, x, hline=None, label=None, xlabels=None, facecolor="w", **kwargs):
+    print(x.shape)
+    print(xlabels)
+    print(len(xlabels))
+    assert xlabels is None or x.shape[0] == len(xlabels)
     bp = ax.boxplot(x, patch_artist=True, labels=xlabels, **kwargs)
 
     for patch in bp["boxes"]:
@@ -191,8 +195,12 @@ def myBoxplot(ax, x, hline=None, label=None, xlabels=None, facecolor="w", **kwar
 
 @default_figure
 def boxplot_estimation(x, hline=None, labels=None, nrows=3, ncols=10, fig=None):
+    print(x)
+    print(labels)
     assert hline is None or len(hline) == x.shape[0]
-    assert labels is None or len(labels) == x.shape[0]
+    assert labels is None or len(labels) == x.shape[0] or len(labels) == x.shape[-1]
+    if labels is not None and len(labels) == x.shape[-1]:
+        labels = [labels for i in range(x.shape[0])]
 
     for i in range(x.shape[0]):
         ax = fig.add_subplot(nrows, ncols, 1 + i)
@@ -200,10 +208,14 @@ def boxplot_estimation(x, hline=None, labels=None, nrows=3, ncols=10, fig=None):
 
         myBoxplot(
             ax=ax,
-            x=x[i],
+            x=x[i].T,
             hline=None if hline is None else hline[i],
             label="true value",
-            xlabels=None if labels is None else [labels[i]],
+            xlabels=(
+                None
+                if labels is None
+                else (labels[i] if isinstance(labels[i], list) else [labels[i]])
+            ),
             facecolor=f"C{i}",
         )
 
