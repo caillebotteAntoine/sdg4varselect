@@ -39,7 +39,7 @@ class IsIterable:
         self.__dict__[self._name] = sorted(
             self.__dict__[self._name],
             key=lambda x: (
-                x.likelihood if len(x.likelihood.shape) == 0 else x.likelihood[-1]
+                -x.likelihood if len(x.likelihood.shape) == 0 else -x.likelihood[-1]
             ),
         )
 
@@ -202,6 +202,19 @@ class GDResults:
     @property
     def last_theta(self):
         """return the last theta-array of attribut theta"""
+        # print(self.theta.shape)
+        # print(self.theta)
+        # print(jnp.isnan(self.theta).any(axis=1))
+        id_not_all_nan = jnp.logical_not(jnp.isnan(self.theta).all(axis=1))
+        # print(id_not_nan.shape)
+        # print(id_not_nan)
+        # print(self.theta[id_not_nan].shape)
+        # print(self.theta[id_not_nan])
+        out = self.theta[id_not_all_nan][-1]
+        return out
+        return out[jnp.logical_not(jnp.isnan(out))]
+
+        return self.theta[-1][jnp.logical_not(jnp.isnan(self.theta[-1]))]
         return self.theta[jnp.logical_not(jnp.isnan(self.theta).any(axis=1))][-1]
 
     def reals1d_to_hstack_params(self, model):
@@ -215,9 +228,13 @@ class GDResults:
         self.grad = self.grad[:, preserved_component]
 
     def make_it_lighter(self):
-        self.theta = jnp.array([self.theta[0], self.theta[-1]])
+        id_not_nan = jnp.logical_not(jnp.isnan(self.theta).any(axis=1))
+        theta = self.theta[id_not_nan]
+        grad = self.grad[id_not_nan]
+
+        self.theta = jnp.array([theta[0], theta[-1]])
         self.fim = None
-        self.grad = jnp.array([self.grad[0], self.grad[-1]])
+        self.grad = jnp.array([grad[0], grad[-1]])
 
     # ========================================= #
     # ===== theta uniformization factory =====  #
@@ -266,6 +283,13 @@ class MultiRunRes(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
 
     def __add__(self, res):
         return MultiRunRes(self.iterable_data + res.iterable_data)
+
+    def reduce_number_run(self, keep=None, keep_percentage=None):
+        if keep_percentage is not None:
+            keep = int(len(self) * keep_percentage)
+
+        assert isinstance(keep, int)
+        return MultiRunRes(self[:keep])
 
 
 ###########################################################################################################

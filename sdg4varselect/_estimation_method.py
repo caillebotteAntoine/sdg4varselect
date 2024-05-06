@@ -17,14 +17,14 @@ def _estim_shrink_model(
     theta_first_estim,
     **kwargs,
 ):
-    selected_component = theta_first_estim != 0
+    selected_component = (theta_first_estim != 0).at[: model.DIM_LD].set(True)
 
     # === ESTIMATION === #
     (data_shrink, model_shrink) = AbstractHDModel.shrink_model_and_data(
         model, data, selected_component
     )
 
-    print(f"the model have been shrink to P = {model_shrink.P}")
+    print(f"the model has been shrunk to P = {model_shrink.P}")
     print(data_shrink["cov"].shape)
 
     # print(

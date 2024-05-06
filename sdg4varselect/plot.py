@@ -41,7 +41,7 @@ def get_ax(height=None, width=None):
     return fig.add_subplot(1, 1, 1)
 
 
-def plot_sample(obs, sim, params_star, censoring_loc, a, b):
+def plot_sample(obs, sim, censoring_loc, a, b):
 
     fig = plt.figure()
     fig.set_figheight(7)
@@ -145,7 +145,6 @@ def add_figure(func):
 
         func(*args, **kwargs)
         return kwargs["ax"].get_figure()
-        return func(*args, **kwargs)
 
     return new_func
 
@@ -174,12 +173,33 @@ def scatter_estimation(x, y=None, vline=None, labels=None, nrows=3, ncols=10, fi
 
 
 @add_figure
-def myBoxplot(ax, x, hline=None, label=None, xlabels=None, facecolor="w", **kwargs):
-    print(x.shape)
-    print(xlabels)
-    print(len(xlabels))
-    assert xlabels is None or x.shape[0] == len(xlabels)
-    bp = ax.boxplot(x, patch_artist=True, labels=xlabels, **kwargs)
+def myBoxplot(
+    ax,
+    x,
+    hline=None,
+    hlabel=None,
+    xlabels=None,
+    facecolor="w",
+    mediancolor="black",
+    **kwargs,
+):
+    assert len(x.shape) <= 2
+    assert xlabels is None or isinstance(xlabels, (str, list))
+
+    if len(x.shape) == 2:
+        for i in range(x.shape[0]):
+            myBoxplot(
+                ax=ax,
+                x=x[i],
+                hline=hline,
+                xlabels=None if xlabels is None else xlabels[i],
+                facecolor=facecolor,
+                positions=[i],
+                **kwargs,
+            )
+        return ax
+
+    bp = ax.boxplot(x, patch_artist=True, labels=[xlabels], **kwargs)
 
     for patch in bp["boxes"]:
         patch.set(facecolor=facecolor)
@@ -188,33 +208,40 @@ def myBoxplot(ax, x, hline=None, label=None, xlabels=None, facecolor="w", **kwar
         median.set_color("black")
 
     if hline is not None:
-        ax.axhline(y=hline, color="k", label=label)
+        ax.axhline(y=hline, color="k", label=hlabel)
+
+    if xlabels is None:
+        ax.set_xticks([])
+        ax.set_xlabel("")
 
     return ax
 
 
 @default_figure
-def boxplot_estimation(x, hline=None, labels=None, nrows=3, ncols=10, fig=None):
-    print(x)
-    print(labels)
-    assert hline is None or len(hline) == x.shape[0]
-    assert labels is None or len(labels) == x.shape[0] or len(labels) == x.shape[-1]
-    if labels is not None and len(labels) == x.shape[-1]:
-        labels = [labels for i in range(x.shape[0])]
+def boxplot_estimation(
+    x, hline=None, xlabels=None, title=None, nrows=3, ncols=10, fig=None
+):
+    assert hline is None or len(hline) == x.shape[0]  # as many hlines as boxplots
+    assert (
+        xlabels is None or len(xlabels) == x.shape[0] or len(xlabels) == x.shape[-1]
+    )  # as many hlines as boxplots or subboxplot
+    assert title is None or len(title) == x.shape[0]  # as many hlines as boxplots
 
     for i in range(x.shape[0]):
         ax = fig.add_subplot(nrows, ncols, 1 + i)
         ax.ticklabel_format(style="sci", scilimits=(-3, 3))
+        if title is not None:
+            ax.set_title(title[i])
 
         myBoxplot(
             ax=ax,
-            x=x[i].T,
+            x=x[i].T,  # if len(x[i].shape) == 1 else x[i],
             hline=None if hline is None else hline[i],
-            label="true value",
+            hlabel="true value",
             xlabels=(
                 None
-                if labels is None
-                else (labels[i] if isinstance(labels[i], list) else [labels[i]])
+                if xlabels is None
+                else (xlabels[i] if len(x[i].shape) == 1 else xlabels)
             ),
             facecolor=f"C{i}",
         )
@@ -268,11 +295,14 @@ def ax_plot_theta(ax, x, param_star, param_name, color="k", ylogscale=True):
 @default_figure
 def _plot_theta(
     x,
+    id_to_plot=None,
     params_star=None,
     params_names=None,
     log_scale=True,
     fig=None,
 ):
+    if id_to_plot is not None:
+        x = x[id_to_plot,]
     ntheta = x.shape[0]
 
     if params_names is None:
@@ -286,6 +316,10 @@ def _plot_theta(
         ]  # duplicate
         params_star = [None for i in range(ntheta)]
 
+    if id_to_plot is not None:
+        params_star = params_star[id_to_plot,]
+        params_names = params_names[id_to_plot]
+
     for i in range(ntheta):
         ax = fig.add_subplot(ntheta, 1, i + 1)
         ax_plot_theta(
@@ -298,8 +332,7 @@ def _plot_theta(
         )
 
     if len(fig.axes) > 0:
-        ax = fig.axes[0]
-        ax.set_title("Parameter")
+        fig.axes[0].set_title("Parameter")
 
     return fig
 
@@ -311,12 +344,18 @@ def plot_theta(
     params_star=None,
     params_names=None,
     log_scale=True,
+    id_to_plot=None,
     fig=None,
 ):
     multi_theta = get_all_theta(multi_estim)
     multi_theta = multi_theta[:dim_ld]
     return _plot_theta(
-        multi_theta, params_star, params_names, log_scale=log_scale, fig=fig
+        multi_theta,
+        id_to_plot=id_to_plot,
+        params_star=params_star,
+        params_names=params_names,
+        log_scale=log_scale,
+        fig=fig,
     )
 
 
@@ -333,9 +372,9 @@ def plot_theta_hd(
         params_names = params_names[dim_ld:]
 
     return _plot_theta(
-        multi_theta,
-        params_star,
-        params_names,
+        x=multi_theta,
+        params_star=params_star,
+        params_names=params_names,
         log_scale=log_scale,
         fig=fig,
     )
@@ -344,8 +383,8 @@ def plot_theta_hd(
 # =======================================================================#
 
 
-def plot_axvline(ax, lbd_set, bic, id, color, msg=""):
-    lbd = lbd_set[id]
+def plot_axvline(ax, lbd_set, bic, i, color, msg=""):
+    lbd = lbd_set[i]
 
     ax.axvline(
         x=lbd,
@@ -357,7 +396,7 @@ def plot_axvline(ax, lbd_set, bic, id, color, msg=""):
     ax.text(
         lbd,
         0.8 * bic.max() + 0.2 * bic.min(),
-        rf"$\lambda$ = {lbd_set[id]:.3e}",
+        rf"$\lambda$ = {lbd_set[i]:.3e}",
         ha="center",
         va="center",
         rotation="vertical",
@@ -390,7 +429,7 @@ def plot_reg_path(ax, reg_res: RegularizationPathRes, dim_ld: int = 0, fig=None)
 
         # minimum value of bic
         plot_axvline(
-            ax_bic, lbd_set, bic, reg_res.argmin_bic, color="b", msg=" = min(BIC)"
+            ax_bic, lbd_set, bic, i=reg_res.argmin_bic, color="b", msg=" = min(BIC)"
         )
         return ax
 
@@ -423,6 +462,11 @@ def plot_box_plot_hd(theta, dim_ld=0, params_star=None, threshold=0):
 def plot_mcmc(x, id_max=None):
     """plot an MCMC_chain"""
 
+    if isinstance(x, dict):
+        for mcmc in x.values():
+            plot_mcmc(mcmc)
+        return None
+
     if id_max is None:
         id_max = len(x.chain)
     if len(x.sd) == 1:
@@ -452,11 +496,11 @@ def get_dataframe_results(x, x_star, rows_names):
 
     rmse = jnp.sqrt(((x - x_star) ** 2).mean(axis=0))
     df = jnp.array(
-        [rmse, x.mean(axis=0), x.var(axis=0), x_star, rmse / jnp.abs(x_star)]
+        [x_star, x.mean(axis=0), x.var(axis=0), rmse, rmse / jnp.abs(x_star)]
     ).T
     id_non_zero = jnp.logical_or(df[:, 1] != 0, df[:, 1] != df[:, 2])
     return pd.DataFrame(
         df[id_non_zero, :],
-        columns=["rmse", "value", "variance", "real value", "rrmse"],
+        columns=["real value", "mean", "variance", "rmse", "rrmse"],
         index=rows_names[id_non_zero],
     )

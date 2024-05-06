@@ -56,21 +56,53 @@ class AbstractModel:
 
     @property
     def params_names(self):
-        idx_params = self._parametrization.idx_params
+        def extract_name(p: pc.NamedTuple):
+            repeat_name = np.array([])
 
-        zeros = self._parametrization.reals1d_to_params(
-            jnp.zeros(
-                shape=self._parametrization.size,
-            )
-        )
-        rep_num = [jnp.array(p).flatten("C").shape[0] for p in zeros]
-        # [idx.stop - idx.start for idx in idx_params]
-        repeat_name = np.repeat(idx_params._fields, rep_num)
+            idx_params = p.idx_params
+            for name in idx_params._fields:
+                if isinstance(p[name], pc.NamedTuple):
+                    repeat_name = np.concatenate([repeat_name, extract_name(p[name])])
+                else:
+                    shape = (
+                        p[name]
+                        .reals1d_to_params(
+                            jnp.zeros(
+                                shape=p[name].size,
+                            )
+                        )
+                        .flatten("C")
+                        .shape
+                    )
+                    if len(shape) == 0 or shape[0] == 1:
+                        repeat_name = np.concatenate([repeat_name, np.array([name])])
+                    else:
+                        repeat_name = np.concatenate(
+                            [
+                                repeat_name,
+                                np.array([f"{name}{i}" for i in range(shape[0])]),
+                            ]
+                        )
 
-        index_rep = np.concatenate(
-            [[""] if n == 1 else [i for i in range(n)] for n in rep_num]
-        )
-        return np.char.add(repeat_name, index_rep)
+            return np.array(repeat_name)
+
+        return extract_name(self._parametrization)
+
+        # idx_params = self._parametrization.idx_params
+
+        # zeros = self._parametrization.reals1d_to_params(
+        #     jnp.zeros(
+        #         shape=self._parametrization.size,
+        #     )
+        # )
+        # rep_num = [jnp.array(p).flatten("C").shape[0] for p in zeros]
+        # # [idx.stop - idx.start for idx in idx_params]
+        # repeat_name = np.repeat(idx_params._fields, rep_num)
+
+        # index_rep = np.concatenate(
+        #     [[""] if n == 1 else [i for i in range(n)] for n in rep_num]
+        # )
+        # return np.char.add(repeat_name, index_rep)
 
     def paramslist_to_reals1d(self, params):
         params_dict = dict(

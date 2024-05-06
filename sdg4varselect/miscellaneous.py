@@ -220,6 +220,10 @@ def timer(step_msg):
         chrono += datetime.now() - time
         time = datetime.now()
 
+        if iteration == 0:
+            chrono = timedelta()  # reset du temps de computation
+            return os
+
         os += f"(end in ~ {chrono/(iteration+1)*(max_iter-iteration)} )"
         return os
 
