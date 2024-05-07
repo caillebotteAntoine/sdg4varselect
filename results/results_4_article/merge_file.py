@@ -1,5 +1,6 @@
 # pylint: disable=C0114
 
+import sys
 from sdg4varselect.outputs import MultiRunRes
 
 
@@ -17,7 +18,7 @@ class M:
         return f"WCoxMemJM_N{self.N}_J{self.J}_P{self.P}"
 
 
-model = M(n=200, j=15, p=10)
+model = M(n=200, j=15, p=500)
 
 
 def read(s):
@@ -38,4 +39,4 @@ def read_multi_files(S):
     return out
 
 
-_ = read_multi_files(S=[i + 1 for i in range(0, 1)])
+_ = read_multi_files(S=[i for i in range(int(sys.argv[1]), 1+int(sys.argv[2]))])
