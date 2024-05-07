@@ -3,37 +3,46 @@ Module that define functions to perform multiple selection and estimation.
 
 Create by antoine.caillebotte@inrae.fr"""
 
-# pylint: disable=C0116, W0211
+# pylint: disable=C0116, W0221
+
+import sys
 import functools
+
 from jax import jit
-import parametrization_cookbook.jax as pc
-
-
-import sdg4varselect.plot as sdgplt
-
 import jax.numpy as jnp
 import jax.random as jrd
 
+import parametrization_cookbook.jax as pc
+
+from multi_res import add_flag, one_result
+
+from sdg4varselect.models import AbstractMixedEffectsModel, WeibullCoxJM
 from sdg4varselect.algo import SPGD_FIM, get_GDFIM_settings
-from sdg4varselect.models import AbstractMixedEffectsModel
-
-from sdg4varselect import regularization_path, lasso_into_estim
-from sdg4varselect.outputs import RegularizationPathRes, MultiRunRes
-
-
-algo_settings = get_GDFIM_settings(preheating=600, heating=1000, learning_rate=1e-6)
+from sdg4varselect.exceptions import sdg4vsNanError
 
 
 class LogisticMixedEffectsModel(AbstractMixedEffectsModel):
     """define a logistic mixed effects model"""
 
     def __init__(self, N=1, J=1, **kwargs):
-        super().__init__(
+        AbstractMixedEffectsModel.__init__(
+            self,
             N=N,
             J=J,
             me_name=["phi1", "phi2"],
             **kwargs,
         )
+
+        self.init()
+
+    @property
+    def name(self):
+        """return a str called name, based on the parameter of the model"""
+        return f"LogisticMEM_N{self.N}_J{self.J}"
+
+    def init(self):
+        """here you define the parametrization of the model
+        and don't forget to call the mother init function at the end"""
 
         self._parametrization = pc.NamedTuple(
             mean_latent=pc.NamedTuple(
@@ -44,6 +53,8 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel):
             cov_latent=pc.MatrixDiagPosDef(dim=2, scale=(200, 200)),
             var_residual=pc.RealPositive(scale=100),
         )
+
+        AbstractMixedEffectsModel.init(self)
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
@@ -91,7 +102,11 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel):
         return {"mem_obs_time": time} | obs, sim
 
 
-def one_estim(prngkey, model, data, lbd=None, save_all=True):
+algo_settings = get_GDFIM_settings(preheating=600, heating=1000, learning_rate=1e-6)
+
+
+@add_flag
+def one_estim_with_flag(prngkey, model, data, lbd=None, save_all=True):
     prngkey_theta, prngkey_estim = jrd.split(prngkey)
     theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(model.parametrization.size,))
 
@@ -107,49 +122,14 @@ def one_estim(prngkey, model, data, lbd=None, save_all=True):
     return res
 
 
-def estim_with_flag(model, **kwargs) -> tuple[MultiRunRes, bool]:
-    """must return the estimation results and
-    a flag which indicates if the regularization path is finished"""
-    res_estim = lasso_into_estim(one_estim, model=model, **kwargs)
-    dim_ld = model.DIM_LD
-    flag = (res_estim[-1].last_theta[dim_ld:] != 0).sum() == 0
-
-    return res_estim, flag
-
-
-def one_result(prngkey, model, data, lbd_set, save_all=True):
-
-    list_sdg_results, bic = regularization_path(
-        estim_fct_with_flag=estim_with_flag,
-        prngkey=prngkey,
-        lbd_set=lbd_set,
-        dim_ld=model.DIM_LD,
-        N=model.N * (1 + model.J),
-        verbatim=True,  # __name__ == "__main__",
-        # additional parameter
-        model=model,
-        data=data,
-        save_all=save_all,
-    )
-
-    argmin_bic = bic[-1].argmin()
-
-    return RegularizationPathRes(
-        multi_run=list_sdg_results,
-        argmin_bic=argmin_bic,
-        bic=bic,
-        lbd_set=lbd_set,
-    )
-
-
 # ====================================================== #
-# ====================================================== #
-# ====================================================== #
-from sdg4varselect.models import WeibullCoxJM
+
 
 # joint model with coxModel is all ready implement in sdg4varselect for all MixedEffectsModel
-myMeModel = LogisticMixedEffectsModel(N=200, J=15)
-myModel = WeibullCoxJM(myMeModel, P=500, alpha_scale=0.001, a=800, b=10)
+myModel = WeibullCoxJM(
+    mem=LogisticMixedEffectsModel(N=200, J=15), P=500, alpha_scale=0.001, a=800, b=10
+)
+
 
 p_star = myModel.new_params(
     mean_latent={"asymptotic": 200, "inflexion": 500},
@@ -157,37 +137,35 @@ p_star = myModel.new_params(
     cov_latent=jnp.diag(jnp.array([40, 100])),
     var_residual=10,
     alpha=0.05,
-    beta=jnp.concatenate(  # jnp.zeros(shape=(myModel.P,)),  #
+    beta=jnp.concatenate(
         [jnp.array([-3, -2, 2, 3]), jnp.zeros(shape=(myModel.P - 4,))]
     ),
 )
 
-myobs, _ = myModel.sample(p_star, jrd.PRNGKey(0), weibull_censoring_loc=7700)
+
+mylbd_set = 10 ** jnp.linspace(-1.5, -0.1, num=10)  # P = 500
+
+seed = int(sys.argv[1])
+myprngkey = jrd.PRNGKey(seed)
+print(f"seed = {seed}, prngkey = {myprngkey}")
 
 
-def test_lbd_set(lbd_set, num=10):
+mydata, _ = myModel.sample(p_star, myprngkey, weibull_censoring_loc=7700)
 
-    reg_res = one_result(jrd.PRNGKey(0), myModel, myobs, lbd_set, save_all=False)
+try:
+    estim_res = one_result(
+        one_estim_with_flag,
+        myprngkey,
+        myModel,
+        data=mydata,
+        lbd_set=mylbd_set,
+        save_all=False,
+    )
 
-    a = lbd_set[reg_res.argmin_bic - 1]
-    b = lbd_set[reg_res.argmin_bic + 1]
+    estim_res.save(myModel, root="files_unmerged", filename_add_on=f"S{seed}")
 
-    return 10 ** jnp.linspace(jnp.log10(a), jnp.log10(b), num=num), reg_res
-
-
-mylbd_set = 10 ** jnp.linspace(-3, 0, num=10)
-estim_res = []
-for i in range(0):
-    mylbd_set, reg = test_lbd_set(mylbd_set)
-    reg.save(myModel, filename_add_on=f"{i}")
-    estim_res.append(reg)
-
-estim_res = MultiRunRes(estim_res)
-estim_res.save(myModel, filename_add_on="full")
+except sdg4vsNanError as err:
+    print(f"{err} :  estimation cancelled !")
 
 
-estim_res = MultiRunRes.load(myModel, filename_add_on="full")
-
-
-for r in estim_res:
-    fig = sdgplt.plot_reg_path(reg_res=r, dim_ld=myModel.DIM_LD)
+# ====================================================== #

@@ -131,14 +131,17 @@ def one_estim(prngkey, model, data, lbd=None, save_all=True):
     return res
 
 
-def estim_with_flag(model, **kwargs) -> tuple[MultiRunRes, bool]:
-    """must return the estimation results and
-    a flag which indicates if the regularization path is finished"""
-    res_estim = lasso_into_estim(one_estim, model=model, **kwargs)
-    dim_ld = model.DIM_LD
-    flag = (res_estim[-1].last_theta[dim_ld:] != 0).sum() == 0
+def add_flag(fct):
+    def estim_with_flag(model, **kwargs) -> tuple[MultiRunRes, bool]:
+        """must return the estimation results and
+        a flag which indicates if the regularization path is finished"""
+        res_estim = lasso_into_estim(fct, model=model, **kwargs)
+        dim_ld = model.DIM_LD
+        flag = (res_estim[-1].last_theta[dim_ld:] != 0).sum() == 0
 
-    return res_estim, flag
+        return res_estim, flag
+
+    return estim_with_flag
 
 
 def one_result(prngkey, model, data, lbd_set, save_all=True):

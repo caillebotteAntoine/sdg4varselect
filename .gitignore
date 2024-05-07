@@ -4,6 +4,7 @@
 *.err
 *.mypy_cache/
 *.pyc*
+*.pyc
 *.pkl.gz
 work/
 *.nfs*
