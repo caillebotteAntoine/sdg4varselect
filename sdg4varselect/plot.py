@@ -406,12 +406,45 @@ def plot_axvline(ax, lbd_set, bic, i, color, msg=""):
     return ax
 
 
+def _plot_bic(
+    ax,
+    lbd_set,
+    bic,
+    argmin_bic,
+    colors=["k", "w", "b"],
+    msg=" = min(BIC)",
+):
+
+    ax_bic = ax.twinx()
+    ax_bic.plot(lbd_set, bic, color=colors[0], linewidth=5, linestyle="-")
+    ax_bic.plot(lbd_set, bic, color=colors[1], linewidth=3, linestyle="-")
+    ax_bic.plot(lbd_set, bic, color=colors[0], linewidth=2, linestyle="--", label="BIC")
+    ax_bic.set(ylabel="BIC Score")
+
+    # minimum value of bic
+    plot_axvline(ax_bic, lbd_set, bic, i=argmin_bic, color=colors[2], msg=msg)
+
+
 @add_figure
 def plot_reg_path(ax, reg_res: RegularizationPathRes, dim_ld: int = 0, fig=None):
     if isinstance(reg_res, RegularizationPathRes):
         multi_theta_hd = [res[-1].last_theta[dim_ld:] for res in reg_res.multi_run]
         lbd_set = reg_res.lbd_set
-        bic = reg_res.bic[-1]
+
+        ax.set_title("Regularization path")
+        ax.set_xlabel(r"Regularization penalty ($\lambda$)")
+        ax.set_ylabel(r"HD Parameter ($\beta$)")
+
+        ax.set_xscale("log")
+
+        ax.plot(lbd_set, multi_theta_hd)
+
+        return _plot_bic(
+            ax,
+            lbd_set=lbd_set,
+            bic=reg_res.bic[-1],
+            argmin_bic=reg_res.argmin_bic,
+        )
 
         ax.set_title("Regularization path")
         ax.set_xlabel(r"Regularization penalty ($\lambda$)")
@@ -496,11 +529,11 @@ def get_dataframe_results(x, x_star, rows_names):
 
     rmse = jnp.sqrt(((x - x_star) ** 2).mean(axis=0))
     df = jnp.array(
-        [x_star, x.mean(axis=0), x.var(axis=0), rmse, rmse / jnp.abs(x_star)]
+        [x_star, x.mean(axis=0), x.var(axis=0), rmse, rmse / jnp.abs(x_star) * 100]
     ).T
     id_non_zero = jnp.logical_or(df[:, 1] != 0, df[:, 1] != df[:, 2])
     return pd.DataFrame(
         df[id_non_zero, :],
-        columns=["real value", "mean", "variance", "rmse", "rrmse"],
+        columns=["real value", "mean", "variance", "RMSE", "RRMSE"],
         index=rows_names[id_non_zero],
     )

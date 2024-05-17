@@ -410,6 +410,27 @@ class TestResults(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
     def get_scenarios_labels(self, key: str) -> list[str]:
         return [f"{key} = {c[key]}" for c in self.config]
 
+    def sort(self, key: str):
+        assert key in self.config[0]
+        id = sorted([i for i in range(len(self))], key=lambda x: self.config[x][key])
+
+        self.tests = [self.tests[i] for i in id]
+        self.config = [self.config[i] for i in id]
+
+        return self
+
+    def filter(
+        self,
+        **kwargs,
+    ):  # key: str, value: int):
+        out = self
+        for key, value in kwargs.items():
+            assert key in out.config[0]
+            id = [i for i in range(len(out)) if out.config[i][key] == value]
+            out = TestResults([out.tests[i] for i in id], [out.config[i] for i in id])
+
+        return out
+
 
 ###########################################################################################################
 
