@@ -127,8 +127,10 @@ def one_estim_with_flag(prngkey, model, data, lbd=None, save_all=True):
 
 # joint model with coxModel is all ready implement in sdg4varselect for all MixedEffectsModel
 myModel = WeibullCoxJM(
-    mem=LogisticMixedEffectsModel(N=400, J=15), P=500, alpha_scale=0.001, a=800, b=10
+    mem=LogisticMixedEffectsModel(N=int(sys.argv[2]), J=15), P=int(sys.argv[3]), alpha_scale=0.001, a=800, b=10
 )
+
+print(f"P = {myModel.P}, N = {myModel.N}")
 
 
 p_star = myModel.new_params(

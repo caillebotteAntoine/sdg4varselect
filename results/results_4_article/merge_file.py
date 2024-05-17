@@ -18,7 +18,7 @@ class M:
         return f"WCoxMemJM_N{self.N}_J{self.J}_P{self.P}"
 
 
-model = M(n=200, j=15, p=500)
+model = M(n=int(sys.argv[3]), j=15, p=int(sys.argv[4]))
 
 
 def read(s):

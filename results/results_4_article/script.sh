@@ -7,8 +7,10 @@
 # Queue
 #$ -q long.q
 # Erreur
-#$ -e ErrAndOut/err.err
+#$ -e ErrAndOut/err$TASK_ID.err
 # Sortie 
-#$ -o ErrAndOut/out.out 
-poetry run python3 merge_file.py $1 $2 $3 $4
-exit 0
+#$ -o ErrAndOut/out$TASK_ID.out 
+seed=$((SGE_TASK_ID))
+echo $1
+echo $2
+poetry run python3 joint_model.py $seed $1 $2
