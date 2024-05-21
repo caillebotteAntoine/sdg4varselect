@@ -82,6 +82,8 @@ class GradientDescentFIM(AbstractAlgoFit):
             else max([h for h in heating_list if h is not None])
         )
 
+        self._threshold = 1e-4
+
         # initial algo parameter
         self._jac = jnp.zeros(shape=(1, 1))
         self._fisher_mask = jnp.zeros(shape=(1,))
@@ -163,7 +165,10 @@ class GradientDescentFIM(AbstractAlgoFit):
 
             yield (theta_reals1d, fisher_info, grad_precond)
 
-            if step > self._heating and jnp.sqrt((grad_precond**2).sum()) < 1e-3:
+            if (
+                step > self._heating
+                and jnp.sqrt((grad_precond**2).sum()) < self._threshold
+            ):
                 break
 
     def results_warper(self, model, data, results, chrono):

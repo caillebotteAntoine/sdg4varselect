@@ -93,7 +93,10 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
 
             yield (theta_reals1d, fisher_info, grad_precond, jnp.nan)
 
-            if step > self._heating and jnp.sqrt((grad_precond**2).sum()) < 1e-3:
+            if (
+                step > self._heating
+                and jnp.sqrt((grad_precond**2).sum()) < self._threshold
+            ):
                 break
 
 
