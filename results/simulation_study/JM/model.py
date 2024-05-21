@@ -14,11 +14,22 @@ import jax.random as jrd
 
 import parametrization_cookbook.jax as pc
 
-from multi_res import add_flag, one_result
+from results.simulation_study.multi_res import add_flag, one_result
 
-from sdg4varselect.models import AbstractMixedEffectsModel, WeibullCoxJM
+from sdg4varselect.models import (
+    AbstractMixedEffectsModel,
+    WeibullCoxJM,
+)
 from sdg4varselect.algo import SPGD_FIM, get_GDFIM_settings
 from sdg4varselect.exceptions import sdg4vsNanError
+
+# N = int(sys.argv[2])
+# P = int(sys.argv[3])
+# seed = int(sys.argv[1])
+
+N = 100
+P = 5
+seed = 0
 
 
 class LogisticMixedEffectsModel(AbstractMixedEffectsModel):
@@ -110,7 +121,7 @@ def one_estim_with_flag(prngkey, model, data, lbd=None, save_all=True):
     prngkey_theta, prngkey_estim = jrd.split(prngkey)
     theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(model.parametrization.size,))
 
-    algo = SPGD_FIM(prngkey_estim, 10000, algo_settings, lbd=lbd, alpha=1.0)
+    algo = SPGD_FIM(prngkey_estim, 2000, algo_settings, lbd=lbd, alpha=1.0)
     # =================== MCMC configuration ==================== #
     algo.init_mcmc(theta0, model, sd={"phi1": 5, "phi2": 20})
 
@@ -124,11 +135,15 @@ def one_estim_with_flag(prngkey, model, data, lbd=None, save_all=True):
 
 # ====================================================== #
 
-
 # joint model with coxModel is all ready implement in sdg4varselect for all MixedEffectsModel
 myModel = WeibullCoxJM(
-    mem=LogisticMixedEffectsModel(N=int(sys.argv[2]), J=15), P=int(sys.argv[3]), alpha_scale=0.001, a=800, b=10
+    mem=LogisticMixedEffectsModel(N=N, J=15),
+    P=P,
+    alpha_scale=0.001,
+    a=800,
+    b=10,
 )
+
 
 print(f"P = {myModel.P}, N = {myModel.N}")
 
@@ -145,29 +160,29 @@ p_star = myModel.new_params(
 )
 
 
-mylbd_set = 10 ** jnp.linspace(-1.5, -0.1, num=10)  # P = 500
+mylbd_set = 10 ** jnp.linspace(-1.5, -0.1, num=10)
 
-seed = int(sys.argv[1])
 myprngkey = jrd.PRNGKey(seed)
 print(f"seed = {seed}, prngkey = {myprngkey}")
 
 
 mydata, _ = myModel.sample(p_star, myprngkey, weibull_censoring_loc=7700)
 
-try:
-    estim_res = one_result(
-        one_estim_with_flag,
-        myprngkey,
-        myModel,
-        data=mydata,
-        lbd_set=mylbd_set,
-        save_all=False,
-    )
 
-    estim_res.save(myModel, root="files_unmerged", filename_add_on=f"S{seed}")
+if __name__ == "__main__":
+    try:
+        estim_res = one_result(
+            one_estim_with_flag,
+            myprngkey,
+            myModel,
+            data=mydata,
+            lbd_set=mylbd_set,
+            save_all=False,
+        )
 
-except sdg4vsNanError as err:
-    print(f"{err} :  estimation cancelled !")
+        estim_res.save(myModel, root="files_unmerged", filename_add_on=f"S{seed}")
 
+    except sdg4vsNanError as err:
+        print(f"{err} :  estimation cancelled !")
 
-# ====================================================== #
+    # ====================================================== #

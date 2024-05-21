@@ -9,6 +9,8 @@
 # Erreur
 #$ -e ErrAndOut/err.err
 # Sortie 
-#$ -o ErrAndOut/out.out 
-poetry run python3 merge_file.py $1 $2 $3 $4
-exit 0
+#$ -o ErrAndOut/out.out
+seed=$2
+echo $1
+echo $2
+poetry run python3 model.py $seed $1 $2

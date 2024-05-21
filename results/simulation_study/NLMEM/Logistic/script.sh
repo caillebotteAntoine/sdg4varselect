@@ -13,4 +13,4 @@
 seed=$((SGE_TASK_ID))
 echo $1
 echo $2
-poetry run python3 joint_model.py $seed $1 $2
+poetry run python3 model.py $seed $1 $2
