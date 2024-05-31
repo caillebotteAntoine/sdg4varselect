@@ -36,7 +36,7 @@ seed = int(sys.argv[1])
 class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
     """define a logistic mixed effects model"""
 
-    def __init__(self, N=1, J=1, **kwargs):
+    def __init__(self, N=1, J=1, P=1, **kwargs):
         AbstractMixedEffectsModel.__init__(
             self,
             N=N,
@@ -62,8 +62,8 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
                 mu2=pc.RealPositive(scale=2000),
             ),
             tau=pc.RealPositive(scale=100),
-            # cov_latent=pc.MatrixDiagPosDef(dim=2, scale=(2000, 2000)),
-            cov_latent=pc.MatrixSymPosDef(dim=2, scale=(2000, 2000)),
+            cov_latent=pc.MatrixDiagPosDef(dim=2, scale=(2000, 2000)),
+            # cov_latent=pc.MatrixSymPosDef(dim=2, scale=(2000, 2000)),
             var_residual=pc.RealPositive(scale=100),
             beta=pc.Real(scale=10, shape=(self.P,)),
         )
@@ -102,7 +102,6 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
         """Sample one data set for the model"""
 
         (
-            prngkey_time,
             prngkey_mem,
             prngkey_cov,
         ) = jrd.split(prngkey, num=3)
@@ -168,7 +167,7 @@ p_star = myModel.new_params(
     cov_latent=jnp.diag(jnp.array([40, 200])),
     tau=150,
     var_residual=30,
-    beta=jnp.concatenate([jnp.array([100, 50, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
+    beta=jnp.concatenate([jnp.array([80, 30, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
 )
 
 

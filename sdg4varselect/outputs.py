@@ -389,11 +389,12 @@ class TestResults(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
         #         for run in res.final_result:
         #             run.uniform_theta(max_col_theta)
 
-        max_row = max([run.theta.shape[-2] for run in tests])
-        max_col = max([run.theta.shape[-1] for run in tests])
+        if len(tests) > 0:
+            max_row = max([run.theta.shape[-2] for run in tests])
+            max_col = max([run.theta.shape[-1] for run in tests])
 
-        for _, run in enumerate(tests):
-            run.uniform_theta(max_row, max_col)
+            for _, run in enumerate(tests):
+                run.uniform_theta(max_row, max_col)
 
         GDResultsHandler.__init__(self)
         HasChrono.__init__(self, tests)
@@ -421,6 +422,7 @@ class TestResults(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
 
     def filter(
         self,
+        keep_type=False,
         **kwargs,
     ):  # key: str, value: int):
         out = self
@@ -429,6 +431,8 @@ class TestResults(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
             id = [i for i in range(len(out)) if out.config[i][key] == value]
             out = TestResults([out.tests[i] for i in id], [out.config[i] for i in id])
 
+        if not keep_type and len(out) == 1:
+            return out[0]
         return out
 
 
