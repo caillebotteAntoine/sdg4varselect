@@ -9,8 +9,5 @@
 # Erreur
 #$ -e err.err
 # Sortie 
-#$ -o out.out
-seed=$2
-echo $1
-echo $2
-poetry run python3 model.py $seed $1 $2
+#$ -o out.out 
+poetry run python3 f2.py $1 $2
