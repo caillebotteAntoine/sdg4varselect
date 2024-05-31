@@ -104,7 +104,7 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
         (
             prngkey_mem,
             prngkey_cov,
-        ) = jrd.split(prngkey, num=3)
+        ) = jrd.split(prngkey, num=2)
 
         # === nlmem_simulation() === #
         def interval(a, b, n_pts):
