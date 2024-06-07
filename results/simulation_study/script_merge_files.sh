@@ -5,11 +5,16 @@
 # Working Directory
 #$ -cwd
 # Queue
-#$ -q long.q
+#$ -q short.q
 # Erreur
-#$ -e ErrAndOut/err.err
+#$ -e merge_err.err
 # Sortie 
-#$ -o ErrAndOut/out.out
+#$ -o merge_out.out
 echo $1
-poetry run python3 merge_file.py $1 $1 $2 $3 $4
+echo $2
+echo $3
+echo $4
+echo $5
+echo $6
+poetry run python3 merge_file.py $1 $2 $3 $4 $5 $6
 exit 0

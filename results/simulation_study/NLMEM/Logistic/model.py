@@ -24,13 +24,13 @@ from sdg4varselect.models import (
 from sdg4varselect.algo import SPGD_FIM, get_GDFIM_settings
 from sdg4varselect.exceptions import sdg4vsNanError
 
-N = int(sys.argv[2])
-P = int(sys.argv[3])
-seed = int(sys.argv[1])
+#N = int(sys.argv[2])
+#P = int(sys.argv[3])
+#seed = int(sys.argv[1])
 
-# N = 200
-# P = 5
-# seed = 0
+N = 200
+P = 500
+seed = 0
 
 
 class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
