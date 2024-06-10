@@ -24,9 +24,12 @@ from sdg4varselect.models import (
 from sdg4varselect.algo import SPGD_FIM, get_GDFIM_settings
 from sdg4varselect.exceptions import sdg4vsNanError
 
-#N = int(sys.argv[2])
-#P = int(sys.argv[3])
-#seed = int(sys.argv[1])
+# N = int(sys.argv[2])
+# P = int(sys.argv[3])
+# seed = int(sys.argv[1])
+# N = int(sys.argv[2])
+# P = int(sys.argv[3])
+# seed = int(sys.argv[1])
 
 N = 200
 P = 500
@@ -157,7 +160,7 @@ def one_estim_with_flag(prngkey, model, data, lbd=None, save_all=True):
 # ====================================================== #
 
 
-myModel = LogisticMixedEffectsModel(N=N, J=15, P=P)
+myModel = LogisticMixedEffectsModel(N=N, J=4, P=P)
 
 print(f"P = {myModel.P}, N = {myModel.N}")
 
