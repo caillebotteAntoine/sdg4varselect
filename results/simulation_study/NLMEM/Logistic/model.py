@@ -27,9 +27,6 @@ from sdg4varselect.exceptions import sdg4vsNanError
 # N = int(sys.argv[2])
 # P = int(sys.argv[3])
 # seed = int(sys.argv[1])
-# N = int(sys.argv[2])
-# P = int(sys.argv[3])
-# seed = int(sys.argv[1])
 
 N = 200
 P = 500
@@ -160,7 +157,7 @@ def one_estim_with_flag(prngkey, model, data, lbd=None, save_all=True):
 # ====================================================== #
 
 
-myModel = LogisticMixedEffectsModel(N=N, J=4, P=P)
+myModel = LogisticMixedEffectsModel(N=N, J=15, P=P)
 
 print(f"P = {myModel.P}, N = {myModel.N}")
 
@@ -170,11 +167,11 @@ p_star = myModel.new_params(
     cov_latent=jnp.diag(jnp.array([40, 200])),
     tau=150,
     var_residual=30,
-    beta=jnp.concatenate([jnp.array([80, 30, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
+    beta=jnp.concatenate([jnp.array([80, 40, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
 )
 
 
-mylbd_set = 10 ** jnp.linspace(-1.5, -0.1, num=10)
+mylbd_set = 10 ** jnp.linspace(-1.5, -0.8, num=10)
 
 myprngkey = jrd.PRNGKey(seed)
 print(f"seed = {seed}, prngkey = {myprngkey}")
