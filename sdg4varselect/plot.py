@@ -303,6 +303,11 @@ def _plot_theta(
 ):
     if id_to_plot is not None:
         x = x[id_to_plot,]
+
+        if params_star is not None:
+            params_star = params_star[id_to_plot,]
+        if params_names is not None:
+            params_names = params_names[id_to_plot]
     ntheta = x.shape[0]
 
     if params_names is None:
@@ -315,10 +320,6 @@ def _plot_theta(
             [n] + ["" for _ in range(x.shape[-1] - 1)] for n in params_names
         ]  # duplicate
         params_star = [None for i in range(ntheta)]
-
-    if id_to_plot is not None:
-        params_star = params_star[id_to_plot,]
-        params_names = params_names[id_to_plot]
 
     for i in range(ntheta):
         ax = fig.add_subplot(ntheta, 1, i + 1)

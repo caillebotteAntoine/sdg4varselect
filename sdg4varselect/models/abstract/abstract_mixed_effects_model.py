@@ -62,8 +62,10 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
             params, mem_obs_time, **self._cst, **kwargs
         )  # shape = (N,J)
 
+        Jnan = J - jnp.isnan(Y).sum(axis=1)
+
         # mise à jours de J en fct des nan ?!
-        log_likelihood_mem = -J / 2 * jnp.log(
+        log_likelihood_mem = -Jnan / 2 * jnp.log(
             2 * jnp.pi * params.var_residual
         ) - jnp.nansum((Y - pred) ** 2, axis=1) / (2 * params.var_residual)
 
