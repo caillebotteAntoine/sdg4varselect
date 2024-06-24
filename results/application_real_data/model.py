@@ -124,7 +124,7 @@ mylbd_set = 10 ** jnp.linspace(-5, 0, num=20)
 # mydata, _ = myModel.sample(p_star, myprngkey)
 
 
-data_obs = pd.read_csv("../../work/data/data_obs.csv", sep=";", index_col=0)
+data_obs = pd.read_csv("data_obs.csv", sep=";", index_col=0)
 data_obs = data_obs.sort_values(by=["GENOTYPE", "Day"])
 
 Y = jnp.array(data_obs.Y).reshape((220, 18))
@@ -134,7 +134,7 @@ time = jnp.array([0, 2, 4, 6, 8, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33,
 
 cov_obs = (
     pd.read_csv(
-        "../../work/data/data_real_chr6A.csv", sep=";", decimal=",", index_col=0
+        "data_real_chr6A.csv", sep=";", decimal=",", index_col=0
     )
     .drop(columns="Intercept")
     .sort_index()
@@ -166,7 +166,7 @@ if __name__ == "__main__":
                 "cov": cov_obs,
             },
             lbd_set=mylbd_set,
-            save_all=True,
+            save_all=False,
         )
 
         estim_res.save(myModel, root="files_unmerged", filename_add_on=f"S{seed}")

@@ -167,7 +167,7 @@ p_star = myModel.new_params(
     cov_latent=jnp.diag(jnp.array([40, 200])),
     tau=150,
     var_residual=30,
-    beta=jnp.concatenate([jnp.array([80, 40, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
+    beta=jnp.concatenate([jnp.array([100, 50, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
 )
 
 
