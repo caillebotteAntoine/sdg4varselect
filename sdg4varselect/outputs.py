@@ -365,7 +365,7 @@ class RegularizationPathRes(MultiRunRes):
 
             best_supp_id = k + self.bic[-1, same_supp].argmin()
             k = i
-            print(same_supp, best_supp_id)
+            # print(same_supp, best_supp_id)
             for _ in same_supp:
                 multi_run.append(self[best_supp_id])
                 bic.append(self.bic[:, best_supp_id])
