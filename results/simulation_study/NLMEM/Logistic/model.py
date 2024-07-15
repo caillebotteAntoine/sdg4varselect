@@ -5,6 +5,9 @@ Create by antoine.caillebotte@inrae.fr"""
 
 # pylint: disable=C0116, W0221
 
+import os
+os.environ['XLA_FLAGS'] =  "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+
 import sys
 import functools
 
