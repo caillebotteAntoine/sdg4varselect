@@ -20,10 +20,10 @@ Create by antoine.caillebotte@inrae.fr
 from .gradient_descent_fim import (
     GradientDescentFIM as GD_FIM,
     GradientDescentFIMSettings as GradFimSettings,
-    get_GDFIM_settings,
+    get_gdfim_settings,
 )
 
-from sdg4varselect.algo.sto_grad_descent_fim import (
+from .sto_grad_descent_fim import (
     StochasticGradientDescentFIM as SGD_FIM,
 )
 

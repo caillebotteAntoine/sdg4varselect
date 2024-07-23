@@ -5,12 +5,9 @@ Create by antoine.caillebotte@inrae.fr
 """
 
 # pylint: disable=E1101
-import itertools
-
 import jax.numpy as jnp
 from datetime import datetime
 
-from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.models.abstract.abstract_latent_variables_model import (
     log_likelihood_marginal,
@@ -19,10 +16,16 @@ from sdg4varselect.models.abstract.abstract_latent_variables_model import (
 from sdg4varselect.algo.gradient_descent_fim import (
     GradientDescentFIM as GD_FIM,
     GradientDescentFIMSettings,
-    get_GDFIM_settings,
+    get_gdfim_settings,
 )
 from sdg4varselect.algo.abstract.abstract_algo_mcmc import AbstractAlgoMCMC
 from sdg4varselect.outputs import GDResults
+
+from sdg4varselect.algo.preconditioner import (
+    Fisher,
+    AdaGrad,
+    AbstractPreconditioner,
+)
 
 
 class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
@@ -33,9 +36,11 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
         prngkey,
         max_iter: int,
         settings: GradientDescentFIMSettings,
+        preconditioner: AbstractPreconditioner,
     ):
-        GD_FIM.__init__(self, max_iter, settings)
+        GD_FIM.__init__(self, max_iter, settings, preconditioner)
         AbstractAlgoMCMC.__init__(self, prngkey)
+        self._pre_heating = 1000
 
     def get_log_likelihood_kwargs(self, data):
         """return all the needed data"""
@@ -68,36 +73,49 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
         )
         GD_FIM._initialize_algo(self, model, log_likelihood_kwargs, theta_reals1d)
 
+        for _ in range(self._pre_heating):
+            self._one_simulation(log_likelihood_kwargs, theta_reals1d)
+
     # ============================================================== #
-    def algorithm(
+    def _algorithm_one_step(
         self,
         model: type[AbstractModel],
         log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
+        step: int,
     ):
-        """iterative algorithm"""
+        """one iterative algorithm step"""
+        # Simulation
+        self._one_simulation(log_likelihood_kwargs, theta_reals1d)
 
-        for step in itertools.count():
+        # Gradient descent
+        return self._one_gradient_descent(
+            model, log_likelihood_kwargs, theta_reals1d, step
+        )
 
-            # Simulation
-            self._one_simulation(log_likelihood_kwargs, theta_reals1d)
 
-            # Gradient descent
-            (theta_reals1d, fisher_info, grad_precond) = self._one_gradient_descent(
-                model, log_likelihood_kwargs, theta_reals1d, step
-            )
+def algo_factory(name):  # , preheating, heating, learning_rate):
+    if name == "Fisher":
+        algo_settings = get_gdfim_settings(
+            preheating=2000, heating=2500, learning_rate=1e-8
+        )
+        preconditioner = Fisher(list(algo_settings)[1:])
 
-            if jnp.isnan(theta_reals1d).any():
-                yield sdg4vsNanError("nan detected in theta or jac")
-                break
+    elif name == "AdaGrad":
+        algo_settings = [
+            {
+                "learning_rate": 1,
+                "preheating": 0,
+                "heating": 3500,
+                "max": 1e-1,
+            }
+        ]
 
-            yield (theta_reals1d, fisher_info, grad_precond, jnp.nan)
+        preconditioner = AdaGrad()
+    else:
+        raise ValueError("algo name must be Fisher or AdaGrad")
 
-            if (
-                step > self._heating
-                and jnp.sqrt((grad_precond**2).sum()) < self._threshold
-            ):
-                break
+    return algo_settings, preconditioner
 
 
 if __name__ == "__main__":
@@ -110,52 +128,74 @@ if __name__ == "__main__":
     import jax.random as jrd
     import sdg4varselect.plot as sdgplt
 
-    myModel = LogisticMixedEffectsModel(N=1000, J=5)
+    myModel = LogisticMixedEffectsModel(N=100, J=15)
 
     p_star = myModel.new_params(
-        mu1=0.3,
-        mu2=90.0,
-        mu3=7.5,
-        gamma2_1=0.0025,
-        gamma2_2=20,
-        sigma2=0.001,
+        mean_latent={"mu1": 100, "mu2": 1200},
+        cov_latent=jnp.diag(jnp.array([50, 2000])),
+        tau=150,
+        var_residual=30,
     )
 
-    obs, _ = myModel.sample(p_star, jrd.PRNGKey(0))
+    obs, sim = myModel.sample(p_star, jrd.PRNGKey(0))
 
     plt.plot(obs["mem_obs_time"].T, obs["Y"].T, "o-")
 
-    algo_settings = get_GDFIM_settings(preheating=400, heating=600)
-
-    def one_fit(theta0):
-        params = myModel.parametrization.reals1d_to_params(theta0)
-
-        algo = StochasticGradientDescentFIM(jrd.PRNGKey(0), 1000, algo_settings)
-        # =================== MCMC configuration ==================== #
-        algo.add_mcmc(
-            float(params.mu1),
-            sd=0.001,
-            size=myModel.N,
-            likelihood=myModel.log_likelihood_array,
-            name="phi1",
-        )
-        algo.latent_variables["phi1"].adaptative_sd = True
-        algo.add_mcmc(
-            float(params.mu2),
-            sd=2,
-            size=myModel.N,
-            likelihood=myModel.log_likelihood_array,
-            name="phi2",
-        )
-        algo.latent_variables["phi2"].adaptative_sd = True
-        # ==================== END configuration ==================== #
-        return algo.fit(myModel, obs, theta0, ntry=5)
-
-    res = []
-    for i in range(10):
+    def one_fit(i, algo_name):
+        """one_fit for one theta0"""
         theta0 = 0.2 * jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
-        res.append(one_fit(theta0))
-    res = MultiRunRes(res)
 
-    sdgplt.plot(res, params_star=p_star, params_names=myModel.params_names)
+        algo_settings, preconditioner = algo_factory(algo_name)
+
+        # theta0 = theta0.at[3].set(-0.709)
+        # print(myModel.parametrization.reals1d_to_params(theta0))
+
+        algo = StochasticGradientDescentFIM(
+            jrd.PRNGKey(0),
+            4000,
+            algo_settings,
+            preconditioner,
+        )
+        # =================== MCMC configuration ==================== #
+        algo.init_mcmc(theta0, myModel, sd={"phi1": 5, "phi2": 50})
+
+        for var_lat in algo.latent_variables.values():
+            var_lat.adaptative_sd = True
+        # ==================== END configuration ==================== #
+        out = algo.fit(myModel, obs, theta0, ntry=5, partial_fit=True)
+
+        if i < 2:
+            for var_lat in algo.latent_variables.values():
+                sdgplt.plot_mcmc(var_lat)
+
+        return out
+
+    res = MultiRunRes([one_fit(i, "Fisher") for i in range(10)])
+
+    sdgplt.plot(
+        res,
+        params_star=myModel.hstack_params(p_star),
+        params_names=myModel.params_names,
+        id_to_plot=[0, 1, 2, 3, 6, 7],
+    )
     print(f"chrono = {res.chrono}")
+
+    res = MultiRunRes([one_fit(i, "AdaGrad") for i in range(10)])
+    sdgplt.plot(
+        res,
+        params_star=myModel.hstack_params(p_star),
+        params_names=myModel.params_names,
+        id_to_plot=[0, 1, 2, 3, 6, 7],
+    )
+    print(f"chrono = {res.chrono}")
+
+    # multi_grad_theta = jnp.array([res.grad for res in res]).T
+    # multi_grad_theta = multi_grad_theta[:, :200, :]
+
+    # print(multi_grad_theta.shape)
+    # _ = sdgplt._plot_theta(
+    #     multi_grad_theta,
+    #     id_to_plot=[0, 1, 2, 3, 6, 7],
+    #     params_names=myModel.params_names,
+    #     fig=sdgplt.figure(),
+    # )

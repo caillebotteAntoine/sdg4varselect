@@ -53,7 +53,7 @@ class MCMC_chain(Chain):
         """Constructor of MCMC chain with a gibbs sampler method."""
         super().__init__(x0, size, name)
 
-        self.__acceptance = [0]
+        self.__acceptance = [0.4]
         self.__sd = [sd]
         self.__adaptative_sd = False
         self.__lambda = 0.01
@@ -144,7 +144,7 @@ class MCMC_chain(Chain):
             return None
 
         sd_prop = self.__sd[-1]
-        rate = self.acceptance_rate(-1)
+        rate = 0.02 * self.acceptance_rate(-1) + 0.98 * self.acceptance_rate(-2)
 
         if rate < 0.4:
             sd_prop /= 1 + self.__lambda

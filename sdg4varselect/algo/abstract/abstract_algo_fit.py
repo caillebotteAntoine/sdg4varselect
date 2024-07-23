@@ -65,13 +65,12 @@ class AbstractAlgoFit:
     ):
 
         chrono_start = datetime.now()
+        log_likelihood_kwargs = self.get_log_likelihood_kwargs(data)
 
-        self._initialize_algo(
-            model, self.get_log_likelihood_kwargs(data), theta0_reals1d
-        )
+        self._initialize_algo(model, log_likelihood_kwargs, theta0_reals1d)
 
         iter_algo = itertools.islice(
-            self.algorithm(model, self.get_log_likelihood_kwargs(data), theta0_reals1d),
+            self.algorithm(model, log_likelihood_kwargs, theta0_reals1d),
             self._max_iter,
         )
 

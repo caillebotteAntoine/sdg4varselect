@@ -39,7 +39,7 @@ class LinearModel(AbstractModel):
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
-    def likelihood_array(self, theta_reals1d, Y, time, **kwargs):
+    def log_likelihood_array(self, theta_reals1d, Y, time, **kwargs):
         """return likelihood"""
         params = self._parametrization.reals1d_to_params(theta_reals1d)
 

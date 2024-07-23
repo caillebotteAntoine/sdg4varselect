@@ -193,8 +193,8 @@ class GDResults:
 
         return cls(
             theta=jnp.array(res[0]),
-            fim=res[1],
-            grad=jnp.array(res[2]),
+            fim=res[2],
+            grad=jnp.array(res[1]),
             chrono=chrono,
             likelihood=jnp.nan,
         )
@@ -202,20 +202,9 @@ class GDResults:
     @property
     def last_theta(self):
         """return the last theta-array of attribut theta"""
-        # print(self.theta.shape)
-        # print(self.theta)
-        # print(jnp.isnan(self.theta).any(axis=1))
         id_not_all_nan = jnp.logical_not(jnp.isnan(self.theta).all(axis=1))
-        # print(id_not_nan.shape)
-        # print(id_not_nan)
-        # print(self.theta[id_not_nan].shape)
-        # print(self.theta[id_not_nan])
         out = self.theta[id_not_all_nan][-1]
         return out
-        return out[jnp.logical_not(jnp.isnan(out))]
-
-        return self.theta[-1][jnp.logical_not(jnp.isnan(self.theta[-1]))]
-        return self.theta[jnp.logical_not(jnp.isnan(self.theta).any(axis=1))][-1]
 
     def reals1d_to_hstack_params(self, model):
         # likelihood = algo.likelihood_marginal(model, sdg_res.last_theta)
@@ -251,6 +240,15 @@ class GDResults:
             (
                 (0, max_row - self.theta.shape[0]),
                 (0, 0 if max_col is None else (max_col - self.theta.shape[1])),
+            ),
+            constant_values=jnp.nan,
+        )
+
+        self.grad = jnp.pad(
+            self.grad,
+            (
+                (0, max_row - self.grad.shape[0]),
+                (0, 0 if max_col is None else (max_col - self.grad.shape[1])),
             ),
             constant_values=jnp.nan,
         )

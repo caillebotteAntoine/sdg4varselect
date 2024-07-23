@@ -17,6 +17,8 @@ import parametrization_cookbook.jax as pc
 
 from results.simulation_study.multi_res import add_flag, one_result
 
+from sdg4varselect.outputs import MultiRunRes
+
 from sdg4varselect.models import (
     AbstractMixedEffectsModel,
     AbstractHDModel,
@@ -24,9 +26,6 @@ from sdg4varselect.models import (
 )
 from sdg4varselect.algo import SPGD_FIM, get_GDFIM_settings
 from sdg4varselect.exceptions import sdg4vsNanError
-
-# seed = 0
-seed = int(sys.argv[1])
 
 
 class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
@@ -109,18 +108,6 @@ def one_estim_with_flag(prngkey, model, data, lbd=None, save_all=True):
 # ====================================================== #
 
 
-# p_star = myModel.new_params(
-#     mean_latent={"mu1": 100, "mu2": 100},
-#     cov_latent=jnp.diag(jnp.array([40, 200])),
-#     var_residual=30,
-#     alpha = jn=jnp.concatenate([jnp.array([80, 40, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
-#     beta=jnp.concatenate([jnp.array([80, 40, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
-# )
-
-
-mylbd_set = 10 ** jnp.linspace(-5, 0, num=20)
-
-
 # mydata, _ = myModel.sample(p_star, myprngkey)
 
 
@@ -133,18 +120,22 @@ N, J = Y.shape
 time = jnp.array([0, 2, 4, 6, 8, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35])
 
 cov_obs = (
-    pd.read_csv(
-        "data_real_chr6A.csv", sep=";", decimal=",", index_col=0
-    )
+    pd.read_csv("data_real_chr6A.csv", sep=";", decimal=",", index_col=0)
     .drop(columns="Intercept")
     .sort_index()
 )
 
 cov_obs = jnp.array(cov_obs.to_numpy(dtype=jnp.float64))
 cov_keep = cov_obs[:, :5]
-cov_obs = cov_obs[:, 5:]
+cov_obs = cov_obs[:, 5:10]
 N, P = cov_obs.shape
 
+data = {
+    "Y": Y,
+    "mem_obs_time": jnp.tile(time, (N, 1)),
+    "cov_keep": cov_keep,
+    "cov": cov_obs,
+}
 
 myModel = LogisticMixedEffectsModel(N=N, J=J, P=P)
 
@@ -152,29 +143,47 @@ print(f"P = {myModel.P}, N = {myModel.N}")
 
 
 if __name__ == "__main__":
-    myprngkey = jrd.PRNGKey(seed)
-    print(f"seed = {seed}, prngkey = {myprngkey}")
-    try:
-        estim_res = one_result(
-            one_estim_with_flag,
-            myprngkey,
-            myModel,
-            data={
-                "Y": Y,
-                "mem_obs_time": jnp.tile(time, (N, 1)),
-                "cov_keep": cov_keep,
-                "cov": cov_obs,
-            },
-            lbd_set=mylbd_set,
-            save_all=False,
-        )
+    # seed = 0
+    ii = 11  # int(sys.argv[1])
+    mylbd_set = 10 ** jnp.linspace(-5, 0, num=20)
 
-        estim_res.save(myModel, root="files_unmerged", filename_add_on=f"S{seed}")
+    estim_res = []
+    for seed in range(3):
+        myprngkey = jrd.PRNGKey(seed)
+        print(f"seed = {seed}, prngkey = {myprngkey}")
 
-    except sdg4vsNanError as err:
-        print(f"{err} :  estimation cancelled !")
+        try:
+            estim_res.append(
+                one_estim_with_flag(
+                    prngkey=myprngkey,
+                    model=myModel,
+                    data=data,
+                    lbd=mylbd_set[ii],
+                    save_all=False,
+                )[0]
+            )
+        except sdg4vsNanError as err:
+            print(f"{err} :  estimation cancelled !")
+
+    MultiRunRes(estim_res).save(
+        myModel, root="files_unmerged", filename_add_on=f"lbd[{ii}]"
+    )
 
 # ====================================================== #
+
+
+estim_res = MultiRunRes.load(
+    myModel, root="files_unmerged", filename_add_on=f"lbd[{ii}]"
+)
+
+likelihood = estim_res.likelihood[:, -1]
+pen_estimate = estim_res.last_theta[:, -1, :]
+pen = jnp.abs(pen_estimate[:, myModel.DIM_LD :]).sum(axis=-1)
+argmax_pen_estimate = (likelihood - mylbd_set[ii] * pen).argmax(axis=0)
+
+
+argmax_pen_estimate
+
 
 # import sdg4varselect.plot as sdgplt
 

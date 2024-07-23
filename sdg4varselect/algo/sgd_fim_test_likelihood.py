@@ -33,7 +33,7 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
         GD_FIM.__init__(self, max_iter, settings)
         AbstractAlgoMCMC.__init__(self, prngkey)
 
-    def get_likelihood_kwargs(self, data):
+    def get_log_likelihood_kwargs(self, data):
         """return all the needed data"""
         return data | self.latent_data
 
@@ -47,36 +47,38 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
     def _initialize_algo(
         self,
         model: type[AbstractModel],
-        likelihood_kwargs,
+        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ) -> None:
         """
         Initialize the algorithm
         """
-        AbstractAlgoMCMC._initialize_algo(self, model, likelihood_kwargs, theta_reals1d)
-        GD_FIM._initialize_algo(self, model, likelihood_kwargs, theta_reals1d)
+        AbstractAlgoMCMC._initialize_algo(
+            self, model, log_likelihood_kwargs, theta_reals1d
+        )
+        GD_FIM._initialize_algo(self, model, log_likelihood_kwargs, theta_reals1d)
 
     # ============================================================== #
     def algorithm(
         self,
         model: type[AbstractModel],
-        likelihood_kwargs,
+        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ):
         """iterative algorithm"""
 
-        jac_shape = model.jac_likelihood(theta_reals1d, **likelihood_kwargs).shape
+        jac_shape = model.jac_likelihood(theta_reals1d, **log_likelihood_kwargs).shape
         jac = jnp.zeros(shape=jac_shape)
 
         for step in itertools.count():
 
             # Simulation
-            self._one_simulation(likelihood_kwargs, theta_reals1d)
+            self._one_simulation(log_likelihood_kwargs, theta_reals1d)
 
             # Gradient descent
             (theta_reals1d, jac, fisher_info, grad_precond) = (
                 self._one_gradient_descent(
-                    model, likelihood_kwargs, theta_reals1d, jac, step
+                    model, log_likelihood_kwargs, theta_reals1d, jac, step
                 )
             )
 

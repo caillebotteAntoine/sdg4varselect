@@ -1,54 +1,55 @@
 """
-Module that define functions to perform multiple selection and estimation.
+Module for abstract class AbstractJointModel.
 
-Create by antoine.caillebotte@inrae.fr"""
+Create by antoine.caillebotte@inrae.fr
+"""
 
 # pylint: disable=C0116, W0221
 
-import os
-os.environ['XLA_FLAGS'] =  "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
-
-import sys
+from abc import abstractmethod
 import functools
 
-from jax import jit
+
 import jax.numpy as jnp
 import jax.random as jrd
-
+from jax import jit
 import parametrization_cookbook.jax as pc
-
-from results.simulation_study.multi_res import add_flag, one_result
 
 from sdg4varselect.models import (
     AbstractMixedEffectsModel,
     AbstractHDModel,
     cov_simulation,
 )
+
+import sdg4varselect.algo.preconditioner as sdgpreconditioner
+
+from results.simulation_study.multi_res import add_flag, one_result
 from sdg4varselect.algo import SPGD_FIM, get_gdfim_settings
 from sdg4varselect.exceptions import sdg4vsNanError
+import sdg4varselect.plot as sdgplt
+ons import sdg4vsNanError
 
 N = int(sys.argv[2])
 P = int(sys.argv[3])
+algo_name = sys.argv[4]
 seed = int(sys.argv[1])
 
-# N = 200
+# N = 100
 # P = 500
 # seed = 0
 
 
-class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
+class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
     """define a logistic mixed effects model"""
 
     def __init__(self, N=1, J=1, P=1, **kwargs):
-        AbstractMixedEffectsModel.__init__(
-            self,
+        super().__init__(
             N=N,
             J=J,
             me_name=["phi1", "phi2"],
             **kwargs,
         )
         AbstractHDModel.__init__(self, P=P)
-
         self.init()
 
     @property
@@ -65,8 +66,7 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
                 mu2=pc.RealPositive(scale=2000),
             ),
             tau=pc.RealPositive(scale=100),
-            cov_latent=pc.MatrixDiagPosDef(dim=2, scale=(2000, 2000)),
-            # cov_latent=pc.MatrixSymPosDef(dim=2, scale=(2000, 2000)),
+            cov_latent=pc.MatrixDiagPosDef(dim=2, scale=(100, 2000)),
             var_residual=pc.RealPositive(scale=100),
             beta=pc.Real(scale=10, shape=(self.P,)),
         )
@@ -96,6 +96,7 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
 
     # ============================================================== #
 
+    @abstractmethod
     def sample(
         self,
         params_star,
@@ -104,27 +105,13 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
     ):
         """Sample one data set for the model"""
 
-        (prngkey_mem, prngkey_cov) = jrd.split(prngkey, num=2)
+        (prngkey_time, prngkey_mem, prngkey_cov) = jrd.split(prngkey, num=3)
 
         # === nlmem_simulation() === #
-        def interval(a, b, n_pts):
-            return a + jnp.arange(0, n_pts) * (b - a) / n_pts
+        time = jnp.linspace(100, 1800, self.J)
+        time = jnp.tile(time, (self.N, 1))
+        time += 10 * jrd.uniform(prngkey_time, minval=-2, maxval=2, shape=time.shape)
 
-        interval_percentage = [(0, 0.3), (0.35, 0.5), (0.6, 1.0)]
-        A, B = 150, 3000
-        BsubA = B - A
-        time = jnp.array([])
-        for a, b in interval_percentage:
-            time = jnp.concatenate(
-                [
-                    time,
-                    interval(
-                        A + a * BsubA, A + b * BsubA, self.J // len(interval_percentage)
-                    ),
-                ]
-            )
-
-        time = jnp.repeat(time[None, :], self.N, axis=0)
         cov = cov_simulation(prngkey_cov, cov_min=-1, cov_max=1, shape=(self.N, self.P))
 
         obs, sim = AbstractMixedEffectsModel.sample(
@@ -134,17 +121,52 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
         return {"mem_obs_time": time, "cov": cov} | obs, sim
 
 
-algo_settings = get_gdfim_settings(preheating=600, heating=1000, learning_rate=1e-6)
+# ====================================================== #
+# ====================================================== #
+# ====================================================== #
+
+
+def algo_factory(name: str, p: int):  # , preheating, heating, learning_rate):
+    algo_settings = get_gdfim_settings(
+        preheating=3000, heating=3500, learning_rate=1e-8
+    )
+
+    if name.lower() == "fisher":
+        preconditioner = sdgpreconditioner.Fisher(list(algo_settings)[1:])
+
+    elif name == "adagrad":
+        algo_settings = [
+            {
+                "learning_rate": 1,
+                "preheating": 0,
+                "heating": 4500,
+                "max": 1e-1,
+            }
+        ]
+
+        preconditioner = sdgpreconditioner.AdaGrad()
+    elif name == "fisheradagrad":
+
+        preconditioner = sdgpreconditioner.FisherAdaGrad(
+            P=p, settings=list(algo_settings)[1:]
+        )
+    else:
+        raise ValueError("algo name must be fisheradagrad, fisher or adagrad")
+
+    return algo_settings, preconditioner
 
 
 @add_flag
-def one_estim_with_flag(prngkey, model, data, lbd=None, save_all=True):
+def one_estim_with_flag(prngkey, model, data, algo_name, lbd=None, save_all=True):
     prngkey_theta, prngkey_estim = jrd.split(prngkey)
     theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(model.parametrization.size,))
 
-    algo = SPGD_FIM(prngkey_estim, 2000, algo_settings, lbd=lbd, alpha=1.0)
+    algo_settings, preconditioner = algo_factory(algo_name, model.P)
+    algo = SPGD_FIM(
+        prngkey_estim, 5000, algo_settings, preconditioner, lbd=lbd, alpha=1.0
+    )
     # =================== MCMC configuration ==================== #
-    algo.init_mcmc(theta0, model, sd={"phi1": 5, "phi2": 20})
+    algo.init_mcmc(theta0, model, sd={"phi1": 5, "phi2": 50})
 
     for var_lat in algo.latent_variables.values():
         var_lat.adaptative_sd = True
@@ -156,20 +178,18 @@ def one_estim_with_flag(prngkey, model, data, lbd=None, save_all=True):
 
 # ====================================================== #
 
-
-myModel = LogisticMixedEffectsModel(N=N, J=15, P=P)
+myModel = HDLogisticMixedEffectsModel(N=N, J=15, P=P)
 
 print(f"P = {myModel.P}, N = {myModel.N}")
 
 
 p_star = myModel.new_params(
     mean_latent={"mu1": 100, "mu2": 1200},
-    cov_latent=jnp.diag(jnp.array([40, 200])),
+    cov_latent=jnp.diag(jnp.array([50, 2000])),
     tau=150,
     var_residual=30,
     beta=jnp.concatenate([jnp.array([100, 50, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
 )
-
 
 mylbd_set = 10 ** jnp.linspace(-1.5, -0.8, num=10)
 
@@ -187,13 +207,18 @@ if __name__ == "__main__":
             myprngkey,
             myModel,
             data=mydata,
+            algo_name=algo_name,
             lbd_set=mylbd_set,
             save_all=False,
         )
 
-        estim_res.save(myModel, root="files_unmerged", filename_add_on=f"S{seed}")
+        estim_res.save(myModel, root="files_unmerged", filename_add_on=f"S{seed}_{algo_name}")
 
     except sdg4vsNanError as err:
         print(f"{err} :  estimation cancelled !")
 
     # ====================================================== #
+    reg_res = estim_res.standardize()
+    _ = sdgplt.plot_reg_path(
+        reg_res=reg_res, dim_ld=myModel.DIM_LD, fig=sdgplt.figure(5, 5)
+    )

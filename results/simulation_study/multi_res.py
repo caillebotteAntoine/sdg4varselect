@@ -22,7 +22,7 @@ def add_flag(fct):
     return estim_with_flag
 
 
-def one_result(estim_fct_with_flag, prngkey, model, data, lbd_set, save_all=True):
+def one_result(estim_fct_with_flag, prngkey, model, lbd_set, **kwargs):
 
     list_sdg_results, bic = regularization_path(
         estim_fct_with_flag=estim_fct_with_flag,
@@ -33,8 +33,7 @@ def one_result(estim_fct_with_flag, prngkey, model, data, lbd_set, save_all=True
         verbatim=True,  # __name__ == "__main__",
         # additional parameter
         model=model,
-        data=data,
-        save_all=save_all,
+        **kwargs,
     )
 
     return RegularizationPathRes(

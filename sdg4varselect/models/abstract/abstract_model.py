@@ -80,7 +80,7 @@ class AbstractModel:
                         repeat_name = np.concatenate(
                             [
                                 repeat_name,
-                                np.array([f"{name}{i}" for i in range(shape[0])]),
+                                np.array([f"{name}{i+1}" for i in range(shape[0])]),
                             ]
                         )
 

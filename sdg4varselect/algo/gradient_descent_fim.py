@@ -15,8 +15,10 @@ from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.algo.abstract.abstract_algo_fit import AbstractAlgoFit
 from sdg4varselect.outputs import GDResults
 
-from sdg4varselect.algo.stochastic_gradient_descent_utils import (
-    gradient_descent_fisher_preconditionner_with_mask,
+from sdg4varselect.algo.preconditioner import (
+    Fisher,
+    AdaGrad,
+    AbstractPreconditioner,
 )
 
 
@@ -26,7 +28,8 @@ GradientDescentFIMSettings = namedtuple(
 )
 
 
-def get_GDFIM_settings(preheating, heating, learning_rate=1e-8):
+def get_gdfim_settings(preheating, heating, learning_rate=1e-8):
+    """return 3 step size well parametred"""
     return GradientDescentFIMSettings(
         step_size_grad={
             "learning_rate": learning_rate,
@@ -56,25 +59,14 @@ class GradientDescentFIM(AbstractAlgoFit):
         self,
         max_iter: int,
         settings: GradientDescentFIMSettings,
+        preconditioner: AbstractPreconditioner,
     ):
         AbstractAlgoFit.__init__(self, max_iter)
 
-        step_sizes = create_multi_step_size(list(settings), num_step_size=3)
-        (
-            self._step_size_grad,
-            self._step_size_approx_sto,
-            self._step_size_fisher,
-        ) = (
-            step_sizes[0],
-            step_sizes[1],
-            step_sizes[2],
-        )
+        step_sizes = create_multi_step_size(list(settings))
+        self._step_size_grad = step_sizes[0]
 
-        heating_list = [
-            settings.step_size_approx_sto["heating"],
-            settings.step_size_fisher["heating"],
-            settings.step_size_grad["heating"],
-        ]
+        heating_list = [ss.heating for ss in step_sizes if ss.heating is not None]
 
         self._heating = (
             jnp.inf
@@ -85,12 +77,18 @@ class GradientDescentFIM(AbstractAlgoFit):
         self._threshold = 1e-4
 
         # initial algo parameter
-        self._jac = jnp.zeros(shape=(1, 1))
-        self._fisher_mask = jnp.zeros(shape=(1,))
+        self._preconditioner = preconditioner
 
     def get_log_likelihood_kwargs(self, data):
         """return all the needed data"""
         return data
+
+    def results_warper(self, model, data, results, chrono):
+        """warp results"""
+
+        out = GDResults.new_from_list(results, chrono)
+        out.reals1d_to_hstack_params(model)
+        return out
 
     def _initialize_algo(
         self,
@@ -104,47 +102,9 @@ class GradientDescentFIM(AbstractAlgoFit):
         jac_shape = model.jac_log_likelihood(
             theta_reals1d, **log_likelihood_kwargs
         ).shape
-        self._jac = jnp.zeros(shape=jac_shape)
-
-        self._fisher_mask = jnp.ones(shape=jac_shape[1], dtype=jnp.bool)
+        self._preconditioner.initialize(jac_shape)
 
     # ============================================================== #
-    def _one_gradient_descent(
-        self,
-        model: type[AbstractModel],
-        log_likelihood_kwargs,
-        theta_reals1d: jnp.ndarray,
-        step: int,
-    ):
-        step_size = [
-            self._step_size_grad(step),
-            self._step_size_approx_sto(step),
-            self._step_size_fisher(step),
-        ]
-
-        # Gradient descent
-        jac_current = model.jac_log_likelihood(theta_reals1d, **log_likelihood_kwargs)
-        # self._jac = jnp.zeros(shape=self._jac.shape)
-
-        (self._jac, fisher_info, grad_precond) = (
-            gradient_descent_fisher_preconditionner_with_mask(
-                self._jac,
-                jac_current,
-                step_size_approx_sto=step_size[1],
-                step_size_fisher=step_size[2],
-                fisher_mask=self._fisher_mask,
-            )
-        )
-
-        grad_precond *= step_size[0]
-        theta_reals1d += grad_precond
-
-        return (
-            theta_reals1d,
-            fisher_info,
-            grad_precond,
-        )
-
     def algorithm(
         self,
         model: type[AbstractModel],
@@ -155,38 +115,72 @@ class GradientDescentFIM(AbstractAlgoFit):
 
         for step in itertools.count():
 
-            (theta_reals1d, fisher_info, grad_precond) = self._one_gradient_descent(
+            out = self._algorithm_one_step(
                 model, log_likelihood_kwargs, theta_reals1d, step
             )
+            theta_reals1d = out[0]
 
             if jnp.isnan(theta_reals1d).any():
                 yield sdg4vsNanError("nan detected in theta or jac")
                 break
 
-            yield (theta_reals1d, fisher_info, grad_precond)
+            yield out
 
-            if (
-                step > self._heating
-                and jnp.sqrt((grad_precond**2).sum()) < self._threshold
-            ):
-                break
+            if step > self._heating and jnp.sqrt((out[1] ** 2).sum()) < self._threshold:
+                break  # out[1] = grad_precond
 
-    def results_warper(self, model, data, results, chrono):
-        """warp results"""
+    # ============================================================== #
+    def _one_gradient_descent(
+        self,
+        model: type[AbstractModel],
+        log_likelihood_kwargs,
+        theta_reals1d: jnp.ndarray,
+        step: int,
+    ):
+        # Jacobian
+        jac_current = model.jac_log_likelihood(theta_reals1d, **log_likelihood_kwargs)
+        # Gradient
+        grad = jac_current.mean(axis=0)
+        # Preconditionner
+        preconditioner, grad_precond = self._preconditioner.get_preconditioned_gradient(
+            grad, jac_current, step
+        )
 
-        out = GDResults.new_from_list(results, chrono)
-        return GDResults.compute_with_model(model, out)
+        grad_precond *= self._step_size_grad(step)
+
+        theta_reals1d += grad_precond
+
+        return (
+            theta_reals1d,
+            grad_precond,
+            preconditioner,
+        )
+
+    def _algorithm_one_step(
+        self,
+        model: type[AbstractModel],
+        log_likelihood_kwargs,
+        theta_reals1d: jnp.ndarray,
+        step: int,
+    ):
+        """one iterative algorithm step"""
+        # (theta_reals1d, grad_precond, preconditioner)
+
+        return self._one_gradient_descent(
+            model, log_likelihood_kwargs, theta_reals1d, step
+        )
 
 
 if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
+    import sdg4varselect.plot as sdgplt
     from sdg4varselect.models.linear_model import LinearModel
     from sdg4varselect.outputs import MultiRunRes
     import jax.random as jrd
 
-    myModel = LinearModel(10)
-    p_star = myModel.new_params(intercept=1.5, slope=2, sigma2=0.01)
+    myModel = LinearModel(50)
+    p_star = myModel.new_params(intercept=1.5, slope=2, sigma2=0.1)
 
     obs, sim = myModel.sample(p_star, jrd.PRNGKey(0))
     # obs["time"] = jnp.array(
@@ -215,17 +209,52 @@ if __name__ == "__main__":
 
     plt.plot(obs["time"], obs["Y"], ".")
 
-    algo_settings = get_GDFIM_settings(preheating=400, heating=600, learning_rate=1e-3)
+    algo_settings = get_gdfim_settings(
+        preheating=2000, heating=6000, learning_rate=1e-3
+    )
 
-    algo = GradientDescentFIM(1000, algo_settings)
+    algoFIM = GradientDescentFIM(
+        2000,
+        algo_settings,
+        preconditioner=FisherPreconditioner(list(algo_settings)[1:]),
+    )
+
+    algo_settings = [
+        {
+            "learning_rate": 1,
+            "preheating": 0,
+            "heating": 5000,
+            "max": 0.5,
+        }
+    ]
+    algoAdaGrad = GradientDescentFIM(
+        20000, algo_settings, preconditioner=AdaGradPreconditioner()
+    )
 
     res = []
     for i in range(10):
         theta0 = jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
-        res.append(algo.fit(myModel, obs, theta0))
+        res.append(algoFIM.fit(myModel, obs, theta0))
     res = MultiRunRes(res)
-
-    import sdg4varselect.plot as sdgplt
-
-    fig, axs = sdgplt.plot_theta(res, 3, p_star, myModel.params_names)
     print(f"chrono = {res.chrono}")
+
+    p_emv = myModel.new_params(intercept=1.5, slope=2, sigma2=sim["eps"].var())
+    _ = sdgplt.plot_theta(res, 3, p_emv, myModel.params_names)
+
+    res = []
+    for i in range(10):
+        theta0 = jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
+        res.append(algoAdaGrad.fit(myModel, obs, theta0))
+    res = MultiRunRes(res)
+    print(f"chrono = {res.chrono}")
+
+    p_emv = myModel.new_params(intercept=1.5, slope=2, sigma2=sim["eps"].var())
+    _ = sdgplt.plot_theta(res, 3, p_emv, myModel.params_names)
+
+    _ = sdgplt._plot_theta(
+        jnp.array([res.grad for res in res]).T,
+        params_names=myModel.params_names,
+        fig=sdgplt.figure(),
+    )
+
+    sdgplt.plt.plot(algoAdaGrad._preconditioner._adagrad_past)

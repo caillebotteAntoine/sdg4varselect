@@ -4,7 +4,13 @@ Module for LearningRate class.
 Create by antoine.caillebotte@inrae.fr
 """
 
+import functools
+
 import numpy as np
+
+import jax
+import jax.numpy as jnp
+from jax import jit
 
 
 class LearningRate:
@@ -21,7 +27,7 @@ class LearningRate:
         Static method to create a learning rate instance for transitioning from 0 to 1.
     - from_1_to_0(burnin, coef_heating):
         Static method to create a learning rate instance for transitioning from 1 to 0.
-    - __call__(iter: int) -> float: Calculate the learning rate for a given iteration.
+    - __call__(step: int) -> float: Calculate the learning rate for a given iteration.
     - __repr__() -> str: Return a string representation of the learning rate configuration.
     - plot(label=None): Plot the learning rate curve.
 
@@ -66,7 +72,7 @@ class LearningRate:
         self._coef_preheating = coef_preheating
 
         if heating is None:
-            self._heating = None
+            self._heating = jnp.nan
         else:
             if not isinstance(heating, int):
                 raise TypeError("heating must be int")
@@ -126,26 +132,70 @@ class LearningRate:
 
     @staticmethod
     def from_0_to_1(heat, coef_preheating):
-        return LearningRate(heat, coef_preheating, 10**10, 1)
+        return LearningRate(heat, coef_preheating, 100000, 1)
 
     @staticmethod
     def from_1_to_0(burnin, coef_heating):
         return LearningRate(0, 1, burnin, coef_heating)
 
-    def __call__(self, iter: int) -> float:
-        if iter < self._step_flat:  # ensures zero value before growth
-            return 0
+    @functools.partial(jit, static_argnums=0)
+    def _preheating_value(self, step):
+        return jax.lax.cond(
+            self._preheating == 0,
+            lambda s: 0.0,
+            lambda s: self._max
+            * jnp.exp(self._coef_preheating * (1 - s / self._preheating)),
+            step,
+        )
+        # return jax.lax.cond(
+        #     step < self._preheating,
+        #     self._max
+        #     * np.exp(self._coef_preheating * (1 - float(step) / self._preheating)),
+        #     0,
+        # )
 
-        if iter < self._preheating:  # before exp(coeff *(1-iter/preheating))
-            return self._max * np.exp(
-                self._coef_preheating * (1 - float(iter) / self._preheating)
-            )
+    @functools.partial(jit, static_argnums=0)
+    def _heating_value(self, step):
+        return jax.lax.cond(
+            step == self._heating,
+            lambda s: 0.0,
+            lambda s: self._max / jnp.pow(s - self._heating, self._coef_heating),
+            step,
+        )
+        # return jax.lax.cond(
+        #     self._heating is not None and step >= 1 + self._heating,
+        #     ,
+        #     0,
+        # )
 
-        if self._heating is not None:
-            if iter >= 1 + self._heating:  # after (iter - heating)^-coef
-                return self._max * pow(iter - self._heating, -self._coef_heating)
+    def __call__(self, step: int) -> float:
+        return jnp.select(
+            [
+                step < self._step_flat,
+                step < self._preheating,
+                step >= 1 + self._heating,  # ~jnp.isnan(self._heating) and
+            ],
+            [
+                0,
+                self._preheating_value(step),
+                self._heating_value(step),
+            ],
+            default=self._max,
+        )
 
-        return self._max
+        # if step < self._step_flat:  # ensures zero value before growth
+        #     return 0
+
+        # if step < self._preheating:  # before exp(coeff *(1-step/preheating))
+        #     return self._max * np.exp(
+        #         self._coef_preheating * (1 - float(step) / self._preheating)
+        #     )
+
+        # if self._heating is not None:
+        #     if step >= 1 + self._heating:  # after (step - heating)^-coef
+        #         return self._max * pow(step - self._heating, -self._coef_heating)
+
+        # return self._max
 
     def __repr__(self) -> str:
         max_msg = str(self._max) + "*"
@@ -180,7 +230,7 @@ class LearningRate:
     def plot(self, label=None):
         import matplotlib.pyplot as plt
 
-        if self.heating is None:
+        if jnp.isnan(self.heating):
             if self.preheating == 0:
                 x = np.linspace(0, 200)
             else:
@@ -217,6 +267,9 @@ def create_multi_step_size(settings: list[dict], num_step_size: int = 3):
 
     while len(settings) < num_step_size:
         settings.append(settings[0])
+
+    while len(settings) > num_step_size:
+        settings.pop()
 
     step_size = []
     for setting in settings:
@@ -262,3 +315,16 @@ if __name__ == "__main__":
     plt.figure()
     f = LearningRate.one()
     f.plot()
+
+    plt.figure()
+    f = create_multi_step_size(
+        [
+            {
+                "learning_rate": 1,
+                "preheating": 0,
+                "heating": None,
+                "max": 1e-1,
+            }
+        ]
+    )
+    f[0].plot()

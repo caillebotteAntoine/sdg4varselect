@@ -447,26 +447,6 @@ def plot_reg_path(ax, reg_res: RegularizationPathRes, dim_ld: int = 0, fig=None)
             argmin_bic=reg_res.argmin_bic,
         )
 
-        ax.set_title("Regularization path")
-        ax.set_xlabel(r"Regularization penalty ($\lambda$)")
-        ax.set_ylabel(r"HD Parameter ($\beta$)")
-
-        ax.set_xscale("log")
-
-        ax.plot(lbd_set, multi_theta_hd)
-
-        ax_bic = ax.twinx()
-        ax_bic.plot(lbd_set, bic, color="k", linewidth=5, linestyle="-")
-        ax_bic.plot(lbd_set, bic, color="w", linewidth=3, linestyle="-")
-        ax_bic.plot(lbd_set, bic, color="k", linewidth=2, linestyle="--", label="BIC")
-        ax_bic.set(ylabel="BIC Score")
-
-        # minimum value of bic
-        plot_axvline(
-            ax_bic, lbd_set, bic, i=reg_res.argmin_bic, color="b", msg=" = min(BIC)"
-        )
-        return ax
-
 
 def plot_box_plot_hd(theta, dim_ld=0, params_star=None, threshold=0):
 

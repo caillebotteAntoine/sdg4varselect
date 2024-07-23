@@ -5,24 +5,24 @@ Create by antoine.caillebotte@inrae.fr
 """
 
 # pylint: disable=E1101
-import itertools
-
 from typing import Optional
 import jax.numpy as jnp
 import jax.random as jrd
 
-from sdg4varselect.exceptions import sdg4vsNanError
-from sdg4varselect.models import AbstractModel, AbstractHDModel
+from sdg4varselect.models import AbstractModel
 
-from .gradient_descent_fim import (
-    GradientDescentFIMSettings as GradFimSettings,
-)
-
+import sdg4varselect.algo.preconditioner as sdgprecond
 
 from sdg4varselect.algo.sto_grad_descent_fim import (
     StochasticGradientDescentFIM as SGD_FIM,
 )
+
 from sdg4varselect.algo.stochastic_gradient_descent_utils import proximal_operator
+
+from sdg4varselect.algo.gradient_descent_fim import (
+    GradientDescentFIMSettings as GradFimSettings,
+    get_gdfim_settings,
+)
 
 
 class StochasticProximalGradientDescentFIM(SGD_FIM):
@@ -33,10 +33,11 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
         prngkey,
         max_iter: int,
         settings: GradFimSettings,
+        preconditioner: sdgprecond.AbstractPreconditioner,
         lbd: Optional[float] = None,
         alpha: Optional[float] = 1.0,
     ):
-        SGD_FIM.__init__(self, prngkey, max_iter, settings)
+        SGD_FIM.__init__(self, prngkey, max_iter, settings, preconditioner)
 
         self._lbd = lbd
         self._alpha = alpha
@@ -53,8 +54,8 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
         """
         Initialize the algorithm
         """
-        if not isinstance(model, AbstractHDModel):
-            raise ValueError("model must be a high dimensional one !")
+        # if not isinstance(model, AbstractHDModel):
+        #     raise ValueError("model must be a high dimensional one !")
 
         SGD_FIM._initialize_algo(self, model, log_likelihood_kwargs, theta_reals1d)
 
@@ -75,104 +76,265 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
             hd_mask=self._hd_mask,
         )
 
-    def algorithm(
+    # ============================================================== #
+    def _algorithm_one_step(
         self,
         model: type[AbstractModel],
         log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
+        step: int,
     ):
-        """iterative algorithm"""
+        """one iterative algorithm step"""
+        # Simulation
+        self._one_simulation(log_likelihood_kwargs, theta_reals1d)
 
-        for step in itertools.count():
+        # Gradient descent
+        (theta_reals1d, grad_precond, preconditioner) = self._one_gradient_descent(
+            model, log_likelihood_kwargs, theta_reals1d, step
+        )
 
-            # Simulation
-            self._one_simulation(log_likelihood_kwargs, theta_reals1d)
+        # Proximal operator
+        theta_reals1d = self._one_proximal_operator(
+            theta_reals1d=theta_reals1d,
+            step=step,
+        )
 
-            # Gradient descent
-            (theta_reals1d, fisher_info, grad_precond) = self._one_gradient_descent(
-                model, log_likelihood_kwargs, theta_reals1d, step
-            )
+        return (theta_reals1d, grad_precond, preconditioner)
 
-            # Proximal operator
-            theta_reals1d = self._one_proximal_operator(
-                theta_reals1d=theta_reals1d,
-                step=step,
-            )
 
-            if jnp.isnan(theta_reals1d).any():
-                yield sdg4vsNanError("nan detected in theta or jac")
-                break
+def algo_factory(name):  # , preheating, heating, learning_rate):
+    if name == "Fisher":
+        algo_settings = get_gdfim_settings(
+            preheating=3000, heating=3500, learning_rate=1e-8
+        )
+        preconditioner = sdgprecond.Fisher(list(algo_settings)[1:])
 
-            yield (theta_reals1d, fisher_info, grad_precond, jnp.nan)
+    elif name == "AdaGrad":
+        algo_settings = [
+            {
+                "learning_rate": 1,
+                "preheating": 0,
+                "heating": 4500,
+                "max": 1e-1,
+            }
+        ]
 
-            if (
-                step > self._heating
-                and jnp.sqrt((grad_precond**2).sum()) < self._threshold
-            ):
-                break
+        preconditioner = sdgprecond.AdaGrad()
+    elif name == "FisherAdaGrad":
+        algo_settings = get_gdfim_settings(
+            preheating=3000, heating=3500, learning_rate=1e-8
+        )
+
+        preconditioner = sdgprecond.FisherAdaGradPreconditionner(
+            P=myModel.P, settings=list(algo_settings)[1:]
+        )
+    else:
+        raise ValueError("algo name must be FisherAdaGrad, Fisher or AdaGrad")
+
+    return algo_settings, preconditioner
 
 
 if __name__ == "__main__":
 
-    from sdg4varselect.algo.gradient_descent_fim import (
-        get_GDFIM_settings,
-    )
-    from sdg4varselect.plot import plot_sample
+    import matplotlib.pyplot as plt
     from sdg4varselect.outputs import MultiRunRes
+    from sdg4varselect.models.logistic_mixed_effect_model import (
+        HDLogisticMixedEffectsModel,
+    )
+    import jax.random as jrd
     import sdg4varselect.plot as sdgplt
-    from sdg4varselect.models import create_cox_mem_jm, logisticMEM
 
-    myModel = create_cox_mem_jm(logisticMEM, N=100, J=5, P=10)
+    myModel = HDLogisticMixedEffectsModel(N=100, J=15, P=30)
 
     p_star = myModel.new_params(
-        mu1=0.3,
-        mu2=90.0,
-        mu3=7.5,
-        gamma2_1=0.0025,
-        gamma2_2=20,
-        sigma2=0.001,
-        alpha=110.11,
+        mean_latent={"mu1": 100, "mu2": 1200},
+        cov_latent=jnp.diag(jnp.array([50, 2000])),
+        tau=150,
+        var_residual=30,
         beta=jnp.concatenate(
-            [jnp.array([-2, -3, 3, 2]), jnp.zeros(shape=(myModel.P - 4,))]
+            [jnp.array([100, 50, 20]), jnp.zeros(shape=(myModel.P - 3,))]
         ),
     )
 
-    myobs, mysim = myModel.sample(p_star, jrd.PRNGKey(0), weibull_censoring_loc=77)
+    obs, sim = myModel.sample(p_star, jrd.PRNGKey(0))
 
-    _, _ = plot_sample(myobs, mysim, p_star, censoring_loc=77, a=80, b=35)
+    plt.plot(obs["mem_obs_time"].T, obs["Y"].T, "o-")
 
-    algo_settings = get_GDFIM_settings(preheating=400, heating=600)
-
-    def one_fit(theta0):
-        params = myModel.parametrization.reals1d_to_params(theta0)
-
-        algo = StochasticProximalGradientDescentFIM(jrd.PRNGKey(0), 1000, algo_settings)
-        # =================== MCMC configuration ==================== #
-        algo.add_mcmc(
-            float(params.mu1),
-            sd=0.001,
-            size=myModel.N,
-            likelihood=myModel.log_likelihood_array,
-            name="phi1",
-        )
-        algo.latent_variables["phi1"].adaptative_sd = True
-        algo.add_mcmc(
-            float(params.mu2),
-            sd=2,
-            size=myModel.N,
-            likelihood=myModel.log_likelihood_array,
-            name="phi2",
-        )
-        algo.latent_variables["phi2"].adaptative_sd = True
-        # ==================== END configuration ==================== #
-        return algo.fit(myModel, myobs, theta0, ntry=5)
-
-    res = []
-    for i in range(10):
+    def one_fit(i, algo_name):
+        """one_fit for one theta0"""
         theta0 = 0.2 * jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
-        res.append(one_fit(theta0))
-    res = MultiRunRes(res)
 
-    sdgplt.plot_theta(res, 7, p_star, myModel.params_names)
-    sdgplt.plot_theta_hd(res, 7, p_star, myModel.params_names)
-    print(f"chrono = {res.chrono}")
+        algo_settings, preconditioner = algo_factory(algo_name)
+
+        # theta0 = theta0.at[3].set(-0.709)
+        # print(myModel.parametrization.reals1d_to_params(theta0))
+
+        algo = StochasticProximalGradientDescentFIM(
+            jrd.PRNGKey(0), 5000, algo_settings, preconditioner, lbd=1e-1
+        )
+        # =================== MCMC configuration ==================== #
+        algo.init_mcmc(theta0, myModel, sd={"phi1": 5, "phi2": 50})
+
+        for var_lat in algo.latent_variables.values():
+            var_lat.adaptative_sd = True
+        # ==================== END configuration ==================== #
+        out = algo.fit(myModel, obs, theta0, ntry=5, partial_fit=True)
+
+        if i < 1:
+            for var_lat in algo.latent_variables.values():
+                sdgplt.plot_mcmc(var_lat)
+
+        return out
+
+    resFisher = MultiRunRes([one_fit(i, "Fisher") for i in range(10)])
+    id_to_plot = [0, 1, 2, 3, 6, 7]
+    sdgplt.plot(
+        resFisher,
+        params_star=myModel.hstack_params(p_star),
+        params_names=myModel.params_names,
+        id_to_plot=id_to_plot,
+    )
+    _ = sdgplt.plot_theta_hd(
+        resFisher,
+        dim_ld=myModel.DIM_LD,
+        params_star=myModel.hstack_params(p_star),
+        params_names=myModel.params_names,
+    )
+
+    print(f"chrono = {resFisher.chrono}")
+
+    resAdaGrad = MultiRunRes([one_fit(i, "AdaGrad") for i in range(10)])
+    sdgplt.plot(
+        resAdaGrad,
+        params_star=myModel.hstack_params(p_star),
+        params_names=myModel.params_names,
+        id_to_plot=id_to_plot,
+    )
+    _ = sdgplt.plot_theta_hd(
+        resAdaGrad,
+        dim_ld=myModel.DIM_LD,
+        params_star=myModel.hstack_params(p_star),
+        params_names=myModel.params_names,
+    )
+
+    print(f"chrono = {resAdaGrad.chrono}")
+
+    resFisherAdaGrad = MultiRunRes([one_fit(i, "FisherAdaGrad") for i in range(10)])
+    sdgplt.plot(
+        resFisherAdaGrad,
+        params_star=myModel.hstack_params(p_star),
+        params_names=myModel.params_names,
+        id_to_plot=id_to_plot,
+    )
+    _ = sdgplt.plot_theta_hd(
+        resFisherAdaGrad,
+        dim_ld=myModel.DIM_LD,
+        params_star=myModel.hstack_params(p_star),
+        params_names=myModel.params_names,
+    )
+
+    print(f"chrono = {resFisherAdaGrad.chrono}")
+
+    # multi_grad_theta = jnp.array([res.grad for res in res]).T
+    # multi_grad_theta = multi_grad_theta[:, :200, :]
+
+    # print(multi_grad_theta.shape)
+    # _ = sdgplt._plot_theta(
+    #     multi_grad_theta,
+    #     id_to_plot=[0, 1, 2, 3, 6, 7],
+    #     params_names=myModel.params_names,
+    #     fig=sdgplt.figure(),
+    # )
+    # ============================================================== #
+
+    from sdg4varselect.outputs import TestResults
+
+    id_to_plot = jnp.array([1, 2, 3, 4, 7, 8, 9, 10, 11]) - 1
+    r = TestResults(
+        [resFisher, resAdaGrad, resFisherAdaGrad],
+        test_config=[
+            {"name": "Fisher"},
+            {"name": "AdaGrad"},
+            {"name": "resFisherAdaGrad"},
+        ],
+    )
+    scenarios_labels = ["Fisher", "AdaGrad", "resFisherAdaGrad"]
+    x = r.last_theta[:, :, id_to_plot]
+    fig = sdgplt.boxplot_estimation(
+        x=x.T,
+        hline=myModel.hstack_params(p_star)[id_to_plot],
+        xlabels=scenarios_labels,
+        title=myModel.params_names[id_to_plot],
+        nrows=3,
+        ncols=3,
+        fig=sdgplt.figure(height=7, width=8),
+    )
+    fig.tight_layout()
+
+    # ============================================================== #
+
+    from matplotlib.gridspec import GridSpec
+
+    G = GridSpec(len(r), 3)
+    fig = sdgplt.figure()
+
+    params_star_hd = p_star.beta
+    non_zero = 3
+
+    theta = r.last_theta[:, :, myModel.DIM_LD :]
+
+    xticks = jnp.arange(0, myModel.P) + 1
+    for i in range(len(r)):
+        ax = plt.subplot(G[i, 0])
+
+        sdgplt.myBoxplot(
+            ax=ax,
+            x=theta[i][:, :non_zero].T,
+            xlabels=[f"{k+1}" for k in range(non_zero)],
+        )
+        ax.plot(
+            xticks[:non_zero] - 1, params_star_hd[:non_zero], "bs", label="true value"
+        )
+
+        ax.legend()
+        ax.set_ylabel(scenarios_labels[i])
+        # == == == == #
+        ax = sdgplt.plt.subplot(G[i, 1:])  # , sharey=ax)
+        tt = theta[i][:, non_zero:].T
+        theta_nonan = tt[jnp.array([~jnp.isnan(xx).any() for xx in tt]), :]
+
+        # sdgplt.myBoxplot(ax = ax, x = theta_nonan)
+        points = sum(
+            [
+                [(i + non_zero, xx) for xx in theta_nonan[i] if xx != 0]
+                for i in range(theta_nonan.shape[0])
+                if jnp.abs(theta_nonan[i]).sum() != 0
+            ],
+            [],
+        )
+
+        ax.scatter(
+            [p[0] for p in points],
+            [p[1] for p in points],
+            facecolors="none",
+            edgecolors="k",
+        )
+        ax.hlines(0, xmin=non_zero, xmax=theta_nonan.shape[0], colors="k")
+
+        xticks_nonzero = [non_zero + 1] + [
+            (x + 1) * 25 for x in range((theta_nonan.shape[0] + non_zero) // 25)
+        ]
+
+        ax.set_xticks(xticks_nonzero, [str(x) for x in xticks_nonzero])
+
+    ax = plt.subplot(G[0, 0])
+    ax.set_title(
+        f"Estimation of the {non_zero} non-zero components of $\\beta$", fontsize=15
+    )
+    ax = plt.subplot(G[0, 1:])  # , sharey=ax)
+    ax.set_title("Estimation of the remaining zero components of $\\beta$", fontsize=15)
+
+    fig.set_figheight(5)
+    fig.set_figwidth(15)
+
+    # ============================================================== #
