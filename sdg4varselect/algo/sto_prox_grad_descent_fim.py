@@ -102,7 +102,7 @@ class StochasticProximalGradientDescentFIM(SGD_FIM):
         return (theta_reals1d, grad_precond, preconditioner)
 
 
-def algo_factory(name):  # , preheating, heating, learning_rate):
+def algo_factory(name, p):  # , preheating, heating, learning_rate):
     if name == "Fisher":
         algo_settings = get_gdfim_settings(
             preheating=3000, heating=3500, learning_rate=1e-8
@@ -125,9 +125,7 @@ def algo_factory(name):  # , preheating, heating, learning_rate):
             preheating=3000, heating=3500, learning_rate=1e-8
         )
 
-        preconditioner = sdgprecond.FisherAdaGradPreconditionner(
-            P=myModel.P, settings=list(algo_settings)[1:]
-        )
+        preconditioner = sdgprecond.FisherAdaGrad(P=p, settings=list(algo_settings)[1:])
     else:
         raise ValueError("algo name must be FisherAdaGrad, Fisher or AdaGrad")
 
@@ -164,7 +162,7 @@ if __name__ == "__main__":
         """one_fit for one theta0"""
         theta0 = 0.2 * jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
 
-        algo_settings, preconditioner = algo_factory(algo_name)
+        algo_settings, preconditioner = algo_factory(algo_name, myModel.P)
 
         # theta0 = theta0.at[3].set(-0.709)
         # print(myModel.parametrization.reals1d_to_params(theta0))

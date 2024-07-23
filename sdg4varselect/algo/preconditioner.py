@@ -86,15 +86,11 @@ class AdaGrad(AbstractPreconditioner):
     @functools.partial(jit, static_argnums=0)
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
 
-        if step > -1:
-            self._adagrad += gradient**2
-            self._adagrad_past.append(self._adagrad)
+        self._adagrad += gradient**2
+        self._adagrad_past.append(self._adagrad)
 
-            precond = 1 / jnp.sqrt(1 + self._adagrad)
-            assert precond.shape == gradient.shape
-
-        else:
-            precond = jnp.ones(gradient.shape)
+        precond = 1 / jnp.sqrt(1 + self._adagrad)
+        assert precond.shape == gradient.shape
 
         grad_precond = precond * gradient
         return precond, grad_precond
