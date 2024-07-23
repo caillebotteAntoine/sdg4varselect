@@ -5,6 +5,7 @@ Create by antoine.caillebotte@inrae.fr
 """
 
 # pylint: disable=C0116, W0221
+import sys
 
 from abc import abstractmethod
 import functools
@@ -27,7 +28,6 @@ from results.simulation_study.multi_res import add_flag, one_result
 from sdg4varselect.algo import SPGD_FIM, get_gdfim_settings
 from sdg4varselect.exceptions import sdg4vsNanError
 import sdg4varselect.plot as sdgplt
-ons import sdg4vsNanError
 
 N = int(sys.argv[2])
 P = int(sys.argv[3])
