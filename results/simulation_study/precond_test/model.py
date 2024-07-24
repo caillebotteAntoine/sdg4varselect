@@ -188,10 +188,10 @@ p_star = myModel.new_params(
     cov_latent=jnp.diag(jnp.array([50, 2000])),
     tau=150,
     var_residual=30,
-    beta=jnp.concatenate([jnp.array([100, 50, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
+    beta=jnp.concatenate([jnp.array([300, 100, 50]), jnp.zeros(shape=(myModel.P - 3,))]),
 )
 
-mylbd_set = 10 ** jnp.linspace(-1.5, -0.8, num=10)
+mylbd_set = 10 ** jnp.linspace(-1.5, -0.5, num=15)
 
 myprngkey = jrd.PRNGKey(seed)
 print(f"seed = {seed}, prngkey = {myprngkey}")

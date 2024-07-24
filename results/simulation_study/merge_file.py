@@ -29,11 +29,11 @@ class M:
 
 model = M(n=N, j=15, p=P)
 root = f"{folder}/files_unmerged"
-
+add_on = "_fisheradagrad"
 
 def read(s):
     """read files results for n and p as parameter"""
-    r = MultiRunRes.load(model, root, f"S{s}")
+    r = MultiRunRes.load(model, root, f"S{s}{add_on}")
     r.make_it_lighter()
     return r
 
@@ -52,12 +52,12 @@ def read_multi_files(S):
 
     if not flag :
         try : 
-            MultiRunRes(out).save(model, root=f"{folder}/files", filename_add_on=f"S({S[0]}, {S[-1]})")
+            MultiRunRes(out).save(model, root=f"{folder}/files", filename_add_on=f"S({S[0]}, {S[-1]}){add_on}")
         except:
             print("something go wrong !")
         else :
             for s in S:
-                os.remove(_get_filename(model, root, f"S{s}.pkl.gz"))
+                os.remove(_get_filename(model, root, f"S{s}{add_on}.pkl.gz"))
         
 
     return out
