@@ -448,29 +448,29 @@ def plot_reg_path(ax, reg_res: RegularizationPathRes, dim_ld: int = 0, fig=None)
         )
 
 
-def plot_box_plot_hd(theta, dim_ld=0, params_star=None, threshold=0):
+# def plot_box_plot_hd(theta, dim_ld=0, params_star=None, threshold=0):
 
-    fig = figure()
-    ax = fig.add_subplot(1, 1, 1)
+#     fig = figure()
+#     ax = fig.add_subplot(1, 1, 1)
 
-    multi_theta = jnp.array([t[dim_ld:] for t in theta]).T
-    num_support = (multi_theta != 0).sum(axis=1)
+#     multi_theta = jnp.array([t[dim_ld:] for t in theta]).T
+#     num_support = (multi_theta != 0).sum(axis=1)
 
-    id_support = np.array(
-        [i for i in range(len(num_support)) if num_support[i] >= threshold]
-    )
-    xticks = [i + 1 for i in range(len(id_support))]
+#     id_support = np.array(
+#         [i for i in range(len(num_support)) if num_support[i] >= threshold]
+#     )
+#     xticks = [i + 1 for i in range(len(id_support))]
 
-    ax.boxplot(multi_theta[:, id_support])
+#     ax.boxplot(multi_theta[:, id_support])
 
-    if params_star is not None:
-        params_star = jnp.hstack(params_star)[dim_ld:]
-        ax.plot(xticks, params_star[id_support], "bs", label="true value")
-        ax.set_xticks(xticks, id_support)
+#     if params_star is not None:
+#         params_star = jnp.hstack(params_star)[dim_ld:]
+#         ax.plot(xticks, params_star[id_support], "bs", label="true value")
+#         ax.set_xticks(xticks, id_support)
 
-        ax.legend()
+#         ax.legend()
 
-    return fig, ax
+#     return fig, ax
 
 
 def plot_mcmc(x, id_max=None):
@@ -518,3 +518,71 @@ def get_dataframe_results(x, x_star, rows_names):
         columns=["real value", "mean", "variance", "RMSE", "RRMSE"],
         index=rows_names[id_non_zero],
     )
+
+
+@default_figure
+def plot_2_panel_selected_theta_hd(
+    results, p_star, scenarios_labels, theta_name="$\\beta$", dim_ld: int = 0, fig=None
+):
+    from matplotlib.gridspec import GridSpec
+
+    G = GridSpec(len(results), 3)
+
+    params_star_hd = p_star[dim_ld:]
+    theta = results.last_theta[:, :, -1, dim_ld:]
+    non_zero = 3
+
+    xticks = jnp.arange(0, theta.shape[-1]) + 1
+    for i in range(len(results)):
+        ax = plt.subplot(G[i, 0])
+
+        myBoxplot(
+            ax=ax,
+            x=theta[i][:, :non_zero].T,
+            xlabels=[f"{k+1}" for k in range(non_zero)],
+        )
+        ax.plot(
+            xticks[:non_zero] - 1, params_star_hd[:non_zero], "bs", label="true value"
+        )
+
+        ax.legend()
+        ax.set_ylabel(scenarios_labels[i])
+        # == == == == #
+        ax = plt.subplot(G[i, 1:])  # , sharey=ax)
+        tt = theta[i][:, non_zero:].T
+        theta_nonan = tt[jnp.array([~jnp.isnan(xx).any() for xx in tt]), :]
+
+        # sdgplt.myBoxplot(ax = ax, x = theta_nonan)
+        points = sum(
+            [
+                [(i + non_zero, xx) for xx in theta_nonan[i] if xx != 0]
+                for i in range(theta_nonan.shape[0])
+                if jnp.abs(theta_nonan[i]).sum() != 0
+            ],
+            [],
+        )
+
+        ax.scatter(
+            [p[0] for p in points],
+            [p[1] for p in points],
+            facecolors="none",
+            edgecolors="k",
+        )
+        ax.hlines(0, xmin=non_zero, xmax=theta_nonan.shape[0], colors="k")
+
+        xticks_nonzero = [non_zero + 1] + [
+            (x + 1) * 25 for x in range((theta_nonan.shape[0] + non_zero) // 25)
+        ]
+
+        ax.set_xticks(xticks_nonzero, [str(x) for x in xticks_nonzero])
+
+    ax = plt.subplot(G[0, 0])
+    ax.set_title(
+        f"Estimation of the {non_zero} non-zero components of {theta_name}", fontsize=15
+    )
+    ax = plt.subplot(G[0, 1:])  # , sharey=ax)
+    ax.set_title(
+        "Estimation of the remaining zero components of {theta_name}", fontsize=15
+    )
+
+    return fig
