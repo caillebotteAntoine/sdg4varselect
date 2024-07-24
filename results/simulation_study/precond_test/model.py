@@ -216,9 +216,3 @@ if __name__ == "__main__":
 
     except sdg4vsNanError as err:
         print(f"{err} :  estimation cancelled !")
-
-    # ====================================================== #
-    reg_res = estim_res.standardize()
-    _ = sdgplt.plot_reg_path(
-        reg_res=reg_res, dim_ld=myModel.DIM_LD, fig=sdgplt.figure(5, 5)
-    )
