@@ -16,5 +16,5 @@ echo $3
 echo $4
 echo $5
 echo $6
-poetry run python3 merge_file.py $1 $2 $3 $4 $5 $6
+poetry run python3 merge_file.py $1 $2 $3 $4 $5 $6 $7
 exit 0

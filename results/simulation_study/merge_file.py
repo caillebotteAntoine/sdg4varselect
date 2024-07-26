@@ -6,11 +6,12 @@ from sdg4varselect.outputs import MultiRunRes, _get_filename
 
 print(sys.argv)
 folder = sys.argv[1]
-model_name = sys.argv[2]
-i_min = int(sys.argv[3])
-i_max = int(sys.argv[4])
-N = int(sys.argv[5])
-P = int(sys.argv[6])
+add_on = sys.argv[2]
+model_name = sys.argv[3]
+i_min = int(sys.argv[4])
+i_max = int(sys.argv[5])
+N = int(sys.argv[6])
+P = int(sys.argv[7])
 
 
 class M:
@@ -29,7 +30,6 @@ class M:
 
 model = M(n=N, j=15, p=P)
 root = f"{folder}/files_unmerged"
-add_on = "_fisheradagrad"
 
 def read(s):
     """read files results for n and p as parameter"""
