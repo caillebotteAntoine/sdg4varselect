@@ -75,9 +75,10 @@ class Fisher(AbstractPreconditioner):
 
 class AdaGrad(AbstractPreconditioner):
 
-    def __init__(self) -> None:
+    def __init__(self, regularization=1) -> None:
         self._adagrad = jnp.zeros(shape=(1, 1))
         self._adagrad_past = []
+        self._regularization = regularization
 
     def initialize(self, jac_shape):
         self._adagrad = jnp.zeros(shape=(jac_shape[1],))
@@ -89,7 +90,7 @@ class AdaGrad(AbstractPreconditioner):
         self._adagrad += gradient**2
         self._adagrad_past.append(self._adagrad)
 
-        precond = 1 / jnp.sqrt(1 + self._adagrad)
+        precond = 1 / jnp.sqrt(self._regularization + self._adagrad)
         assert precond.shape == gradient.shape
 
         grad_precond = precond * gradient

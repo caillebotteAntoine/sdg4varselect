@@ -34,8 +34,9 @@ P = int(sys.argv[3])
 algo_name = sys.argv[4]
 seed = int(sys.argv[1])
 
-# N = 100
-# P = 500
+# N = 200
+# P = 30
+# algo_name = "Fisher"
 # seed = 0
 
 
@@ -139,12 +140,12 @@ def algo_factory(name: str, p: int):  # , preheating, heating, learning_rate):
             {
                 "learning_rate": 1,
                 "preheating": 0,
-                "heating": 4500,
-                "max": 1e-1,
+                "heating": 3500,
+                "max": 1e-2,
             }
         ]
 
-        preconditioner = sdgpreconditioner.AdaGrad()
+        preconditioner = sdgpreconditioner.AdaGrad(regularization=1e-5)
     elif name == "fisheradagrad":
 
         preconditioner = sdgpreconditioner.FisherAdaGrad(
@@ -188,10 +189,10 @@ p_star = myModel.new_params(
     cov_latent=jnp.diag(jnp.array([50, 2000])),
     tau=150,
     var_residual=30,
-    beta=jnp.concatenate([jnp.array([300, 100, 50]), jnp.zeros(shape=(myModel.P - 3,))]),
+    beta=jnp.concatenate([jnp.array([80, 70, 50]), jnp.zeros(shape=(myModel.P - 3,))]),
 )
 
-mylbd_set = 10 ** jnp.linspace(-1.5, -0.5, num=15)
+mylbd_set = 10 ** jnp.linspace(-1.5, -0.5, num=20)
 
 myprngkey = jrd.PRNGKey(seed)
 print(f"seed = {seed}, prngkey = {myprngkey}")
@@ -212,7 +213,9 @@ if __name__ == "__main__":
             save_all=False,
         )
 
-        estim_res.save(myModel, root="files_unmerged", filename_add_on=f"S{seed}_{algo_name}")
+        estim_res.save(
+            myModel, root="files_unmerged", filename_add_on=f"S{seed}_{algo_name}"
+        )
 
     except sdg4vsNanError as err:
         print(f"{err} :  estimation cancelled !")

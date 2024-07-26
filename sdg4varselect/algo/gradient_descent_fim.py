@@ -216,7 +216,7 @@ if __name__ == "__main__":
     algoFIM = GradientDescentFIM(
         2000,
         algo_settings,
-        preconditioner=FisherPreconditioner(list(algo_settings)[1:]),
+        preconditioner=Fisher(list(algo_settings)[1:]),
     )
 
     algo_settings = [
@@ -228,7 +228,7 @@ if __name__ == "__main__":
         }
     ]
     algoAdaGrad = GradientDescentFIM(
-        20000, algo_settings, preconditioner=AdaGradPreconditioner()
+        20000, algo_settings, preconditioner=AdaGrad(regularization=1)
     )
 
     res = []

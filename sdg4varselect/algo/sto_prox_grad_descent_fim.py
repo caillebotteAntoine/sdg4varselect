@@ -115,14 +115,32 @@ def algo_factory(name, p):  # , preheating, heating, learning_rate):
                 "learning_rate": 1,
                 "preheating": 0,
                 "heating": 4500,
-                "max": 1e-1,
+                "max": 1e-2,
             }
         ]
 
-        preconditioner = sdgprecond.AdaGrad()
+        preconditioner = sdgprecond.AdaGrad(regularization=1e-5)
+
     elif name == "FisherAdaGrad":
-        algo_settings = get_gdfim_settings(
-            preheating=3000, heating=3500, learning_rate=1e-8
+        algo_settings = GradFimSettings(
+            step_size_grad={
+                "learning_rate": 1,
+                "preheating": 0,
+                "heating": 3500,
+                "max": 1e-2,
+            },
+            step_size_approx_sto={
+                "learning_rate": 1e-8,
+                "preheating": 3000,
+                "heating": None,
+                "max": 1,
+            },
+            step_size_fisher={
+                "learning_rate": 1e-8,
+                "preheating": 3000,
+                "heating": None,
+                "max": 0.9,
+            },
         )
 
         preconditioner = sdgprecond.FisherAdaGrad(P=p, settings=list(algo_settings)[1:])
@@ -142,7 +160,7 @@ if __name__ == "__main__":
     import jax.random as jrd
     import sdg4varselect.plot as sdgplt
 
-    myModel = HDLogisticMixedEffectsModel(N=100, J=15, P=30)
+    myModel = HDLogisticMixedEffectsModel(N=100, J=15, P=3)
 
     p_star = myModel.new_params(
         mean_latent={"mu1": 100, "mu2": 1200},
@@ -150,7 +168,7 @@ if __name__ == "__main__":
         tau=150,
         var_residual=30,
         beta=jnp.concatenate(
-            [jnp.array([100, 50, 20]), jnp.zeros(shape=(myModel.P - 3,))]
+            [jnp.array([80, 70, 50]), jnp.zeros(shape=(myModel.P - 3,))]
         ),
     )
 
@@ -160,6 +178,7 @@ if __name__ == "__main__":
 
     def one_fit(i, algo_name):
         """one_fit for one theta0"""
+        obs, sim = myModel.sample(p_star, jrd.PRNGKey(i))
         theta0 = 0.2 * jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
 
         algo_settings, preconditioner = algo_factory(algo_name, myModel.P)
@@ -168,7 +187,7 @@ if __name__ == "__main__":
         # print(myModel.parametrization.reals1d_to_params(theta0))
 
         algo = StochasticProximalGradientDescentFIM(
-            jrd.PRNGKey(0), 5000, algo_settings, preconditioner, lbd=1e-1
+            jrd.PRNGKey(0), 5000, algo_settings, preconditioner, lbd=None  # 1e-1
         )
         # =================== MCMC configuration ==================== #
         algo.init_mcmc(theta0, myModel, sd={"phi1": 5, "phi2": 50})
@@ -178,88 +197,52 @@ if __name__ == "__main__":
         # ==================== END configuration ==================== #
         out = algo.fit(myModel, obs, theta0, ntry=5, partial_fit=True)
 
-        if i < 1:
+        if i < -1:
             for var_lat in algo.latent_variables.values():
                 sdgplt.plot_mcmc(var_lat)
 
         return out
 
-    resFisher = MultiRunRes([one_fit(i, "Fisher") for i in range(10)])
-    id_to_plot = [0, 1, 2, 3, 6, 7]
-    sdgplt.plot(
-        resFisher,
-        params_star=myModel.hstack_params(p_star),
-        params_names=myModel.params_names,
-        id_to_plot=id_to_plot,
-    )
-    _ = sdgplt.plot_theta_hd(
-        resFisher,
-        dim_ld=myModel.DIM_LD,
-        params_star=myModel.hstack_params(p_star),
-        params_names=myModel.params_names,
-    )
+    # config = ["Fisher", "AdaGrad", "FisherAdaGrad"]
+    config = ["AdaGrad"]
+    res = []
 
-    print(f"chrono = {resFisher.chrono}")
+    for name in config:
 
-    resAdaGrad = MultiRunRes([one_fit(i, "AdaGrad") for i in range(10)])
-    sdgplt.plot(
-        resAdaGrad,
-        params_star=myModel.hstack_params(p_star),
-        params_names=myModel.params_names,
-        id_to_plot=id_to_plot,
-    )
-    _ = sdgplt.plot_theta_hd(
-        resAdaGrad,
-        dim_ld=myModel.DIM_LD,
-        params_star=myModel.hstack_params(p_star),
-        params_names=myModel.params_names,
-    )
+        res.append(MultiRunRes([one_fit(i, name) for i in range(10)]))
+        id_to_plot = [0, 1, 2, 3, 6, 7]
 
-    print(f"chrono = {resAdaGrad.chrono}")
+        sdgplt.plot(
+            res[-1],
+            params_star=myModel.hstack_params(p_star),
+            params_names=myModel.params_names,
+            id_to_plot=id_to_plot,
+        )
+        _ = sdgplt.plot_theta_hd(
+            res[-1],
+            dim_ld=myModel.DIM_LD,
+            params_star=myModel.hstack_params(p_star),
+            params_names=myModel.params_names,
+        )
 
-    resFisherAdaGrad = MultiRunRes([one_fit(i, "FisherAdaGrad") for i in range(10)])
-    sdgplt.plot(
-        resFisherAdaGrad,
-        params_star=myModel.hstack_params(p_star),
-        params_names=myModel.params_names,
-        id_to_plot=id_to_plot,
-    )
-    _ = sdgplt.plot_theta_hd(
-        resFisherAdaGrad,
-        dim_ld=myModel.DIM_LD,
-        params_star=myModel.hstack_params(p_star),
-        params_names=myModel.params_names,
-    )
-
-    print(f"chrono = {resFisherAdaGrad.chrono}")
-
-    # multi_grad_theta = jnp.array([res.grad for res in res]).T
-    # multi_grad_theta = multi_grad_theta[:, :200, :]
-
-    # print(multi_grad_theta.shape)
-    # _ = sdgplt._plot_theta(
-    #     multi_grad_theta,
-    #     id_to_plot=[0, 1, 2, 3, 6, 7],
-    #     params_names=myModel.params_names,
-    #     fig=sdgplt.figure(),
-    # )
+        print(f"chrono = {res[-1].chrono}")
     # ============================================================== #
 
-    from sdg4varselect.outputs import TestResults
+    from sdg4varselect.outputs import TestResults, MultiRunRes
 
     id_to_plot = jnp.array([1, 2, 3, 4, 7, 8, 9, 10, 11]) - 1
-    r = TestResults(
-        [resFisher, resAdaGrad, resFisherAdaGrad],
+    results = TestResults(
+        [MultiRunRes([r]) for r in res[0, 1]],
         test_config=[
             {"name": "Fisher"},
             {"name": "AdaGrad"},
-            {"name": "resFisherAdaGrad"},
+            # {"name": "resFisherAdaGrad"},
         ],
     )
-    scenarios_labels = ["Fisher", "AdaGrad", "resFisherAdaGrad"]
-    x = r.last_theta[:, :, id_to_plot]
+    scenarios_labels = ["Fisher", "AdaGrad"]  # , "resFisherAdaGrad"]
+    x = results.last_theta[:, 0, :, :]
     fig = sdgplt.boxplot_estimation(
-        x=x.T,
+        x=x.T[id_to_plot],
         hline=myModel.hstack_params(p_star)[id_to_plot],
         xlabels=scenarios_labels,
         title=myModel.params_names[id_to_plot],
@@ -270,69 +253,10 @@ if __name__ == "__main__":
     fig.tight_layout()
 
     # ============================================================== #
-
-    from matplotlib.gridspec import GridSpec
-
-    G = GridSpec(len(r), 3)
-    fig = sdgplt.figure()
-
-    params_star_hd = p_star.beta
-    non_zero = 3
-
-    theta = r.last_theta[:, :, myModel.DIM_LD :]
-
-    xticks = jnp.arange(0, myModel.P) + 1
-    for i in range(len(r)):
-        ax = plt.subplot(G[i, 0])
-
-        sdgplt.myBoxplot(
-            ax=ax,
-            x=theta[i][:, :non_zero].T,
-            xlabels=[f"{k+1}" for k in range(non_zero)],
-        )
-        ax.plot(
-            xticks[:non_zero] - 1, params_star_hd[:non_zero], "bs", label="true value"
-        )
-
-        ax.legend()
-        ax.set_ylabel(scenarios_labels[i])
-        # == == == == #
-        ax = sdgplt.plt.subplot(G[i, 1:])  # , sharey=ax)
-        tt = theta[i][:, non_zero:].T
-        theta_nonan = tt[jnp.array([~jnp.isnan(xx).any() for xx in tt]), :]
-
-        # sdgplt.myBoxplot(ax = ax, x = theta_nonan)
-        points = sum(
-            [
-                [(i + non_zero, xx) for xx in theta_nonan[i] if xx != 0]
-                for i in range(theta_nonan.shape[0])
-                if jnp.abs(theta_nonan[i]).sum() != 0
-            ],
-            [],
-        )
-
-        ax.scatter(
-            [p[0] for p in points],
-            [p[1] for p in points],
-            facecolors="none",
-            edgecolors="k",
-        )
-        ax.hlines(0, xmin=non_zero, xmax=theta_nonan.shape[0], colors="k")
-
-        xticks_nonzero = [non_zero + 1] + [
-            (x + 1) * 25 for x in range((theta_nonan.shape[0] + non_zero) // 25)
-        ]
-
-        ax.set_xticks(xticks_nonzero, [str(x) for x in xticks_nonzero])
-
-    ax = plt.subplot(G[0, 0])
-    ax.set_title(
-        f"Estimation of the {non_zero} non-zero components of $\\beta$", fontsize=15
+    _ = sdgplt.plot_2_panel_selected_theta_hd(
+        results,
+        myModel.hstack_params(p_star),
+        scenarios_labels,
+        dim_ld=myModel.DIM_LD,
+        fig=sdgplt.figure(5, 10),
     )
-    ax = plt.subplot(G[0, 1:])  # , sharey=ax)
-    ax.set_title("Estimation of the remaining zero components of $\\beta$", fontsize=15)
-
-    fig.set_figheight(5)
-    fig.set_figwidth(15)
-
-    # ============================================================== #

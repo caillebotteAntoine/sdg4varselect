@@ -94,10 +94,12 @@ class StochasticGradientDescentFIM(AbstractAlgoMCMC, GD_FIM):
         )
 
 
-def algo_factory(name):  # , preheating, heating, learning_rate):
+def algo_factory(
+    name, regularization=1, learning_rate=1e-8
+):  # , preheating, heating, learning_rate):
     if name == "Fisher":
         algo_settings = get_gdfim_settings(
-            preheating=2000, heating=2500, learning_rate=1e-8
+            preheating=2000, heating=2500, learning_rate=learning_rate
         )
         preconditioner = Fisher(list(algo_settings)[1:])
 
@@ -107,11 +109,11 @@ def algo_factory(name):  # , preheating, heating, learning_rate):
                 "learning_rate": 1,
                 "preheating": 0,
                 "heating": 3500,
-                "max": 1e-1,
+                "max": learning_rate,
             }
         ]
 
-        preconditioner = AdaGrad()
+        preconditioner = AdaGrad(regularization=regularization)
     else:
         raise ValueError("algo name must be Fisher or AdaGrad")
 
@@ -132,7 +134,7 @@ if __name__ == "__main__":
 
     p_star = myModel.new_params(
         mean_latent={"mu1": 100, "mu2": 1200},
-        cov_latent=jnp.diag(jnp.array([50, 2000])),
+        cov_latent=jnp.diag(jnp.array([20, 2000])),
         tau=150,
         var_residual=30,
     )
@@ -141,11 +143,13 @@ if __name__ == "__main__":
 
     plt.plot(obs["mem_obs_time"].T, obs["Y"].T, "o-")
 
-    def one_fit(i, algo_name):
+    def one_fit(i, algo_name, regularization=1, learning_rate=1e-3):
         """one_fit for one theta0"""
         theta0 = 0.2 * jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
 
-        algo_settings, preconditioner = algo_factory(algo_name)
+        algo_settings, preconditioner = algo_factory(
+            algo_name, regularization, learning_rate
+        )
 
         # theta0 = theta0.at[3].set(-0.709)
         # print(myModel.parametrization.reals1d_to_params(theta0))
@@ -164,26 +168,37 @@ if __name__ == "__main__":
         # ==================== END configuration ==================== #
         out = algo.fit(myModel, obs, theta0, ntry=5, partial_fit=True)
 
-        if i < 2:
+        if i < -2:
             for var_lat in algo.latent_variables.values():
                 sdgplt.plot_mcmc(var_lat)
 
         return out
 
-    res = MultiRunRes([one_fit(i, "Fisher") for i in range(10)])
+    # res = MultiRunRes([one_fit(i, "Fisher") for i in range(1)])
 
-    sdgplt.plot(
-        res,
-        params_star=myModel.hstack_params(p_star),
-        params_names=myModel.params_names,
-        id_to_plot=[0, 1, 2, 3, 6, 7],
+    # sdgplt.plot(
+    #     res,
+    #     params_star=myModel.hstack_params(p_star),
+    #     params_names=myModel.params_names,
+    #     id_to_plot=[0, 1, 2, 3, 6, 7],
+    # )
+    # print(f"chrono = {res.chrono}")
+
+    regularization = [1, 1e-1, 1e-2, 1e-4, 1e-6]
+    res = MultiRunRes(
+        [one_fit(1, "AdaGrad", i, learning_rate=0.01) for i in regularization]
     )
-    print(f"chrono = {res.chrono}")
+    # res = MultiRunRes([one_fit(i, "AdaGrad", 1, 0.1) for i in range(1)])
 
-    res = MultiRunRes([one_fit(i, "AdaGrad") for i in range(10)])
+    p_emv = myModel.new_params(
+        mean_latent={"mu1": sim["phi1"].mean(), "mu2": sim["phi2"].mean()},
+        cov_latent=jnp.diag(jnp.array([sim["phi1"].var(), sim["phi2"].var()])),
+        tau=150,
+        var_residual=30,
+    )
     sdgplt.plot(
         res,
-        params_star=myModel.hstack_params(p_star),
+        params_star=myModel.hstack_params(p_emv),
         params_names=myModel.params_names,
         id_to_plot=[0, 1, 2, 3, 6, 7],
     )
