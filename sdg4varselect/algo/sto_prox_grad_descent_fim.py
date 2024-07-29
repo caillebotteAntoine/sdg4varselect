@@ -160,7 +160,7 @@ if __name__ == "__main__":
     import jax.random as jrd
     import sdg4varselect.plot as sdgplt
 
-    myModel = HDLogisticMixedEffectsModel(N=100, J=15, P=3)
+    myModel = HDLogisticMixedEffectsModel(N=200, J=15, P=100)
 
     p_star = myModel.new_params(
         mean_latent={"mu1": 100, "mu2": 1200},
@@ -187,7 +187,7 @@ if __name__ == "__main__":
         # print(myModel.parametrization.reals1d_to_params(theta0))
 
         algo = StochasticProximalGradientDescentFIM(
-            jrd.PRNGKey(0), 5000, algo_settings, preconditioner, lbd=None  # 1e-1
+            jrd.PRNGKey(0), 5000, algo_settings, preconditioner, lbd=1.947e-1
         )
         # =================== MCMC configuration ==================== #
         algo.init_mcmc(theta0, myModel, sd={"phi1": 5, "phi2": 50})
@@ -204,12 +204,12 @@ if __name__ == "__main__":
         return out
 
     # config = ["Fisher", "AdaGrad", "FisherAdaGrad"]
-    config = ["AdaGrad"]
+    config = ["Fisher"]
     res = []
 
     for name in config:
 
-        res.append(MultiRunRes([one_fit(i, name) for i in range(10)]))
+        res.append(MultiRunRes([one_fit(i, name) for i in range(1)]))
         id_to_plot = [0, 1, 2, 3, 6, 7]
 
         sdgplt.plot(
@@ -232,14 +232,14 @@ if __name__ == "__main__":
 
     id_to_plot = jnp.array([1, 2, 3, 4, 7, 8, 9, 10, 11]) - 1
     results = TestResults(
-        [MultiRunRes([r]) for r in res[0, 1]],
+        [MultiRunRes([r]) for r in res[0]],
         test_config=[
             {"name": "Fisher"},
-            {"name": "AdaGrad"},
+            # {"name": "AdaGrad"},
             # {"name": "resFisherAdaGrad"},
         ],
     )
-    scenarios_labels = ["Fisher", "AdaGrad"]  # , "resFisherAdaGrad"]
+    scenarios_labels = [c["name"] for c in results.config]
     x = results.last_theta[:, 0, :, :]
     fig = sdgplt.boxplot_estimation(
         x=x.T[id_to_plot],

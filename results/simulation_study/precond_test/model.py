@@ -149,7 +149,7 @@ def algo_factory(name: str, p: int):  # , preheating, heating, learning_rate):
     elif name == "fisheradagrad":
 
         preconditioner = sdgpreconditioner.FisherAdaGrad(
-            P=p, settings=list(algo_settings)[1:]
+            P=p, settings=list(algo_settings)[1:], regularization=1e-5
         )
     else:
         raise ValueError("algo name must be fisheradagrad, fisher or adagrad")
@@ -189,10 +189,10 @@ p_star = myModel.new_params(
     cov_latent=jnp.diag(jnp.array([50, 2000])),
     tau=150,
     var_residual=30,
-    beta=jnp.concatenate([jnp.array([80, 70, 50]), jnp.zeros(shape=(myModel.P - 3,))]),
+    beta=jnp.concatenate([jnp.array([90, 80, 70]), jnp.zeros(shape=(myModel.P - 3,))]),
 )
 
-mylbd_set = 10 ** jnp.linspace(-1.5, -0.5, num=20)
+mylbd_set = 10 ** jnp.linspace(-2, 0, num=40)
 
 myprngkey = jrd.PRNGKey(seed)
 print(f"seed = {seed}, prngkey = {myprngkey}")
@@ -214,7 +214,7 @@ if __name__ == "__main__":
         )
 
         estim_res.save(
-            myModel, root="files_unmerged", filename_add_on=f"S{seed}_{algo_name}"
+            myModel, root="files_unmerged", filename_add_on=f"lbd40_S{seed}_{algo_name}"
         )
 
     except sdg4vsNanError as err:
