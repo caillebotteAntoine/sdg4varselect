@@ -58,6 +58,11 @@ def read_multi_files(S):
         else :
             for s in S:
                 os.remove(_get_filename(model, root, f"S{s}{add_on}.pkl.gz"))
+    else :
+        try : 
+            MultiRunRes(out).save(model, root=f"{folder}/files", filename_add_on=f"Snotf({S[0]}, {S[-1]}){add_on}")
+        except:
+            print("something go wrong !")
         
 
     return out
