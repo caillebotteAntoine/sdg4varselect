@@ -92,12 +92,12 @@ def lasso_into_adaptive_into_estim(
     P = model.P
     lasso_selected_component = theta[-P:][theta[-P:] != 0]
 
-    lbd_weighted = 1 / jnp.hstack(
-        [
-            jnp.ones(shape=(model.parametrization.size - P,), dtype=jnp.bool),
-            lasso_selected_component,
-        ]
-    )
+    # lbd_weighted = 1 / jnp.hstack(
+    #     [
+    #         jnp.ones(shape=(model.parametrization.size - P,), dtype=jnp.bool),
+    #         lasso_selected_component,
+    #     ]
+    # )
 
     adaptive_lasso = lasso
     # adaptive_lasso = _estim_shrink_model(

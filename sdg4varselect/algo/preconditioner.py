@@ -99,10 +99,10 @@ class AdaGrad(AbstractPreconditioner):
 
 class FisherAdaGrad(AbstractPreconditioner):
 
-    def __init__(self, P, settings) -> None:
+    def __init__(self, P, settings, regularization=1) -> None:
 
         self._fisher = Fisher(settings)
-        self._adagrad = AdaGrad()
+        self._adagrad = AdaGrad(regularization=regularization)
 
         self._p = P
         self._hd_mask = jnp.zeros(1)
