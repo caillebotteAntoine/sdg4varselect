@@ -402,7 +402,7 @@ class TestResults(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
 
     config: list[dict] = field(default_factory=list)
 
-    def __init__(self, tests: list[MultiRunRes], test_config: list[dict]):
+    def __init__(self, tests: list, test_config: list[dict]):
         # max_col_theta = jnp.array(
         #     [
         #         [[run.theta.shape[1] for run in res] for res in t]

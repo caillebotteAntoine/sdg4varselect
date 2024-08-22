@@ -29,15 +29,15 @@ from sdg4varselect.algo import SPGD_FIM, get_gdfim_settings
 from sdg4varselect.exceptions import sdg4vsNanError
 import sdg4varselect.plot as sdgplt
 
-N = int(sys.argv[2])
-P = int(sys.argv[3])
-algo_name = sys.argv[4]
-seed = int(sys.argv[1])
+# N = int(sys.argv[2])
+# P = int(sys.argv[3])
+# algo_name = sys.argv[4]
+# seed = int(sys.argv[1])
 
-# N = 200
-# P = 30
-# algo_name = "Fisher"
-# seed = 0
+N = 200
+P = 10
+algo_name = "Fisher"
+seed = 0
 
 
 class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
@@ -189,10 +189,10 @@ p_star = myModel.new_params(
     cov_latent=jnp.diag(jnp.array([50, 2000])),
     tau=150,
     var_residual=30,
-    beta=jnp.concatenate([jnp.array([90, 80, 70]), jnp.zeros(shape=(myModel.P - 3,))]),
+    beta=jnp.concatenate([jnp.array([100, 80, 50]), jnp.zeros(shape=(myModel.P - 3,))]),
 )
 
-mylbd_set = 10 ** jnp.linspace(-2, 0, num=40)
+mylbd_set = 10 ** jnp.linspace(-2, 0, num=10)
 
 myprngkey = jrd.PRNGKey(seed)
 print(f"seed = {seed}, prngkey = {myprngkey}")
@@ -214,7 +214,7 @@ if __name__ == "__main__":
         )
 
         estim_res.save(
-            myModel, root="files_unmerged", filename_add_on=f"lbd40_S{seed}_{algo_name}"
+            myModel, root="files_unmerged", filename_add_on=f"S{seed}_{algo_name}"
         )
 
     except sdg4vsNanError as err:
