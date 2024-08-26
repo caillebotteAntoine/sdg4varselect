@@ -24,7 +24,7 @@ def add_flag(fct):
 
 def one_result(estim_fct_with_flag, prngkey, model, lbd_set, **kwargs):
 
-    list_sdg_results, bic = regularization_path(
+    list_sdg_results, bic, ebic = regularization_path(
         estim_fct_with_flag=estim_fct_with_flag,
         prngkey=prngkey,
         lbd_set=lbd_set,
@@ -40,6 +40,7 @@ def one_result(estim_fct_with_flag, prngkey, model, lbd_set, **kwargs):
         multi_run=list_sdg_results,
         argmin_bic=bic[-1].argmin(),
         bic=bic,
+        ebic=ebic,
         lbd_set=lbd_set,
     )
 

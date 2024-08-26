@@ -34,8 +34,8 @@ import sdg4varselect.plot as sdgplt
 # algo_name = sys.argv[4]
 # seed = int(sys.argv[1])
 
-N = 200
-P = 10
+N = 100
+P = 3
 algo_name = "Fisher"
 seed = 0
 
@@ -189,7 +189,9 @@ p_star = myModel.new_params(
     cov_latent=jnp.diag(jnp.array([50, 2000])),
     tau=150,
     var_residual=30,
-    beta=jnp.concatenate([jnp.array([100, 80, 50]), jnp.zeros(shape=(myModel.P - 3,))]),
+    beta=jnp.concatenate(
+        [jnp.array([300, 100, -200]), jnp.zeros(shape=(myModel.P - 3,))]
+    ),
 )
 
 mylbd_set = 10 ** jnp.linspace(-2, 0, num=10)
@@ -198,10 +200,13 @@ myprngkey = jrd.PRNGKey(seed)
 print(f"seed = {seed}, prngkey = {myprngkey}")
 
 
-mydata, _ = myModel.sample(p_star, myprngkey)
+mydata, sim = myModel.sample(p_star, jrd.PRNGKey(1))
 
 
-if __name__ == "__main__":
+print(sim["phi2"].var())
+
+
+if __name__ == "__main_0_":
     try:
         estim_res = one_result(
             one_estim_with_flag,

@@ -318,6 +318,7 @@ class RegularizationPathRes(MultiRunRes):
     """define a object that handle regularization path results"""
 
     bic: jnp.ndarray = jnp.nan
+    ebic: jnp.ndarray = jnp.nan
     argmin_bic: int = None
     lbd_set: jnp.ndarray = jnp.nan
 

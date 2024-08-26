@@ -10,7 +10,7 @@ from sdg4varselect.outputs import MultiRunRes, sdg4vsResults
 
 def eBIC(theta_hd, log_likelihood, n):
     """
-    eBIC = k*ln(n) - 2*ln(L) + 2*ln(C^p_k)
+    eBIC = k*ln(n) - 2*ln(L) + 2*ln(C^k_p)
 
     where :
         - k is the number of parameter estimated (ie non zero parameter in HD parameter)
@@ -104,4 +104,15 @@ def regularization_path(
         ]
     ).T
 
-    return (list_sdg_results, bic)
+    ebic = jnp.array(
+        [
+            eBIC(
+                jnp.array([r.last_theta[dim_ld:] for r in res]),
+                jnp.array([r.likelihood for r in res]),
+                N,
+            )
+            for res in list_sdg_results
+        ]
+    ).T
+
+    return (list_sdg_results, bic, ebic)
