@@ -40,9 +40,9 @@ def read(s):
 
 def read_multi_files(S):
     """read multiple files results"""
-    out = [read(s=S[0])]
+    out = []
     flag = False
-    for s in S[1:]:
+    for s in S:
         try:
             out.append(read(s=s))
             print(f"computation time of the {s}th file : {out[-1].chrono}")

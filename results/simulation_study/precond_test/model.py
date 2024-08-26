@@ -32,12 +32,12 @@ import sdg4varselect.plot as sdgplt
 # N = int(sys.argv[2])
 # P = int(sys.argv[3])
 # algo_name = sys.argv[4]
-# seed = int(sys.argv[1])
+seed = int(sys.argv[1])
 
 N = 200
-P = 10
+P = 100
 algo_name = "Fisher"
-seed = 0
+# seed = 0
 
 
 class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
@@ -186,7 +186,7 @@ print(f"P = {myModel.P}, N = {myModel.N}")
 
 p_star = myModel.new_params(
     mean_latent={"mu1": 100, "mu2": 1200},
-    cov_latent=jnp.diag(jnp.array([50, 2000])),
+    cov_latent=jnp.diag(jnp.array([50, 1000])),
     tau=150,
     var_residual=30,
     beta=jnp.concatenate([jnp.array([100, 80, 50]), jnp.zeros(shape=(myModel.P - 3,))]),
