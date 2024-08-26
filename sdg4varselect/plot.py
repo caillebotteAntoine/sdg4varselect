@@ -582,7 +582,7 @@ def plot_2_panel_selected_theta_hd(
     )
     ax = plt.subplot(G[0, 1:])  # , sharey=ax)
     ax.set_title(
-        "Estimation of the remaining zero components of {theta_name}", fontsize=15
+        f"Estimation of the remaining zero components of {theta_name}", fontsize=15
     )
 
     return fig

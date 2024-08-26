@@ -4,10 +4,6 @@ Module that define functions to perform multiple selection and estimation.
 Create by antoine.caillebotte@inrae.fr"""
 
 # pylint: disable=C0116, W0221
-
-import os
-os.environ['XLA_FLAGS'] =  "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
-
 import sys
 import functools
 
@@ -26,13 +22,14 @@ from sdg4varselect.models import (
 )
 from sdg4varselect.algo import SPGD_FIM, get_gdfim_settings
 from sdg4varselect.exceptions import sdg4vsNanError
+import sdg4varselect.algo.preconditioner as sdgpreconditioner
 
 N = int(sys.argv[2])
 P = int(sys.argv[3])
 seed = int(sys.argv[1])
 
 # N = 200
-# P = 500
+# P = 5
 # seed = 0
 
 
@@ -134,7 +131,8 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
         return {"mem_obs_time": time, "cov": cov} | obs, sim
 
 
-algo_settings = get_gdfim_settings(preheating=600, heating=1000, learning_rate=1e-6)
+algo_settings = get_gdfim_settings(preheating=1000, heating=1500, learning_rate=1e-6)
+preconditioner = sdgpreconditioner.Fisher(list(algo_settings)[1:])
 
 
 @add_flag
@@ -142,7 +140,9 @@ def one_estim_with_flag(prngkey, model, data, lbd=None, save_all=True):
     prngkey_theta, prngkey_estim = jrd.split(prngkey)
     theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(model.parametrization.size,))
 
-    algo = SPGD_FIM(prngkey_estim, 2000, algo_settings, lbd=lbd, alpha=1.0)
+    algo = SPGD_FIM(
+        prngkey_estim, 2000, algo_settings, preconditioner, lbd=lbd, alpha=1.0
+    )
     # =================== MCMC configuration ==================== #
     algo.init_mcmc(theta0, model, sd={"phi1": 5, "phi2": 20})
 
@@ -188,12 +188,61 @@ if __name__ == "__main__":
             myModel,
             data=mydata,
             lbd_set=mylbd_set,
-            save_all=False,
+            save_all=True,
         )
 
-        estim_res.save(myModel, root="files_unmerged", filename_add_on=f"S{seed}")
+        # estim_res.save(myModel, root="files_unmerged", filename_add_on=f"S{seed}")
 
     except sdg4vsNanError as err:
         print(f"{err} :  estimation cancelled !")
 
     # ====================================================== #
+import sdg4varselect.plot as sdgplt
+import numpy as np
+
+params_names = np.array(
+    [
+        "$\\mu_1$",
+        "$\\mu_2$",
+        "$\\gamma^2_1$",
+        "$\\gamma^2_12$",
+        "$\\gamma^2_21$",
+        "$\\gamma^2_2$",
+        "$\\tau$",
+        "$\\sigma^2$",
+    ]
+)
+
+fig = sdgplt.figure(8, 8)
+subfigs = fig.subfigures(
+    2, 1, wspace=0.07, height_ratios=[4, 1]
+)  # , width_ratios=[4, 1, 4, 1])
+subfigs2 = subfigs[0].subfigures(1, 2, wspace=0.07)
+
+_ = sdgplt.plot_theta(
+    estim_res[0][1],
+    dim_ld=myModel.DIM_LD,
+    params_star=myModel.hstack_params(p_star),
+    params_names=params_names,
+    id_to_plot=[0, 3, 2],  # , 6, 7, 8],
+    log_scale=True,
+    fig=subfigs2[0],
+)
+_ = sdgplt.plot_theta(
+    estim_res[0][1],
+    dim_ld=myModel.DIM_LD,
+    params_star=myModel.hstack_params(p_star),
+    params_names=params_names,
+    id_to_plot=[1, 6, 7],
+    log_scale=True,
+    fig=subfigs2[1],
+)
+subfigs2[0].axes[0].set_title(None)
+for ax in subfigs2[0].axes:
+    ax.axvline(1000, color="red")
+    ax.axvline(1500, color="green")
+
+subfigs2[1].axes[0].set_title(None)
+for ax in subfigs2[1].axes:
+    ax.axvline(1000, color="red")
+    ax.axvline(1500, color="green")
