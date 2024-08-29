@@ -74,7 +74,7 @@ class GradientDescentFIM(AbstractAlgoFit):
             else max([h for h in heating_list if h is not None])
         )
 
-        self._threshold = 1e-4
+        self._threshold = 1e-3
 
         # initial algo parameter
         self._preconditioner = preconditioner
@@ -87,7 +87,7 @@ class GradientDescentFIM(AbstractAlgoFit):
         """warp results"""
 
         out = GDResults.new_from_list(results, chrono)
-        out.reals1d_to_hstack_params(model)
+        # out.reals1d_to_hstack_params(model)
         return out
 
     def _initialize_algo(
@@ -110,6 +110,7 @@ class GradientDescentFIM(AbstractAlgoFit):
         model: type[AbstractModel],
         log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
+        freezed_components: jnp.ndarray = None,
     ):
         """iterative algorithm"""
 
@@ -118,10 +119,15 @@ class GradientDescentFIM(AbstractAlgoFit):
             out = self._algorithm_one_step(
                 model, log_likelihood_kwargs, theta_reals1d, step
             )
-            theta_reals1d = out[0]
+            theta_reals1d = jnp.where(freezed_components, theta_reals1d, out[0])
+            out = (theta_reals1d,) + out[1:]
 
             if jnp.isnan(theta_reals1d).any():
-                yield sdg4vsNanError("nan detected in theta or jac")
+                yield sdg4vsNanError("nan detected in theta !")
+                break
+
+            if jnp.isnan(out[1]).any():
+                yield sdg4vsNanError("nan detected in gradient !")
                 break
 
             yield out
@@ -232,7 +238,7 @@ if __name__ == "__main__":
     )
 
     res = []
-    for i in range(10):
+    for i in range(1):
         theta0 = jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
         res.append(algoFIM.fit(myModel, obs, theta0))
     res = MultiRunRes(res)
@@ -241,15 +247,15 @@ if __name__ == "__main__":
     p_emv = myModel.new_params(intercept=1.5, slope=2, sigma2=sim["eps"].var())
     _ = sdgplt.plot_theta(res, 3, p_emv, myModel.params_names)
 
-    res = []
-    for i in range(10):
-        theta0 = jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
-        res.append(algoAdaGrad.fit(myModel, obs, theta0))
-    res = MultiRunRes(res)
-    print(f"chrono = {res.chrono}")
+    # res = []
+    # for i in range(10):
+    #     theta0 = jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
+    #     res.append(algoAdaGrad.fit(myModel, obs, theta0))
+    # res = MultiRunRes(res)
+    # print(f"chrono = {res.chrono}")
 
-    p_emv = myModel.new_params(intercept=1.5, slope=2, sigma2=sim["eps"].var())
-    _ = sdgplt.plot_theta(res, 3, p_emv, myModel.params_names)
+    # p_emv = myModel.new_params(intercept=1.5, slope=2, sigma2=sim["eps"].var())
+    # _ = sdgplt.plot_theta(res, 3, p_emv, myModel.params_names)
 
     _ = sdgplt._plot_theta(
         jnp.array([res.grad for res in res]).T,
@@ -257,4 +263,4 @@ if __name__ == "__main__":
         fig=sdgplt.figure(),
     )
 
-    sdgplt.plt.plot(algoAdaGrad._preconditioner._adagrad_past)
+    # sdgplt.plt.plot(algoAdaGrad._preconditioner._adagrad_past)

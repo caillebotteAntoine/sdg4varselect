@@ -8,7 +8,7 @@ Create by antoine.caillebotte@inrae.fr
 
 from abc import abstractmethod
 import functools
-
+import warnings
 
 import jax.numpy as jnp
 import jax.random as jrd
@@ -64,10 +64,11 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
 
         Jnan = J - jnp.isnan(Y).sum(axis=1)
 
+        var_residual = params.var_residual
         # mise à jours de J en fct des nan ?!
         log_likelihood_mem = -Jnan / 2 * jnp.log(
-            2 * jnp.pi * params.var_residual
-        ) - jnp.nansum((Y - pred) ** 2, axis=1) / (2 * params.var_residual)
+            2 * jnp.pi * var_residual
+        ) - jnp.nansum((Y - pred) ** 2, axis=1) / (2 * var_residual)
 
         assert log_likelihood_mem.shape == (N,)
         return log_likelihood_mem

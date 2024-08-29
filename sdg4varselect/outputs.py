@@ -248,7 +248,7 @@ class GDResults:
             self.grad,
             (
                 (0, max_row - self.grad.shape[0]),
-                (0, 0 if max_col is None else (max_col - self.grad.shape[1])),
+                (0, 0),  # if max_col is None else (max_col - self.grad.shape[1])),
             ),
             constant_values=jnp.nan,
         )

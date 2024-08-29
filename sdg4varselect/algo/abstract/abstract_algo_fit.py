@@ -47,6 +47,7 @@ class AbstractAlgoFit:
         model: type[AbstractModel],
         log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
+        freezed_components: jnp.ndarray,
     ):
         """iterative algorithm, must be iterable"""
 
@@ -59,18 +60,24 @@ class AbstractAlgoFit:
         model: type[AbstractModel],
         data,
         theta0_reals1d: jnp.ndarray,
+        freezed_components: jnp.ndarray = None,
         ntry=1,
         partial_fit=False,
         save_all=True,
     ):
 
         chrono_start = datetime.now()
+        if freezed_components is None:
+            freezed_components = jnp.zeros(shape=theta0_reals1d.shape, dtype=jnp.bool)
+
         log_likelihood_kwargs = self.get_log_likelihood_kwargs(data)
 
         self._initialize_algo(model, log_likelihood_kwargs, theta0_reals1d)
 
         iter_algo = itertools.islice(
-            self.algorithm(model, log_likelihood_kwargs, theta0_reals1d),
+            self.algorithm(
+                model, log_likelihood_kwargs, theta0_reals1d, freezed_components
+            ),
             self._max_iter,
         )
 
@@ -89,6 +96,7 @@ class AbstractAlgoFit:
                     model,
                     data,
                     theta0_reals1d,
+                    freezed_components,
                     ntry=ntry - 1,
                     partial_fit=partial_fit,
                     save_all=save_all,

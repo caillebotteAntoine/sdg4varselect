@@ -134,8 +134,9 @@ class AbstractLatentVariablesModel:
 
     @functools.partial(jit, static_argnums=0)
     def mean_and_cov_latent(self, params):
-        cov = params.cov_latent
         mean = jnp.array(params.mean_latent)
+
+        cov = params.cov_latent
 
         z = jnp.zeros(shape=(cov.shape[0] - mean.shape[0],))
         mean = jnp.concatenate([z, mean])
@@ -163,12 +164,6 @@ class AbstractLatentVariablesModel:
             mean=mean,
             cov=cov,
         )
-
-        # latent_prior = [
-        #     gaussian_prior(kwargs[name], *self.get_mean_var(name, params))
-        #     for name in self._latent_variables_name
-        # ]
-        # return jnp.array(latent_prior).sum(axis=0)
 
 
 @functools.partial(jit, static_argnums=0)
