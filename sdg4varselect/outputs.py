@@ -322,10 +322,11 @@ class RegularizationPathRes(MultiRunRes):
     argmin_bic: int = None
     lbd_set: jnp.ndarray = jnp.nan
 
-    def __init__(self, multi_run: MultiRunRes, bic, argmin_bic, lbd_set):
+    def __init__(self, multi_run: MultiRunRes, bic, ebic, argmin_bic, lbd_set):
         MultiRunRes.__init__(self, multi_run)
 
         self.bic = bic
+        self.ebic = ebic
         self.argmin_bic = argmin_bic
         self.lbd_set = lbd_set
 

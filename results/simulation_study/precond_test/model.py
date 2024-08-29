@@ -29,20 +29,10 @@ from sdg4varselect.algo import SPGD_FIM, get_gdfim_settings
 from sdg4varselect.exceptions import sdg4vsNanError
 import sdg4varselect.plot as sdgplt
 
-# N = int(sys.argv[2])
-# P = int(sys.argv[3])
-# algo_name = sys.argv[4]
+N = int(sys.argv[2])
+P = int(sys.argv[3])
+algo_name = sys.argv[4]
 seed = int(sys.argv[1])
-
-<<<<<<< HEAD
-N = 200
-P = 100
-=======
-N = 100
-P = 3
->>>>>>> df57d1389f7c3e62b1ae886bcb4b724eedf788e6
-algo_name = "Fisher"
-# seed = 0
 
 
 class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
@@ -211,7 +201,7 @@ mydata, sim = myModel.sample(p_star, jrd.PRNGKey(1))
 print(sim["phi2"].var())
 
 
-if __name__ == "__main_0_":
+if __name__ == "__main__":
     try:
         estim_res = one_result(
             one_estim_with_flag,
