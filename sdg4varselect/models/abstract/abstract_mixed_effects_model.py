@@ -19,6 +19,7 @@ from sdg4varselect.models.abstract.abstract_latent_variables_model import (
     AbstractLatentVariablesModel,
     sample_normal,
 )
+from sdg4varselect.exceptions import sdg4vsWrongParametrization
 
 
 class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
@@ -42,10 +43,28 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
     def J(self):
         return self._j
 
+    def init(self):
+        """don't forget to call the mother init function at the end
+
+        After calling this method is_initialized should be True and model should be ready for use
+        """
+        AbstractModel.init(self)
+        mandatory_parameter = ["mean_latent", "cov_latent", "var_residual"]
+        for mandatory_name in mandatory_parameter:
+            if (
+                mandatory_name not in self._parametrization.idx_params._fields
+            ):  # _parms:
+                raise sdg4vsWrongParametrization(
+                    f"parametrization must have {mandatory_name} defined !"
+                )
+
+        self._is_initialized = True
+
     # ============================================================== #
     @abstractmethod
     def mixed_effect_function(self, params, *args, **kwargs):
         """Function that return an non linear fct that define the mixed effect models"""
+        raise NotImplementedError
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
@@ -55,8 +74,6 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
         """return likelihood without the gaussian prior"""
         N, J = Y.shape
         assert mem_obs_time.shape == (N, J)
-        # assert phi1.shape == (N,)
-        # assert phi2.shape == (N,)
 
         pred = self.mixed_effect_function(
             params, mem_obs_time, **self._cst, **kwargs
@@ -65,7 +82,6 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
         Jnan = J - jnp.isnan(Y).sum(axis=1)
 
         var_residual = params.var_residual
-        # mise à jours de J en fct des nan ?!
         log_likelihood_mem = -Jnan / 2 * jnp.log(
             2 * jnp.pi * var_residual
         ) - jnp.nansum((Y - pred) ** 2, axis=1) / (2 * var_residual)
@@ -140,6 +156,7 @@ def mem_simulation(
 ):
     """return simulation following mixed effect model
     Y = fct(random_effects, fixed_effects,kwargs) + N(0, noise_variance^2)
+    used in all the derived class of AMEM
     """
 
     sim = {}

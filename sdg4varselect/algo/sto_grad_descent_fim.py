@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     from sdg4varselect.outputs import MultiRunRes
-    from sdg4varselect.models.logistic_mixed_effect_model import (
+    from sdg4varselect.models.examples.logistic_mixed_effect_model import (
         LogisticMixedEffectsModel,
     )
     import jax.random as jrd
@@ -150,9 +150,6 @@ if __name__ == "__main__":
         algo_settings, preconditioner = algo_factory(
             algo_name, regularization, learning_rate
         )
-
-        # theta0 = theta0.at[3].set(-0.709)
-        # print(myModel.parametrization.reals1d_to_params(theta0))
 
         algo = StochasticGradientDescentFIM(
             jrd.PRNGKey(0),

@@ -16,8 +16,8 @@ from sdg4varselect.algo.abstract.abstract_algo_fit import AbstractAlgoFit
 from sdg4varselect.outputs import GDResults
 
 from sdg4varselect.algo.preconditioner import (
-    Fisher,
-    AdaGrad,
+    # Fisher,
+    # AdaGrad,
     AbstractPreconditioner,
 )
 
@@ -177,90 +177,66 @@ class GradientDescentFIM(AbstractAlgoFit):
         )
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    import matplotlib.pyplot as plt
-    import sdg4varselect.plot as sdgplt
-    from sdg4varselect.models.linear_model import LinearModel
-    from sdg4varselect.outputs import MultiRunRes
-    import jax.random as jrd
+#     import matplotlib.pyplot as plt
+#     import sdg4varselect.plot as sdgplt
+#     from sdg4varselect.models.examples.linear_model import LinearModel
+#     from sdg4varselect.outputs import MultiRunRes
+#     import jax.random as jrd
 
-    myModel = LinearModel(50)
-    p_star = myModel.new_params(intercept=1.5, slope=2, sigma2=0.1)
+#     myModel = LinearModel(50)
+#     p_star = myModel.new_params(intercept=1.5, slope=2, sigma2=0.1)
+#     p_names = ["intercept", "slope", "sigma2"]
 
-    obs, sim = myModel.sample(p_star, jrd.PRNGKey(0))
-    # obs["time"] = jnp.array(
-    #     [5, 10, 12, 14, 16, 25, 30, 50, 150, 200, 250, 300], dtype=jnp.float64
-    # )
-    # myModel = LinearModel(obs["time"].shape[0])
-    # obs["Y"] = (p_star.slope) * obs["time"]
-    # obs["Y"] = jnp.array(
-    #     [
-    #         0.28,
-    #         0.33,
-    #         0.33,
-    #         0.35,
-    #         0.47,
-    #         0.43,
-    #         0.51,
-    #         0.65,
-    #         3.44,
-    #         4.28,
-    #         6.14,
-    #         7.04,
-    #     ]
-    # )
+#     obs, sim = myModel.sample(p_star, jrd.PRNGKey(0))
+#     plt.plot(obs["time"], obs["Y"], ".")
 
-    # obs["Y"] = obs["Y"].at[5].set(0.35)
+#     algo_settings = get_gdfim_settings(
+#         preheating=2000, heating=6000, learning_rate=1e-3
+#     )
 
-    plt.plot(obs["time"], obs["Y"], ".")
+#     algoFIM = GradientDescentFIM(
+#         2000,
+#         algo_settings,
+#         preconditioner=Fisher(list(algo_settings)[1:]),
+#     )
 
-    algo_settings = get_gdfim_settings(
-        preheating=2000, heating=6000, learning_rate=1e-3
-    )
+#     res = []
+#     for i in range(1):
+#         theta0 = jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
+#         res.append(algoFIM.fit(myModel, obs, theta0))
+#     res = MultiRunRes(res)
+#     print(f"chrono = {res.chrono}")
 
-    algoFIM = GradientDescentFIM(
-        2000,
-        algo_settings,
-        preconditioner=Fisher(list(algo_settings)[1:]),
-    )
+#     p_emv = myModel.new_params(intercept=1.5, slope=2, sigma2=sim["eps"].var())
+#     _ = sdgplt.plot_theta(res, 3, p_emv, p_names)
 
-    algo_settings = [
-        {
-            "learning_rate": 1,
-            "preheating": 0,
-            "heating": 5000,
-            "max": 0.5,
-        }
-    ]
-    algoAdaGrad = GradientDescentFIM(
-        20000, algo_settings, preconditioner=AdaGrad(regularization=1)
-    )
+# algo_settings = [
+#     {
+#         "learning_rate": 1,
+#         "preheating": 0,
+#         "heating": 5000,
+#         "max": 0.5,
+#     }
+# ]
+# algoAdaGrad = GradientDescentFIM(
+#     20000, algo_settings, preconditioner=AdaGrad(regularization=1)
+# )
+# res = []
+# for i in range(10):
+#     theta0 = jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
+#     res.append(algoAdaGrad.fit(myModel, obs, theta0))
+# res = MultiRunRes(res)
+# print(f"chrono = {res.chrono}")
 
-    res = []
-    for i in range(1):
-        theta0 = jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
-        res.append(algoFIM.fit(myModel, obs, theta0))
-    res = MultiRunRes(res)
-    print(f"chrono = {res.chrono}")
+# p_emv = myModel.new_params(intercept=1.5, slope=2, sigma2=sim["eps"].var())
+# _ = sdgplt.plot_theta(res, 3, p_emv, myModel.params_names)
 
-    p_emv = myModel.new_params(intercept=1.5, slope=2, sigma2=sim["eps"].var())
-    _ = sdgplt.plot_theta(res, 3, p_emv, myModel.params_names)
+# _ = sdgplt._plot_theta(
+#     jnp.array([res.grad for res in res]).T,
+#     params_names=p_names,
+#     fig=sdgplt.figure(),
+# )
 
-    # res = []
-    # for i in range(10):
-    #     theta0 = jrd.normal(jrd.PRNGKey(i), shape=(myModel.parametrization.size,))
-    #     res.append(algoAdaGrad.fit(myModel, obs, theta0))
-    # res = MultiRunRes(res)
-    # print(f"chrono = {res.chrono}")
-
-    # p_emv = myModel.new_params(intercept=1.5, slope=2, sigma2=sim["eps"].var())
-    # _ = sdgplt.plot_theta(res, 3, p_emv, myModel.params_names)
-
-    _ = sdgplt._plot_theta(
-        jnp.array([res.grad for res in res]).T,
-        params_names=myModel.params_names,
-        fig=sdgplt.figure(),
-    )
-
-    # sdgplt.plt.plot(algoAdaGrad._preconditioner._adagrad_past)
+# sdgplt.plt.plot(algoAdaGrad._preconditioner._adagrad_past)

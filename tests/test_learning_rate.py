@@ -2,6 +2,7 @@ import pytest
 
 # pylint: disable=C0116, W0621
 # import numpy as np
+import jax.numpy as jnp
 
 from sdg4varselect.learning_rate import LearningRate
 
@@ -19,7 +20,7 @@ def test_learning_rate():
     assert x.step_flat == 10
 
     x = LearningRate(1, 1.5, None, 0.7, 3, 10)
-    assert x.heating is None
+    assert jnp.isnan(x.heating)
 
     with pytest.raises(TypeError) as excinfo:
         LearningRate(1.0, 1.5, 3, 0.7, 3, 10)
@@ -44,7 +45,7 @@ def test_learning_rate():
     with pytest.raises(TypeError) as excinfo:
         LearningRate(1, 1.5, 3, 0.7, "3", 10)
 
-    assert str(excinfo.value) == "scale must be int or float"
+    assert str(excinfo.value) == "value_max must be int or float"
 
     with pytest.raises(TypeError) as excinfo:
         LearningRate(1, 1.5, 3, 0.7, 3, "10")

@@ -30,50 +30,50 @@ def gradient_descent_fisher_preconditionner(
     return jac_approx, fim, grad_precond
 
 
-@jit
-def gradient_descent_fisher_preconditionner_with_mask(
-    jac: jnp.ndarray,
-    jac_current: jnp.ndarray,
-    # fisher_identity_mixture: bool,
-    step_size_approx_sto: float,
-    step_size_fisher: float,
-    fisher_mask: jnp.ndarray,
-):
-    """Compute one step of a gradient with perconditionner
+# @jit
+# def gradient_descent_fisher_preconditionner_with_mask(
+#     jac: jnp.ndarray,
+#     jac_current: jnp.ndarray,
+#     # fisher_identity_mixture: bool,
+#     step_size_approx_sto: float,
+#     step_size_fisher: float,
+#     fisher_mask: jnp.ndarray,
+# ):
+#     """Compute one step of a gradient with perconditionner
 
-    J_S = [J, O]
-                  | J.T@J  0 |
-    J_S.T @ J_S = | 0      0 |
-                                          | J.T@J/N  0   |
-    FIM = J_S.T @ J_S/N + diag(not mask) =| 0        I_p |
+#     J_S = [J, O]
+#                   | J.T@J  0 |
+#     J_S.T @ J_S = | 0      0 |
+#                                           | J.T@J/N  0   |
+#     FIM = J_S.T @ J_S/N + diag(not mask) =| 0        I_p |
 
-    """
-    # ' jnp.where(jnp.array([True, False]), jnp.array([[1,2],[3,4]]),0)
-    # '  = Array([[1, 0], [3, 0]])
+#     """
+#     # ' jnp.where(jnp.array([True, False]), jnp.array([[1,2],[3,4]]),0)
+#     # '  = Array([[1, 0], [3, 0]])
 
-    # Jacobian approximate
-    jac_approx = (1 - step_size_approx_sto) * jac + step_size_approx_sto * jac_current
-    # Gradient
-    grad = jac_approx.mean(axis=0)
+#     # Jacobian approximate
+#     jac_approx = (1 - step_size_approx_sto) * jac + step_size_approx_sto * jac_current
+#     # Gradient
+#     grad = jac_approx.mean(axis=0)
 
-    # Shrinkage
-    jac_shrink = jnp.where(fisher_mask, jac_approx, 0)
-    grad_shrink = jnp.where(fisher_mask, grad, 0)
+#     # Shrinkage
+#     jac_shrink = jnp.where(fisher_mask, jac_approx, 0)
+#     grad_shrink = jnp.where(fisher_mask, grad, 0)
 
-    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
-    # for i in range(0, 5):
-    #     grad = grad.at[i].set(0)
-    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
+#     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
+#     # for i in range(0, 5):
+#     #     grad = grad.at[i].set(0)
+#     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
 
-    fim = jac_shrink.T @ jac_shrink / jac_shrink.shape[0] + jnp.diag(
-        jnp.where(fisher_mask, 0, 1)
-    )
-    fim = step_size_fisher * fim + (1 - step_size_fisher) * jnp.eye(fim.shape[0])
-    pred_grad_shrink = jnp.linalg.solve(fim, grad_shrink)
+#     fim = jac_shrink.T @ jac_shrink / jac_shrink.shape[0] + jnp.diag(
+#         jnp.where(fisher_mask, 0, 1)
+#     )
+#     fim = step_size_fisher * fim + (1 - step_size_fisher) * jnp.eye(fim.shape[0])
+#     pred_grad_shrink = jnp.linalg.solve(fim, grad_shrink)
 
-    grad_precond = jnp.where(fisher_mask, pred_grad_shrink, grad)
+#     grad_precond = jnp.where(fisher_mask, pred_grad_shrink, grad)
 
-    return jac_shrink, fim, grad_precond
+#     return jac_shrink, fim, grad_precond
 
 
 @jit

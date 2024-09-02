@@ -15,14 +15,14 @@ class AbstractHDModel:
 
     def __init__(self, P, **kwargs):
         self._p = P
-        self._dim = None
+        # self._dim = None
 
-    def init_dim(self):
-        self._dim = self.parametrization_size
+    # def init_dim(self):
+    #     self._dim = self.parametrization_size
 
-    @property
-    def DIM_LD(self):
-        return self._dim - self.P
+    # @property
+    # def DIM_LD(self):
+    #     return self._dim - self.P
 
     @property
     def P(self):
@@ -32,9 +32,9 @@ class AbstractHDModel:
     def P(self, P):
         self._p = P
 
-    @property
-    def hd_mask(self):
-        return jnp.arange(self.parametrization.size) >= self.DIM_LD
+    # @property
+    # def hd_mask(self):
+    #     return jnp.arange(self.parametrization.size) >= self.DIM_LD
 
     @classmethod
     def shrink_model_and_data(cls, model, data, selected_component):

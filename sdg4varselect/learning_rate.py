@@ -124,11 +124,11 @@ class LearningRate:
     # === STATIC METHOD === #
     @staticmethod
     def zero():
-        return LearningRate(preheating=1000, max=0)
+        return LearningRate(preheating=1000, value_max=0)
 
     @staticmethod
     def one():
-        return LearningRate(preheating=0, max=1)
+        return LearningRate(preheating=0, value_max=1)
 
     @staticmethod
     def from_0_to_1(heat, coef_preheating):

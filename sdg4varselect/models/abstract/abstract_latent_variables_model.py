@@ -16,11 +16,11 @@ import jax.random as jrd
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
 
-@jit
-def gaussian_prior(data, mean, variance) -> jnp.ndarray:
-    """Computation of the current target distribution score"""
-    out = jnp.log(2 * jnp.pi * variance) + jnp.power(data - mean, 2) / variance
-    return -out / 2
+# @jit
+# def gaussian_prior(data, mean, variance) -> jnp.ndarray:
+#     """Computation of the current target distribution score"""
+#     out = jnp.log(2 * jnp.pi * variance) + jnp.power(data - mean, 2) / variance
+#     return -out / 2
 
 
 def sample_normal(prngkey, params, N):
@@ -125,7 +125,6 @@ class AbstractLatentVariablesModel:
         **kwargs,
     ):
         self._latent_variables_name = me_name
-
         self._latent_variables_size = me_size
 
     @property
@@ -157,12 +156,12 @@ class AbstractLatentVariablesModel:
         """return log likelihood with only the gaussian prior"""
 
         data = [kwargs[name] for name in self._latent_variables_name]
-        cov, mean = self.mean_and_cov_latent(params)
+        # cov, mean = self.mean_and_cov_latent(params)
 
         return log_gaussian_prior_cov(
             x=jnp.array(data).T,
-            mean=mean,
-            cov=cov,
+            mean=params.mean_latent,
+            cov=params.cov_latent,
         )
 
 

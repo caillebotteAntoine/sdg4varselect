@@ -33,6 +33,7 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel):
             **kwargs,
         )
 
+    def init_parametrization(self):
         self._parametrization = pc.NamedTuple(
             mean_latent=pc.NamedTuple(
                 mu1=pc.RealPositive(scale=100),
@@ -99,18 +100,16 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
     """define a logistic mixed effects model"""
 
     def __init__(self, N=1, J=1, P=1, **kwargs):
-        super().__init__(
+        AbstractHDModel.__init__(self, P=P)
+        AbstractMixedEffectsModel.__init__(
+            self,
             N=N,
             J=J,
             me_name=["phi1", "phi2"],
             **kwargs,
         )
-        AbstractHDModel.__init__(self, P=P)
-        self.init()
 
-    def init(self):
-        """here you define the parametrization of the model
-        and don't forget to call the mother init function at the end"""
+    def init_parametrization(self):
         self._parametrization = pc.NamedTuple(
             mean_latent=pc.NamedTuple(
                 mu1=pc.RealPositive(scale=100),
@@ -121,7 +120,6 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
             var_residual=pc.RealPositive(scale=100),
             beta=pc.Real(scale=10, shape=(self.P,)),
         )
-        AbstractHDModel.init_dim(self)
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)

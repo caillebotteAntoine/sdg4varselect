@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     from sdg4varselect.outputs import MultiRunRes
-    from sdg4varselect.models.logistic_mixed_effect_model import (
+    from sdg4varselect.models.examples.logistic_mixed_effect_model import (
         HDLogisticMixedEffectsModel,
     )
     import jax.random as jrd

@@ -26,6 +26,7 @@ class LinearModel(AbstractModel):
     def __init__(self, N, **kwargs):
         AbstractModel.__init__(self, N, **kwargs)
 
+    def init_parametrization(self):
         self._parametrization = pc.NamedTuple(
             intercept=pc.Real(scale=1),
             slope=pc.Real(scale=1),

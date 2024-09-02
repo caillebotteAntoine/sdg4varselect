@@ -33,8 +33,10 @@ from .abstract.abstract_mixed_effects_model import (
     # mem_simulation,
 )
 
-from .weibull_cox_model import WeibullCoxModel
-from .wcox_mem_joint_model import WeibullCoxMemJointModel as WeibullCoxJM
-from .logistic_mixed_effect_model import LogisticMixedEffectsModel as logisticMEM
+from .examples.weibull_cox_model import WeibullCoxModel
+from .examples.wcox_mem_joint_model import WeibullCoxMemJointModel as WeibullCoxJM
+from .examples.logistic_mixed_effect_model import (
+    LogisticMixedEffectsModel as logisticMEM,
+)
 
 # from .pk_model import PharmacoKineticMixedEffectsModel as pkMEM

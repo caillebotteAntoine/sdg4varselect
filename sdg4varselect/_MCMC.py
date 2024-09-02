@@ -61,7 +61,7 @@ class MCMC_chain(Chain):
 
     def reset(self):
         super().reset()
-        self.__acceptance = [0]
+        self.__acceptance = [self.__acceptance[0]]
         self.__sd = [self.__sd[0]]
         self.__lambda = 0.01
 
@@ -90,6 +90,11 @@ class MCMC_chain(Chain):
     @adaptative_sd.setter
     def adaptative_sd(self, x: bool) -> None:
         self.__adaptative_sd = x
+
+    @property
+    def lbd(self) -> float:
+        """returns the adaptative parameter of the sd"""
+        return self.__lambda
 
     @property
     def sd(self) -> list:
