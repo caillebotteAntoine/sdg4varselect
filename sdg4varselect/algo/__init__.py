@@ -19,8 +19,8 @@ Create by antoine.caillebotte@inrae.fr
 
 from .gradient_descent_fim import (
     GradientDescentFIM as GD_FIM,
-    GradientDescentFIMSettings as GradFimSettings,
-    get_gdfim_settings,
+    # GradientDescentFIMSettings as GradFimSettings,
+    # get_gdfim_settings,
 )
 
 from .sto_grad_descent_fim import (

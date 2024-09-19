@@ -17,7 +17,8 @@ def _estim_shrink_model(
     theta_first_estim,
     **kwargs,
 ):
-    selected_component = (theta_first_estim != 0).at[: model.DIM_LD].set(True)
+    assert len(theta_first_estim.shape) == 1
+    selected_component = (theta_first_estim != 0).at[: -model.P].set(True)
 
     # === ESTIMATION === #
     (data_shrink, model_shrink) = AbstractHDModel.shrink_model_and_data(
@@ -52,8 +53,8 @@ def lasso_into_estim(
     lbd,
     **kwargs,
 ):
-    """perform first a lasso and an adapative lasso with the previous results
-    and finally estim the parameter on the selected component by the adaptative lasso"""
+    """perform first a lasso and and finally estim the parameter on the selected
+    component by the adaptative lasso"""
     prngkey_lasso, prngkey_estim = jrd.split(prngkey, 2)
     lasso = estim_fct(prngkey_lasso, model, data, lbd=lbd, **kwargs)
 

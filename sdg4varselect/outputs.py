@@ -15,8 +15,6 @@ import jax.numpy as jnp
 from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
-""" qsdf"""
-
 
 ###########################################################################################################
 
@@ -180,6 +178,7 @@ class GDResults:
     """define a object that handle gradient descent results"""
 
     theta: jnp.ndarray
+    theta_reals1d: jnp.ndarray = None
     fim: jnp.ndarray = None
     grad: jnp.ndarray = None
     chrono: timedelta = timedelta()
@@ -193,6 +192,7 @@ class GDResults:
 
         return cls(
             theta=jnp.array(res[0]),
+            theta_reals1d=None,
             fim=res[2],
             grad=jnp.array(res[1]),
             chrono=chrono,
@@ -208,7 +208,10 @@ class GDResults:
 
     def reals1d_to_hstack_params(self, model):
         # likelihood = algo.likelihood_marginal(model, sdg_res.last_theta)
-        self.theta = jnp.array([model.reals1d_to_hstack_params(t) for t in self.theta])
+        tmp = [model.parametrization.reals1d_to_params(t) for t in self.theta]
+
+        self.theta_reals1d = self.theta
+        self.theta = jnp.array([model.hstack_params(t) for t in tmp])
 
     def remove_zeros(self) -> "GDResults":
         preserved_component = self.last_theta != 0
@@ -229,6 +232,9 @@ class GDResults:
     # ===== theta uniformization factory =====  #
     # ========================================= #
     def expand_theta(self, preserved_component):
+        assert len(preserved_component.shape) == 1
+        assert self.theta.shape[1] == jnp.where(preserved_component)[0].shape[0]
+
         res = jnp.zeros(shape=(self.theta.shape[0], preserved_component.shape[0]))
         self.theta = res.at[:, jnp.where(preserved_component)].set(
             self.theta[:, None, :]
@@ -349,6 +355,7 @@ class RegularizationPathRes(MultiRunRes):
     def standardize(self):
         multi_run = []
         bic = []
+        ebic = []
         k = 0
 
         while k < len(self):
@@ -369,9 +376,17 @@ class RegularizationPathRes(MultiRunRes):
             for _ in same_supp:
                 multi_run.append(self[best_supp_id])
                 bic.append(self.bic[:, best_supp_id])
+                ebic.append(self.ebic[:, best_supp_id])
 
         bic = jnp.array(bic).T
-        return RegularizationPathRes(multi_run, bic, bic[-1].argmin(), self.lbd_set)
+        ebic = jnp.array(ebic).T
+        return RegularizationPathRes(
+            multi_run,
+            bic=bic,
+            ebic=ebic,
+            argmin_bic=bic[-1].argmin(),
+            lbd_set=self.lbd_set,
+        )
 
 
 ###########################################################################################################
@@ -436,7 +451,14 @@ class TestResults(sdg4vsResults, IsIterable, HasChrono, GDResultsHandler):
         return len(self)
 
     def get_scenarios_labels(self, key: str) -> list[str]:
-        return [f"{key} = {c[key]}" for c in self.config]
+        def one_scenario(key):
+            return [f"{key} = {c[key]}" for c in self.config]
+
+        if isinstance(key, list):
+            all_scenarios = [one_scenario(k) for k in key]
+            return list(map(lambda x: ", ".join(x), zip(*all_scenarios)))
+
+        return one_scenario(key)
 
     def sort(self, key: str):
         assert key in self.config[0]

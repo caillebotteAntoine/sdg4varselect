@@ -160,7 +160,7 @@ class AbstractLatentVariablesModel:
 
         return log_gaussian_prior_cov(
             x=jnp.array(data).T,
-            mean=params.mean_latent,
+            mean=jnp.array(params.mean_latent),
             cov=params.cov_latent,
         )
 
@@ -194,7 +194,7 @@ def log_likelihood_marginal(
     prngkey,
     data,
     theta,
-    size=2000,
+    size=4000,
 ) -> jnp.ndarray:
     """_summary_
 
@@ -221,6 +221,21 @@ def log_likelihood_marginal(
         out.append(new_likelihood(model, sample_key, data, params))
 
     return jnp.log((jnp.array(out) / len(out)).sum(axis=0)).sum()
+
+    value = jnp.log((jnp.array(out) / len(out)).sum(axis=0)).sum()
+    value_old = jnp.log((jnp.array(out[:-2]) / len(out[:-2])).sum(axis=0)).sum()
+
+    n_simu = len(out)
+    while n_simu < size * 2 and abs(value - value_old).all() >= 1e-3:
+        n_simu += 1
+        # print(abs(value - value_old))
+        prngkey, sample_key = jrd.split(prngkey, 2)
+        out.append(new_likelihood(model, sample_key, data, params))
+        value_old = value
+        value = jnp.log((jnp.array(out) / len(out)).sum(axis=0)).sum()
+
+    print(n_simu)
+    return value
 
 
 # def log_likelihood_marginal(

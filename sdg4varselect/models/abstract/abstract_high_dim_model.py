@@ -37,7 +37,9 @@ class AbstractHDModel:
     #     return jnp.arange(self.parametrization.size) >= self.DIM_LD
 
     @classmethod
-    def shrink_model_and_data(cls, model, data, selected_component):
+    def shrink_model_and_data(
+        cls, model, data, selected_component, data_to_shrink=["cov"]
+    ):
 
         # === MODEL SHRINKAGE === #
         P = model.P
@@ -49,6 +51,7 @@ class AbstractHDModel:
         model_shrink.init()
 
         data_shrink = data.copy()
-        data_shrink["cov"] = data_shrink["cov"][:, hd_selected]
+        for key in data_to_shrink:
+            data_shrink["cov"] = data_shrink["cov"][:, hd_selected]
 
         return (data_shrink, model_shrink)

@@ -9,7 +9,7 @@ import itertools
 
 
 from datetime import datetime
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 import jax.numpy as jnp
 
@@ -18,7 +18,7 @@ from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.exceptions import sdg4vsNanError
 
 
-class AbstractAlgoFit:
+class AbstractAlgoFit(ABC):
     """log likelihood parameter estimation algorithm"""
 
     def __init__(self, max_iter: int):
@@ -29,6 +29,13 @@ class AbstractAlgoFit:
         """return all the needed data for the log likelihood computation"""
 
     # ============================================================== #
+    @property
+    def max_iter(self):
+        return self._max_iter
+
+    @max_iter.setter
+    def max_iter(self, max_iter):
+        self._max_iter = max_iter
 
     @abstractmethod
     def _initialize_algo(

@@ -71,20 +71,13 @@ class LearningRate:
             raise TypeError("coef_preheating must be int or float")
         self._coef_preheating = coef_preheating
 
-        if heating is None:
-            self._heating = jnp.nan
-        else:
-            if not isinstance(heating, int):
-                raise TypeError("heating must be int")
-            self._heating = heating - 1
+        self.heating = heating
 
         if not isinstance(coef_heating, (int, float)):
             raise TypeError("coef_heating must be int or float")
         self._coef_heating = coef_heating
 
-        if not isinstance(value_max, (int, float)):
-            raise TypeError("value_max must be int or float")
-        self._max = value_max
+        self.max = value_max
 
         if not isinstance(step_flat, (int, float)):
             raise TypeError("step_flat must be int or float")
@@ -106,6 +99,15 @@ class LearningRate:
         """return heating"""
         return self._heating
 
+    @heating.setter
+    def heating(self, heating) -> None:
+        if heating is None:
+            self._heating = jnp.nan
+        else:
+            if not isinstance(heating, int):
+                raise TypeError("heating must be int")
+            self._heating = heating - 1
+
     @property
     def coef_heating(self):
         """return preheating"""
@@ -115,6 +117,12 @@ class LearningRate:
     def max(self):
         """return max"""
         return self._max
+
+    @max.setter
+    def max(self, value_max) -> None:
+        if not isinstance(value_max, (int, float)):
+            raise TypeError("value_max must be int or float")
+        self._max = value_max
 
     @property
     def step_flat(self):

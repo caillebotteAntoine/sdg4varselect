@@ -9,7 +9,7 @@ from collections import namedtuple
 
 import jax.numpy as jnp
 
-from sdg4varselect.learning_rate import create_multi_step_size
+from sdg4varselect.learning_rate import create_multi_step_size, LearningRate
 from sdg4varselect.exceptions import sdg4vsNanError
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.algo.abstract.abstract_algo_fit import AbstractAlgoFit
@@ -22,34 +22,34 @@ from sdg4varselect.algo.preconditioner import (
 )
 
 
-GradientDescentFIMSettings = namedtuple(
-    "GradientDescentFIMSettings",
-    ("step_size_grad", "step_size_approx_sto", "step_size_fisher"),
-)
+# GradientDescentFIMSettings = namedtuple(
+#     "GradientDescentFIMSettings",
+#     ("step_size_grad", "step_size_approx_sto", "step_size_fisher"),
+# )
 
 
-def get_gdfim_settings(preheating, heating, learning_rate=1e-8):
-    """return 3 step size well parametred"""
-    return GradientDescentFIMSettings(
-        step_size_grad={
-            "learning_rate": learning_rate,
-            "preheating": preheating,
-            "heating": heating,
-            "max": 0.9,
-        },
-        step_size_approx_sto={
-            "learning_rate": learning_rate,
-            "preheating": preheating,
-            "heating": None,
-            "max": 1,
-        },
-        step_size_fisher={
-            "learning_rate": learning_rate,
-            "preheating": preheating,
-            "heating": None,
-            "max": 0.9,
-        },
-    )
+# def get_gdfim_settings(preheating, heating, learning_rate=1e-8):
+#     """return 3 step size well parametred"""
+#     return GradientDescentFIMSettings(
+#         step_size_grad={
+#             "learning_rate": learning_rate,
+#             "preheating": preheating,
+#             "heating": heating,
+#             "max": 0.9,
+#         },
+#         step_size_approx_sto={
+#             "learning_rate": learning_rate,
+#             "preheating": preheating,
+#             "heating": None,
+#             "max": 1,
+#         },
+#         step_size_fisher={
+#             "learning_rate": learning_rate,
+#             "preheating": preheating,
+#             "heating": None,
+#             "max": 0.9,
+#         },
+#     )
 
 
 class GradientDescentFIM(AbstractAlgoFit):
@@ -58,26 +58,38 @@ class GradientDescentFIM(AbstractAlgoFit):
     def __init__(
         self,
         max_iter: int,
-        settings: GradientDescentFIMSettings,
+        step_size: LearningRate,
         preconditioner: AbstractPreconditioner,
+        threshold=1e-4,
     ):
         AbstractAlgoFit.__init__(self, max_iter)
 
-        step_sizes = create_multi_step_size(list(settings))
-        self._step_size_grad = step_sizes[0]
+        # step_sizes = create_multi_step_size(list(settings))
+        self._step_size = step_size  # [0]
 
-        heating_list = [ss.heating for ss in step_sizes if ss.heating is not None]
+        # heating_list = [ss.heating for ss in step_sizes if ss.heating is not None]
 
+        # self._heating = (
+        #     jnp.inf
+        #     if len(heating_list) == 0
+        #     else max([h for h in heating_list if h is not None])
+        # )
         self._heating = (
-            jnp.inf
-            if len(heating_list) == 0
-            else max([h for h in heating_list if h is not None])
+            self._step_size.heating if self._step_size.heating is not None else jnp.inf
         )
 
-        self._threshold = 1e-3
+        self._threshold = threshold
 
         # initial algo parameter
         self._preconditioner = preconditioner
+
+    @property
+    def step_size(self):
+        return self._step_size
+
+    @step_size.setter
+    def step_size(self, step_size):
+        self._step_size = step_size
 
     def get_log_likelihood_kwargs(self, data):
         """return all the needed data"""
@@ -147,12 +159,12 @@ class GradientDescentFIM(AbstractAlgoFit):
         jac_current = model.jac_log_likelihood(theta_reals1d, **log_likelihood_kwargs)
         # Gradient
         grad = jac_current.mean(axis=0)
+
         # Preconditionner
         preconditioner, grad_precond = self._preconditioner.get_preconditioned_gradient(
             grad, jac_current, step
         )
-
-        grad_precond *= self._step_size_grad(step)
+        grad_precond *= self._step_size(step)
 
         theta_reals1d += grad_precond
 

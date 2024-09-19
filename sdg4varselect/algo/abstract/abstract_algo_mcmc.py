@@ -88,6 +88,10 @@ class AbstractAlgoMCMC:
         self._latent_variables[new_mcmc_name] = new_mcmc
         self.add_data(**dict(((new_mcmc_name, new_mcmc.data),)))
 
+    def update_mcmc(self, model) -> None:
+        for var_lat in self._latent_variables.values():
+            var_lat.likelihood = model.log_likelihood_array
+
     # ============================================================== #
 
     # @functools.partial(jit, static_argnums=0)

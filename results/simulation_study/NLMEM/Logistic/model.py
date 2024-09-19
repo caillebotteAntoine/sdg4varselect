@@ -7,6 +7,8 @@ Create by antoine.caillebotte@inrae.fr"""
 import sys
 import functools
 
+from copy import copy
+
 from jax import jit
 import jax.numpy as jnp
 import jax.random as jrd
@@ -16,58 +18,47 @@ import parametrization_cookbook.jax as pc
 from results.simulation_study.multi_res import add_flag, one_result
 
 from sdg4varselect.models import (
-    AbstractMixedEffectsModel,
+    AbstractMixedEffectsModel as AbstractMEM,
     AbstractHDModel,
     cov_simulation,
 )
-from sdg4varselect.algo import SPGD_FIM, get_gdfim_settings
+
+from sdg4varselect.learning_rate import LearningRate
+from sdg4varselect.algo import SPGD_FIM
 from sdg4varselect.exceptions import sdg4vsNanError
-import sdg4varselect.algo.preconditioner as sdgpreconditioner
+import sdg4varselect.algo.preconditioner as preconditioner
 
-N = int(sys.argv[2])
-P = int(sys.argv[3])
-seed = int(sys.argv[1])
+# N = int(sys.argv[2])
+# P = int(sys.argv[3])
+# seed = int(sys.argv[1])
 
-# N = 200
-# P = 5
-# seed = 0
+N = 200
+P = 5
+seed = 0
 
 
-class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
+class LogisticMixedEffectsModel(AbstractMEM, AbstractHDModel):
     """define a logistic mixed effects model"""
 
     def __init__(self, N=1, J=1, P=1, **kwargs):
-        AbstractMixedEffectsModel.__init__(
-            self,
-            N=N,
-            J=J,
-            me_name=["phi1", "phi2"],
-            **kwargs,
-        )
         AbstractHDModel.__init__(self, P=P)
-
-        self.init()
+        AbstractMEM.__init__(self, N=N, J=J, me_name=["phi1", "phi2"], **kwargs)
 
     @property
     def name(self):
-        """return a str called name, based on the parameter of the model"""
         return f"LogisticMEM_N{self.N}_J{self.J}_P{self.P}"
 
-    def init(self):
-        """here you define the parametrization of the model
-        and don't forget to call the mother init function at the end"""
+    def init_parametrization(self):
         self._parametrization = pc.NamedTuple(
             mean_latent=pc.NamedTuple(
                 mu1=pc.RealPositive(scale=100),
                 mu2=pc.RealPositive(scale=2000),
             ),
             tau=pc.RealPositive(scale=100),
-            cov_latent=pc.MatrixDiagPosDef(dim=2, scale=(2000, 2000)),
-            # cov_latent=pc.MatrixSymPosDef(dim=2, scale=(2000, 2000)),
+            cov_latent=pc.MatrixDiagPosDef(dim=2, scale=(100, 100)),
             var_residual=pc.RealPositive(scale=100),
             beta=pc.Real(scale=10, shape=(self.P,)),
         )
-        AbstractHDModel.init_dim(self)
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
@@ -93,12 +84,7 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
 
     # ============================================================== #
 
-    def sample(
-        self,
-        params_star,
-        prngkey,
-        **kwargs,
-    ):
+    def sample(self, params_star, prngkey, **kwargs):
         """Sample one data set for the model"""
 
         (prngkey_mem, prngkey_cov) = jrd.split(prngkey, num=2)
@@ -124,15 +110,29 @@ class LogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
         time = jnp.repeat(time[None, :], self.N, axis=0)
         cov = cov_simulation(prngkey_cov, cov_min=-1, cov_max=1, shape=(self.N, self.P))
 
-        obs, sim = AbstractMixedEffectsModel.sample(
+        obs, sim = AbstractMEM.sample(
             self, params_star, prngkey_mem, mem_obs_time=time, cov=cov
         )
 
         return {"mem_obs_time": time, "cov": cov} | obs, sim
 
 
-algo_settings = get_gdfim_settings(preheating=1000, heating=1500, learning_rate=1e-6)
-preconditioner = sdgpreconditioner.Fisher(list(algo_settings)[1:])
+learning_rate = float(jnp.log(1e-8))
+step_size = LearningRate(
+    coef_heating=0.65,
+    preheating=1000,
+    heating=1500,
+    coef_preheating=learning_rate,
+)
+step_size_approx_sto = copy(step_size)
+step_size_approx_sto.heating = None
+
+step_size_fisher = copy(step_size_approx_sto)
+step_size_fisher.max = 0.9
+
+FIM = preconditioner.Fisher(
+    step_size_approx_sto=step_size_approx_sto, step_size_fisher=step_size_fisher
+)
 
 
 @add_flag
@@ -140,9 +140,7 @@ def one_estim_with_flag(prngkey, model, data, lbd=None, save_all=True):
     prngkey_theta, prngkey_estim = jrd.split(prngkey)
     theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(model.parametrization.size,))
 
-    algo = SPGD_FIM(
-        prngkey_estim, 2000, algo_settings, preconditioner, lbd=lbd, alpha=1.0
-    )
+    algo = SPGD_FIM(prngkey_estim, 2000, step_size, FIM, lbd=lbd, alpha=1.0)
     # =================== MCMC configuration ==================== #
     algo.init_mcmc(theta0, model, sd={"phi1": 5, "phi2": 20})
 
@@ -164,10 +162,12 @@ print(f"P = {myModel.P}, N = {myModel.N}")
 
 p_star = myModel.new_params(
     mean_latent={"mu1": 100, "mu2": 1200},
-    cov_latent=jnp.diag(jnp.array([40, 200])),
+    cov_latent=jnp.diag(jnp.array([40, 100])),
     tau=150,
     var_residual=30,
-    beta=jnp.concatenate([jnp.array([100, 50, 20]), jnp.zeros(shape=(myModel.P - 3,))]),
+    beta=jnp.concatenate(
+        [jnp.array([300, 100, -200]), jnp.zeros(shape=(myModel.P - 3,))]
+    ),
 )
 
 
@@ -197,52 +197,3 @@ if __name__ == "__main__":
         print(f"{err} :  estimation cancelled !")
 
     # ====================================================== #
-import sdg4varselect.plot as sdgplt
-import numpy as np
-
-params_names = np.array(
-    [
-        "$\\mu_1$",
-        "$\\mu_2$",
-        "$\\gamma^2_1$",
-        "$\\gamma^2_12$",
-        "$\\gamma^2_21$",
-        "$\\gamma^2_2$",
-        "$\\tau$",
-        "$\\sigma^2$",
-    ]
-)
-
-fig = sdgplt.figure(8, 8)
-subfigs = fig.subfigures(
-    2, 1, wspace=0.07, height_ratios=[4, 1]
-)  # , width_ratios=[4, 1, 4, 1])
-subfigs2 = subfigs[0].subfigures(1, 2, wspace=0.07)
-
-_ = sdgplt.plot_theta(
-    estim_res[0][1],
-    dim_ld=myModel.DIM_LD,
-    params_star=myModel.hstack_params(p_star),
-    params_names=params_names,
-    id_to_plot=[0, 3, 2],  # , 6, 7, 8],
-    log_scale=True,
-    fig=subfigs2[0],
-)
-_ = sdgplt.plot_theta(
-    estim_res[0][1],
-    dim_ld=myModel.DIM_LD,
-    params_star=myModel.hstack_params(p_star),
-    params_names=params_names,
-    id_to_plot=[1, 6, 7],
-    log_scale=True,
-    fig=subfigs2[1],
-)
-subfigs2[0].axes[0].set_title(None)
-for ax in subfigs2[0].axes:
-    ax.axvline(1000, color="red")
-    ax.axvline(1500, color="green")
-
-subfigs2[1].axes[0].set_title(None)
-for ax in subfigs2[1].axes:
-    ax.axvline(1000, color="red")
-    ax.axvline(1500, color="green")

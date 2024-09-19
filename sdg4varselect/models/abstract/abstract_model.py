@@ -6,7 +6,7 @@ Create by antoine.caillebotte@inrae.fr
 
 # pylint: disable=C0116
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 import functools
 
 # import numpy as np
@@ -33,7 +33,7 @@ def _check_initialization(fun):
     return new_fun
 
 
-class AbstractModel:
+class AbstractModel(ABC):
     """the most abstact model that can be defined"""
 
     def __init__(self, N: int, **kwargs):
@@ -74,15 +74,15 @@ class AbstractModel:
         """return a str called name, based on the parameter of the model"""
         raise NotImplementedError
 
-    @property
-    @_check_initialization
-    def parametrization_size(self):
-        zeros = self._parametrization.reals1d_to_params(
-            jnp.zeros(
-                shape=self._parametrization.size,
-            )
-        )
-        return self.hstack_params(zeros).shape[0]
+    # @property
+    # @_check_initialization
+    # def parametrization_size(self):
+    #     zeros = self._parametrization.reals1d_to_params(
+    #         jnp.zeros(
+    #             shape=self._parametrization.size,
+    #         )
+    #     )
+    #     return self.hstack_params(zeros).shape[0]
 
     @property
     @_check_initialization

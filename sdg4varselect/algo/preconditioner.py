@@ -11,13 +11,13 @@ import functools
 from jax import jit
 import jax.numpy as jnp
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from sdg4varselect.learning_rate import create_multi_step_size
 
 
-class AbstractPreconditioner:
+class AbstractPreconditioner(ABC):
 
-    def __init__(self, jac_shape, settings) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         pass
 
     @abstractmethod
@@ -25,27 +25,32 @@ class AbstractPreconditioner:
         """
         Return preconditioned_gradient
         """
+        raise NotImplementedError
 
     @abstractmethod
     def initialize(self, jac_shape):
         """
         Initialize the preconditioner
         """
+        raise NotImplementedError
 
 
 class Fisher(AbstractPreconditioner):
 
-    def __init__(self, settings) -> None:
+    def __init__(self, step_size_approx_sto, step_size_fisher) -> None:
         self._jac = jnp.zeros(shape=(1, 1))
 
-        step_sizes = create_multi_step_size(list(settings), num_step_size=2)
-        (
-            self._step_size_approx_sto,
-            self._step_size_fisher,
-        ) = (
-            step_sizes[0],
-            step_sizes[1],
-        )
+        self._step_size_approx_sto = step_size_approx_sto
+        self._step_size_fisher = step_size_fisher
+
+        # step_sizes = create_multi_step_size(list(settings), num_step_size=2)
+        # (
+        #     self._step_size_approx_sto,
+        #     self._step_size_fisher,
+        # ) = (
+        #     step_sizes[0],
+        #     step_sizes[1],
+        # )
 
     def initialize(self, jac_shape):
         self._jac = jnp.zeros(shape=jac_shape)  # approximated jac
@@ -99,7 +104,9 @@ class AdaGrad(AbstractPreconditioner):
 
 class FisherAdaGrad(AbstractPreconditioner):
 
-    def __init__(self, P, settings, regularization=1) -> None:
+    def __init__(
+        self, P, step_size_approx_sto, step_size_fisher, regularization=1
+    ) -> None:
 
         self._fisher = Fisher(settings)
         self._adagrad = AdaGrad(regularization=regularization)

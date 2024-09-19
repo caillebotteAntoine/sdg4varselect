@@ -1,61 +1,56 @@
 """
-Module for abstract class AbstractJointModel.
+Module that define functions to perform multiple selection and estimation.
 
-Create by antoine.caillebotte@inrae.fr
-"""
+Create by antoine.caillebotte@inrae.fr"""
 
 # pylint: disable=C0116, W0221
 import sys
-
-from abc import abstractmethod
 import functools
 
+from copy import copy
 
+from jax import jit
 import jax.numpy as jnp
 import jax.random as jrd
-from jax import jit
+
 import parametrization_cookbook.jax as pc
 
+from results.simulation_study.multi_res import add_flag, one_result
+
 from sdg4varselect.models import (
-    AbstractMixedEffectsModel,
+    AbstractMixedEffectsModel as AbstractMEM,
     AbstractHDModel,
     cov_simulation,
 )
 
-import sdg4varselect.algo.preconditioner as sdgpreconditioner
-
-from results.simulation_study.multi_res import add_flag, one_result
-from sdg4varselect.algo import SPGD_FIM, get_gdfim_settings
+from sdg4varselect.learning_rate import LearningRate
+from sdg4varselect.algo import SPGD_FIM
 from sdg4varselect.exceptions import sdg4vsNanError
-import sdg4varselect.plot as sdgplt
+import sdg4varselect.algo.preconditioner as preconditioner
 
-N = int(sys.argv[2])
-P = int(sys.argv[3])
-algo_name = sys.argv[4]
-seed = int(sys.argv[1])
+# N = int(sys.argv[2])
+# P = int(sys.argv[3])
+# algo_name = sys.argv[4]
+# seed = int(sys.argv[1])
+
+N = 200
+P = 10
+algo_name = "Fisher"
+seed = 0
 
 
-class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
+class LogisticMixedEffectsModel(AbstractMEM, AbstractHDModel):
     """define a logistic mixed effects model"""
 
     def __init__(self, N=1, J=1, P=1, **kwargs):
-        super().__init__(
-            N=N,
-            J=J,
-            me_name=["phi1", "phi2"],
-            **kwargs,
-        )
         AbstractHDModel.__init__(self, P=P)
-        self.init()
+        AbstractMEM.__init__(self, N=N, J=J, me_name=["phi1", "phi2"], **kwargs)
 
     @property
     def name(self):
-        """return a str called name, based on the parameter of the model"""
         return f"LogisticMEM_N{self.N}_J{self.J}_P{self.P}"
 
-    def init(self):
-        """here you define the parametrization of the model
-        and don't forget to call the mother init function at the end"""
+    def init_parametrization(self):
         self._parametrization = pc.NamedTuple(
             mean_latent=pc.NamedTuple(
                 mu1=pc.RealPositive(scale=100),
@@ -66,7 +61,6 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
             var_residual=pc.RealPositive(scale=100),
             beta=pc.Real(scale=10, shape=(self.P,)),
         )
-        AbstractHDModel.init_dim(self)
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
@@ -90,15 +84,7 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
         assert out.shape == times.shape
         return out
 
-    # ============================================================== #
-
-    @abstractmethod
-    def sample(
-        self,
-        params_star,
-        prngkey,
-        **kwargs,
-    ):
+    def sample(self, params_star, prngkey, **kwargs):
         """Sample one data set for the model"""
 
         (prngkey_time, prngkey_mem, prngkey_cov) = jrd.split(prngkey, num=3)
@@ -110,7 +96,7 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
 
         cov = cov_simulation(prngkey_cov, cov_min=-1, cov_max=1, shape=(self.N, self.P))
 
-        obs, sim = AbstractMixedEffectsModel.sample(
+        obs, sim = AbstractMEM.sample(
             self, params_star, prngkey_mem, mem_obs_time=time, cov=cov
         )
 
@@ -123,33 +109,49 @@ class HDLogisticMixedEffectsModel(AbstractMixedEffectsModel, AbstractHDModel):
 
 
 def algo_factory(name: str, p: int):  # , preheating, heating, learning_rate):
-    algo_settings = get_gdfim_settings(
-        preheating=3000, heating=3500, learning_rate=1e-8
+
+    learning_rate = float(jnp.log(1e-8))
+    step_size = LearningRate(
+        coef_heating=0.65,
+        preheating=1000,
+        heating=1500,
+        coef_preheating=learning_rate,
     )
 
+    step_size_approx_sto = copy(step_size)
+    step_size_approx_sto.heating = None
+
+    step_size_fisher = copy(step_size_approx_sto)
+    step_size_fisher.max = 0.9
+
     if name.lower() == "fisher":
-        preconditioner = sdgpreconditioner.Fisher(list(algo_settings)[1:])
+
+        precond = preconditioner.Fisher(
+            step_size_approx_sto=step_size_approx_sto, step_size_fisher=step_size_fisher
+        )
 
     elif name == "adagrad":
-        algo_settings = [
-            {
-                "learning_rate": 1,
-                "preheating": 0,
-                "heating": 3500,
-                "max": 1e-2,
-            }
-        ]
+        step_size = LearningRate(
+            coef_heating=0.65,
+            preheating=0,
+            heating=1500,
+            coef_preheating=learning_rate,
+            value_max=1e-2,
+        )
+        precond = preconditioner.AdaGrad(regularization=1e-5)
 
-        preconditioner = sdgpreconditioner.AdaGrad(regularization=1e-5)
     elif name == "fisheradagrad":
 
-        preconditioner = sdgpreconditioner.FisherAdaGrad(
-            P=p, settings=list(algo_settings)[1:], regularization=1e-5
+        precond = preconditioner.FisherAdaGrad(
+            P=p,
+            step_size_approx_sto=step_size_approx_sto,
+            step_size_fisher=step_size_fisher,
+            regularization=1e-5,
         )
     else:
         raise ValueError("algo name must be fisheradagrad, fisher or adagrad")
 
-    return algo_settings, preconditioner
+    return step_size, precond
 
 
 @add_flag
@@ -157,10 +159,8 @@ def one_estim_with_flag(prngkey, model, data, algo_name, lbd=None, save_all=True
     prngkey_theta, prngkey_estim = jrd.split(prngkey)
     theta0 = 0.2 * jrd.normal(prngkey_theta, shape=(model.parametrization.size,))
 
-    algo_settings, preconditioner = algo_factory(algo_name, model.P)
-    algo = SPGD_FIM(
-        prngkey_estim, 5000, algo_settings, preconditioner, lbd=lbd, alpha=1.0
-    )
+    algo_settings, precond = algo_factory(algo_name, model.P)
+    algo = SPGD_FIM(prngkey_estim, 5000, algo_settings, precond, lbd=lbd, alpha=1.0)
     # =================== MCMC configuration ==================== #
     algo.init_mcmc(theta0, model, sd={"phi1": 5, "phi2": 50})
 
@@ -174,7 +174,7 @@ def one_estim_with_flag(prngkey, model, data, algo_name, lbd=None, save_all=True
 
 # ====================================================== #
 
-myModel = HDLogisticMixedEffectsModel(N=N, J=15, P=P)
+myModel = LogisticMixedEffectsModel(N=N, J=15, P=P)
 
 print(f"P = {myModel.P}, N = {myModel.N}")
 
@@ -189,7 +189,7 @@ p_star = myModel.new_params(
     ),
 )
 
-mylbd_set = 10 ** jnp.linspace(-2, 0, num=10)
+mylbd_set = 10 ** jnp.linspace(-2, 2, num=20)
 
 myprngkey = jrd.PRNGKey(seed)
 print(f"seed = {seed}, prngkey = {myprngkey}")
@@ -198,10 +198,7 @@ print(f"seed = {seed}, prngkey = {myprngkey}")
 mydata, sim = myModel.sample(p_star, jrd.PRNGKey(1))
 
 
-print(sim["phi2"].var())
-
-
-if __name__ == "__main__":
+if __name__ == "__main__0":
     try:
         estim_res = one_result(
             one_estim_with_flag,
@@ -219,3 +216,13 @@ if __name__ == "__main__":
 
     except sdg4vsNanError as err:
         print(f"{err} :  estimation cancelled !")
+
+
+res, flag = one_estim_with_flag(
+    prngkey=myprngkey,
+    model=myModel,
+    data=mydata,
+    algo_name="Fisher",
+    lbd=mylbd_set[0],
+    save_all=False,
+)

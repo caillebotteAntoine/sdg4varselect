@@ -77,7 +77,7 @@ def regularization_path(
     estim_fct_with_flag: Callable[[], tuple[type[sdg4vsResults], bool]],
     prngkey,
     lbd_set,
-    dim_ld,
+    P,
     N,
     verbatim=False,
     **kwargs
@@ -96,7 +96,7 @@ def regularization_path(
     bic = jnp.array(
         [
             BIC(
-                jnp.array([r.last_theta[dim_ld:] for r in res]),
+                jnp.array([r.last_theta[-P:] for r in res]),
                 jnp.array([r.likelihood for r in res]),
                 N,
             )
@@ -107,7 +107,7 @@ def regularization_path(
     ebic = jnp.array(
         [
             eBIC(
-                jnp.array([r.last_theta[dim_ld:] for r in res]),
+                jnp.array([r.last_theta[-P:] for r in res]),
                 jnp.array([r.likelihood for r in res]),
                 N,
             )
