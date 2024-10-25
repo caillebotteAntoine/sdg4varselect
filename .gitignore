@@ -1,0 +1,17 @@
+
+# outputs and errors files
+*.out
+*.err
+
+# pycache exceptions
+*/__pycache__/*
+*.mypy_cache/
+*.pyc*
+*.pyc
+
+
+*.pkl.gz
+*.nfs*
+
+# work personal folder
+work/
