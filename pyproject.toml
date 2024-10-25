@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "sdg4varselect"
+version = "0.1.0"
+description = ""
+authors = ["caillebotteAntoine <caillebotte.antoine@gmail.com>"]
+license = "GPL 3"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+matplotlib = "^3.6.3"
+jax = "^0.4.1"
+jaxlib = "^0.4.1"
+numpy = "^1.24.1"
+parametrization-cookbook = "^0.18"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+flake8 = "^7.1.1"
+mypy = "^1.13.0"
+notebook = "^7.2.2"
+pytest = "^7.2.1"
+pytest-cov = "^4.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
