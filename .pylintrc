@@ -1,3 +1,5 @@
 [FORMAT]
 max-line-length=119
 good-names= i, t, T, Y, x, y, n, N, j, J, p, P,g, G, f,a,b,k, C,d,D
+
+disable = W0012
