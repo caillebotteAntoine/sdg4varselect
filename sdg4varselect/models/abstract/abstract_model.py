@@ -209,12 +209,12 @@ class AbstractModel(ABC):
     # ============================================================== #
     @abstractmethod
     @_check_initialization
-    def sample(  # pylint --disable=missing-type-doc
+    def sample(
         self,
         params_star,
         prngkey,
         **kwargs,
-    ) -> tuple[dict, dict]:
+    ) -> tuple[dict, dict]:  # pylint --disable=missing-type-doc
         """Sample one data set for the model
 
         Parameters
