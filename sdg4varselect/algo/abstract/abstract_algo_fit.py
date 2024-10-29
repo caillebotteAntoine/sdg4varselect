@@ -55,7 +55,7 @@ class AbstractAlgoFit(ABC):
 
     @abstractmethod
     def get_log_likelihood_kwargs(self, data: dict):
-        """return all the needed data for the log likelihood computation
+        """Return all the needed data for the log likelihood computation
 
         Parameters
         ----------
@@ -94,16 +94,20 @@ class AbstractAlgoFit(ABC):
         model: type[AbstractModel],
         log_likelihood_kwargs: dict,
         theta_reals1d: jnp.ndarray,
-        freezed_components: jnp.ndarray,
+        freezed_components: jnp.ndarray = None,
     ):
-        """iterative algorithm, must be iterable
+        """Run the iterative algorithm.
 
         Parameters
         ----------
-            model: the model to be fitted
-            log_likelihood_kwargs: a dict where all additional log_likelihood arguments can be found
-            theta_reals1d: current value of parameters
-            freezed_components: boolean array indicating which parameter should not be updated
+        model : type[AbstractModel]
+            the model to be fitted
+        log_likelihood_kwargs : dict
+            a dict where all additional log_likelihood arguments can be found
+        theta_reals1d : jnp.ndarray
+            Initial parameters for the model.
+        freezed_components : jnp.ndarray, optional
+            boolean array indicating which parameter components should not be updated (default is None).
         """
         raise NotImplementedError
 
