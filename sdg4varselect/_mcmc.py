@@ -8,6 +8,8 @@ and an `MCMC` class to manage parameters and acceptance adjustments for optimize
 Functions
 ---------
 gibbs_sampler : Main function for generating a sample using Gibbs sampling.
+
+Create by antoine.caillebotte@inrae.fr
 """
 
 from functools import partial
