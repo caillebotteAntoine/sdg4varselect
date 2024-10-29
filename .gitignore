@@ -12,6 +12,7 @@
 
 *.pkl.gz
 *.nfs*
+*.coverage
 
 # work personal folder
 work/
