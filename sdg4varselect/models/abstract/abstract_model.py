@@ -11,7 +11,7 @@ import functools
 
 # import numpy as np
 
-from typing import Union, Type
+from typing import Union
 
 import jax.numpy as jnp
 from jax import jit, jacfwd
@@ -124,12 +124,13 @@ class AbstractModel(ABC):
         """
         return self._parametrization
 
-    def hstack_params(self, params) -> Type[jnp.ndarray]:
+    def hstack_params(self, params) -> jnp.ndarray:
         """Return a copy of the params array collapsed into one dimension.
 
         Parameters
         ----------
-            params: the params array to be collapsed
+        params : object
+            the params array to be collapsed
 
         Returns
         -------
@@ -144,7 +145,8 @@ class AbstractModel(ABC):
 
         Parameters
         ----------
-            **kwargs: a dict containing the values of the parameters to be initialized
+        **kwargs : dict
+            a dict containing the values of the parameters to be initialized
 
         Returns
         -------
@@ -158,28 +160,32 @@ class AbstractModel(ABC):
     @abstractmethod
     @functools.partial(jit, static_argnums=0)
     def log_likelihood_array(self, theta_reals1d: jnp.ndarray, **kwargs) -> jnp.ndarray:
-        """returns the log_likelihood for each individual
+        """Compute likelihood array with individual components.
 
         Parameters
         ----------
-            theta_reals1d: value of the parameter
-            **kwargs: additional data to be pass to loglihood
+        theta_reals1d : jnp.ndarray
+            parameters value used to the log-likelihood computation.
+        **kwargs : dict
+            a dict where all additional log_likelihood arguments can be found.
 
         Returns
         -------
         jnp.ndarray
-            log likelihood as array each component for each individuals
+            Array of log-likelihood components for each individual.
         """
         raise NotImplementedError
 
     @functools.partial(jit, static_argnums=0)
     def log_likelihood(self, theta_reals1d: jnp.ndarray, **kwargs) -> jnp.ndarray:
-        """returns the log_likelihood for all the individuals
+        """Compute the log_likelihood for all the individuals
 
         Parameters
         ----------
-            theta_reals1d: value of the parameter
-            **kwargs: additional data to be pass to loglihood
+        theta_reals1d : jnp.ndarray
+            parameters value used to the log-likelihood computation.
+        **kwargs : dict
+            a dict where all additional log_likelihood arguments can be found.
 
         Returns
         -------
@@ -189,21 +195,22 @@ class AbstractModel(ABC):
         return self.log_likelihood_array(theta_reals1d, **kwargs).sum()
 
     @functools.partial(jit, static_argnums=0)
-    def jac_log_likelihood(
-        self, theta_reals1d: jnp.ndarray, **kwargs
-    ) -> type[jnp.ndarray]:
-        """returns the Jacobian of the log_likelihood
+    def jac_log_likelihood(self, theta_reals1d: jnp.ndarray, **kwargs) -> jnp.ndarray:
+        """Compute the Jacobian of the log_likelihood
 
         Parameters
         ----------
-            theta_reals1d: value of the parameter
-            **kwargs: additional data to be pass to loglihood
+        theta_reals1d : jnp.ndarray
+            parameters value used to the log-likelihood computation.
+        **kwargs : dict
+            a dict where all additional log_likelihood arguments can be found.
 
         Returns
         -------
         jnp.ndarray
             log likelihood as array of array each component for each individuals
         """
+
         return jacfwd(self.log_likelihood_array)(theta_reals1d, **kwargs)
 
     # ============================================================== #
@@ -214,18 +221,23 @@ class AbstractModel(ABC):
         params_star,
         prngkey,
         **kwargs,
-    ) -> tuple[dict, dict]:  # pylint --disable=missing-type-doc
+    ) -> tuple[dict, dict]:
         """Sample one data set for the model
 
         Parameters
         ----------
-            params_star: parameter used to sample the model
-            prngkey: A PRNG key, consumable by random functions used to sample randomly the model
-            **kwargs: additional parameter to be pass to any function used in sample
+        params_star : object
+            parameter used to sample the model
+        prngkey : jax.random.PRNGKey
+            A PRNG key, consumable by random functions used to sample randomly the model
+        **kwargs:
+            additional data to be pass to any function used in sample
 
         Returns
         -------
         tuple[dict, dict]
-            two dict containing simulated observed and simulated unobserved variables
+            A tuple containing:
+                - dict: Generated observations.
+                - dict: Simulated latent variables.
         """
         raise NotImplementedError

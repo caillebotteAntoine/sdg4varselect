@@ -221,13 +221,72 @@ class AbstractLatentVariablesModel(ABC):
 
     @abstractmethod
     def log_likelihood_only_prior(self, theta_reals1d, **kwargs) -> jnp.ndarray:
+        """Compute log-likelihood with only the Gaussian prior.
+
+        Parameters
+        ----------
+        theta_reals1d : jnp.ndarray
+            Parameters used to the log-likelihood computation.
+        **kwargs : dict
+            a dict where all additional log_likelihood arguments can be found.
+
+        Returns
+        -------
+        jnp.ndarray
+            Log-likelihood values with only the Gaussian prior.
+
+        Raises
+        ------
+        NotImplementedError
+            If the method is not implemented in a subclass.
+        """
         raise NotImplementedError
 
     @abstractmethod
-    def log_likelihood_without_prior(
-        self, theta_reals1d, Y, mem_obs_time, **kwargs
-    ) -> jnp.ndarray:
+    def log_likelihood_without_prior(self, theta_reals1d, **kwargs) -> jnp.ndarray:
+        """Compute the log-likelihood without Gaussian prior.
+
+        Parameters
+        ----------
+        theta_reals1d : jnp.ndarray
+            Parameters used to the log-likelihood computation.
+        **kwargs : dict
+            Additional keyword arguments used in the mixed_effect_function
+
+        Returns
+        -------
+        jnp.ndarray
+            Log-likelihood values for each individual without Gaussian prior.
+
+        Raises
+        ------
+        NotImplementedError
+            If the method is not implemented in a subclass.
+        """
         raise NotImplementedError
+
+    # ============================================================== #
+    @functools.partial(jit, static_argnums=0)
+    def log_likelihood_array(self, theta_reals1d: jnp.ndarray, **kwargs):
+        """Compute likelihood array with individual components.
+
+        Parameters
+        ----------
+        theta_reals1d : jnp.ndarray
+            Parameters used to the log-likelihood computation.
+        **kwargs : dict
+            a dict where all additional log_likelihood arguments can be found.
+
+        Returns
+        -------
+        jnp.ndarray
+            Array of log-likelihood components for each individual.
+        """
+        return self.log_likelihood_without_prior(
+            theta_reals1d, **kwargs
+        ) + self.log_likelihood_only_prior(theta_reals1d, **kwargs)
+
+    # ============================================================== #
 
 
 @functools.partial(jit, static_argnums=0)
