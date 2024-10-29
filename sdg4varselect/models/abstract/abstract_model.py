@@ -163,7 +163,7 @@ class AbstractModel(ABC):
         Parameters
         ----------
             theta_reals1d: value of the parameter
-            **kwargs: additional parameter to be pass to loglihood
+            **kwargs: additional data to be pass to loglihood
 
         Returns
         -------
@@ -179,7 +179,7 @@ class AbstractModel(ABC):
         Parameters
         ----------
             theta_reals1d: value of the parameter
-            **kwargs: additional parameter to be pass to loglihood
+            **kwargs: additional data to be pass to loglihood
 
         Returns
         -------
@@ -197,7 +197,7 @@ class AbstractModel(ABC):
         Parameters
         ----------
             theta_reals1d: value of the parameter
-            **kwargs: additional parameter to be pass to loglihood
+            **kwargs: additional data to be pass to loglihood
 
         Returns
         -------
