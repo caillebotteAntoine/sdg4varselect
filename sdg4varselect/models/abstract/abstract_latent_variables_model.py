@@ -1,5 +1,15 @@
 """
-Module for abstract class AbstractLatentVariablesModel.
+This module defines the `AbstractLatentVariablesModel` class, an abstract base for models with latent variables,
+as well as several functions for formatting mean values, sampling latent variables, and calculating log-likelihoods.
+
+The `AbstractLatentVariablesModel` class is designed to support models with latent variables, providing properties
+and abstract methods that subclasses must implement. It defines required attributes and structure for models that
+use latent variables with a Gaussian prior.
+
+Functions in this module include:
+- `sample_latent`: Samples from a multivariate normal distribution using provided mean and covariance.
+- `log_gaussian_prior_cov`: Computes the log probability of a Gaussian prior with a specified covariance.
+- `log_likelihood_marginal`: Computes the marginal log-likelihood for model instances by sampling latent variables.
 
 Create by antoine.caillebotte@inrae.fr
 """
@@ -193,7 +203,7 @@ class AbstractLatentVariablesModel(ABC):
         params : object
             Contains attributes `mean_latent` and `cov_latent`.
         **kwargs : dict
-            additional data to be pass to loglihood
+            additional data to be pass to the log-likelihood
 
         Returns
         -------
@@ -227,8 +237,7 @@ def _new_likelihood(
     data,
     theta_reals1d: jnp.ndarray,
 ) -> jnp.ndarray:
-    """
-    Compute likelihood for a model instance.
+    """Compute likelihood for a model instance.
 
     Parameters
     ----------
