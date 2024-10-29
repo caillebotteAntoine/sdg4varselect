@@ -4,7 +4,7 @@ Create by antoine.caillebotte@inrae.fr
 """
 
 from warnings import warn
-import jax.numpy as np
+import numpy as np
 
 
 class Chain:

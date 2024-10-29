@@ -21,8 +21,17 @@ repos:
             "-rn",
             "-sn",
             "--load-plugins=pylint.extensions.docparams",
-            #"--accept-no-yields-doc=no",
+            "--accept-no-yields-doc=no",
             "--accept-no-return-doc=no",
             "--accept-no-raise-doc=no",
             "--accept-no-param-doc=no",
           ]
+
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest-check
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: true
