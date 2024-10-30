@@ -23,15 +23,24 @@ import matplotlib.pyplot as plt
 class _StepSettings:
     def __init__(self, step: float = 0, coef: float = 1):
 
-        if step is None:
-            step = jnp.nan
-        elif not isinstance(step, (int, float)):
-            raise TypeError("step must be int or float")
         self.step = step
 
         if not isinstance(coef, (int, float)):
             raise TypeError("coef must be int or float")
         self.coef = coef
+
+    @property
+    def step(self):
+        """return step"""
+        return self._step
+
+    @step.setter
+    def step(self, step) -> None:
+        if step is None:
+            step = jnp.nan
+        elif not isinstance(step, (int, float)):
+            raise TypeError("step must be int or float")
+        self._step = step
 
 
 @dataclasses.dataclass
