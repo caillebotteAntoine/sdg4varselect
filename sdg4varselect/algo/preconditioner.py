@@ -96,7 +96,7 @@ class Fisher(AbstractPreconditioner):
         self._jac = jnp.zeros(shape=(1, 1))
 
         self._step_size_approx_sto = copy(default_step_size)
-        self._step_size_approx_sto.heating = None
+        self._step_size_approx_sto.heating.step = None
 
         self._step_size_fisher = copy(self._step_size_approx_sto)
         self._step_size_fisher.max = 0.9

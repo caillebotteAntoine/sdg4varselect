@@ -50,8 +50,8 @@ class GradientDescentPrecond(AbstractAlgoFit):
 
     def __init__(
         self,
-        max_iter: int,
         preconditioner: AbstractPreconditioner,
+        max_iter: int = 5000,
         threshold=1e-4,
     ):
         AbstractAlgoFit.__init__(self, max_iter)

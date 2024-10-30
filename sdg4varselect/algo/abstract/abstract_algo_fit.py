@@ -43,7 +43,7 @@ class AbstractAlgoFit(ABC):
 
     def __init__(
         self,
-        max_iter: int,
+        max_iter: int = 5000,
         ntry: int = 1,
         partial_fit: bool = False,
         save_all: bool = True,

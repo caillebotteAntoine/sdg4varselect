@@ -74,13 +74,12 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
 
     def __init__(
         self,
-        prngkey,
-        max_iter: int,
         preconditioner: AbstractPreconditioner,
+        max_iter: int = 5000,
         threshold=1e-4,
     ):
         GD_Precond.__init__(self, max_iter, preconditioner, threshold)
-        AbstractAlgoMCMC.__init__(self, prngkey)
+        AbstractAlgoMCMC.__init__(self)
         self._pre_heating = 1000
 
     def get_log_likelihood_kwargs(self, data):

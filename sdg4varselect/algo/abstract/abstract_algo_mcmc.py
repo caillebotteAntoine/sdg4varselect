@@ -11,6 +11,7 @@ from functools import partial
 
 from jax import jit
 import jax.numpy as jnp
+import jax.random as jrd
 
 from sdg4varselect._mcmc import MCMC
 from sdg4varselect.models.abstract.abstract_latent_variables_model import (
@@ -51,8 +52,8 @@ class AbstractAlgoMCMC:
         Executes one simulation step for each latent variable in the MCMC chains.
     """
 
-    def __init__(self, prngkey):
-        self._prngkey = prngkey
+    def __init__(self):
+        self._prngkey = jrd.PRNGKey(0)
         self._latent_variables: dict[str, MCMC] = {}
         self._latent_data: dict[str, jnp.ndarray] = {}
 
