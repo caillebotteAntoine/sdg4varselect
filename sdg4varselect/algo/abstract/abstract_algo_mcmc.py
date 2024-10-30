@@ -95,9 +95,29 @@ class AbstractAlgoMCMC:
             var.reset()
 
     # ============================================================== #
+    def reset_mcmc(
+        self,
+        theta0: jnp.ndarray,
+        model: type[AbstractLatentVariablesModel],
+    ):
+        """Reset MCMC chains based on a model's latent variables to a specific starting value.
+
+        Parameters
+        ----------
+        theta0 : jnp.ndarray
+            Initial values for model parameters.
+        model : type[AbstractLatentVariablesModel]
+            The model with latent variable definitions.
+        """
+
+        params0 = model.parametrization.reals1d_to_params(theta0)
+        for mcmc_name in model.latent_variables_name:
+            data = model.latent_variables_data(params0, mcmc_name)
+            self._latent_variables[mcmc_name].reset(x0=data["mean"])
+
     def init_mcmc(
         self,
-        theta0,
+        theta0: jnp.ndarray,
         model: type[AbstractLatentVariablesModel],
         sd: dict[str, float] = None,
     ):

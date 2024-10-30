@@ -97,9 +97,17 @@ class Chain:
         print(msg)
         return msg
 
-    def reset(self):
-        """Resets the chain to its initial state given when the object was created."""
-        x0 = self._chain[0][0]
+    def reset(self, x0: float = None) -> None:
+        """Resets the chain to its initial state given when the object was created.
+
+        Parameters
+        ----------
+            x0 : float, optional
+                If None, x0 will be equal to the initial value of the chain.
+        """
+        if x0 is None:
+            x0 = self._chain[0][0]
+
         for i in range(self._size):
             self._data[i] = x0
 

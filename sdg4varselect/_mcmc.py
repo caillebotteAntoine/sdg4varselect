@@ -122,8 +122,15 @@ class MCMC(Chain):
         self.__lambda = 0.01
         self._likelihood: callable = likelihood
 
-    def reset(self):
-        super().reset()
+    def reset(self, x0: float = None) -> None:
+        """Resets the MCMC to its initial state given when the object was created.
+
+        Parameters
+        ----------
+            x0 : float, optional
+                If None, x0 will be equal to the initial value of the MCMC.
+        """
+        super().reset(x0=x0)
         self.__acceptance = [self.__acceptance[0]]
         self.__sd = [self.__sd[0]]
         self.__lambda = 0.01
