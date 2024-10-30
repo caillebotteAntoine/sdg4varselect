@@ -1,7 +1,10 @@
 """
-Module for Stochastic Gradient descent algorithm preconditioned by the fisher information matrix.
+Module for the Stochastic Gradient Descent algorithm preconditioned by the Fisher Information Matrix or another.
 
-Create by antoine.caillebotte@inrae.fr
+This module implements a stochasticgradient descent algorithm that uses a preconditioner based on
+the Fisher Information Matrix to improve convergence.
+
+Created by antoine.caillebotte@inrae.fr
 """
 
 from datetime import datetime

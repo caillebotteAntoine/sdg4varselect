@@ -34,7 +34,7 @@ def _mean_formatting(mean):
     return mean
 
 
-def sample_latent(prngkey, params, N):
+def _sample_latent(prngkey, params, N):
     """
     Generate samples from a multivariate normal distribution using latent mean and covariance.
 
@@ -124,11 +124,11 @@ class AbstractLatentVariablesModel(ABC):
     ----------
     _latent_variables_name : list of str
         Names of latent variables.
-    _latent_variables_size : list of int
-        Sizes of each latent variable.
+    _latent_variables_size : int
+        Size of latent variables.
     """
 
-    def __init__(self, me_name: list[str], me_size=list[int]):
+    def __init__(self, me_name: list[str], me_size=int):
         self._latent_variables_name = me_name
         self._latent_variables_size = me_size
 
@@ -139,7 +139,7 @@ class AbstractLatentVariablesModel(ABC):
 
     @property
     def latent_variables_size(self):
-        """list of int: Sizes of each latent variable."""
+        """int: Size of latent variables."""
         return self._latent_variables_size
 
     @functools.partial(jit, static_argnums=0)
@@ -287,6 +287,40 @@ class AbstractLatentVariablesModel(ABC):
         ) + self.log_likelihood_only_prior(theta_reals1d, **kwargs)
 
     # ============================================================== #
+    def sample(self, params_star, prngkey) -> tuple[dict, dict]:
+        """Sample latent variables for the model sampling
+
+        Parameters
+        ----------
+        params_star : object
+            parameter used to sample the latent variables
+        prngkey : jax.random.PRNGKey
+            A PRNG key, consumable by random functions used to sample randomly the latent variables
+
+        Returns
+        -------
+        tuple[dict, dict]
+            A tuple containing:
+                - dict: empty by default.
+                - dict: Simulated latent variables.
+        """
+        key, prngkey = jrd.split(prngkey, num=2)
+
+        D = len(self.latent_variables_name)
+        assert len(params_star.mean_latent) == D
+
+        sim_latent = _sample_latent(
+            key, params_star, N=self.latent_variables_size
+        )  # jnp.array shape ?= (N,D)
+
+        sim = dict(
+            zip(
+                self.latent_variables_name,
+                [sim_latent[:, i] for i in range(D)],
+            )
+        )
+
+        return {}, sim
 
 
 @functools.partial(jit, static_argnums=0)
@@ -316,7 +350,7 @@ def _new_likelihood(
     """
 
     params = model.parametrization.reals1d_to_params(theta_reals1d)
-    sim_latent = sample_latent(sample_key, params=params, N=model.N)
+    sim_latent = _sample_latent(sample_key, params=params, N=model.N)
 
     var_lat_sample = dict(
         zip(

@@ -14,7 +14,6 @@ from jax import jit
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.models.abstract.abstract_latent_variables_model import (
     AbstractLatentVariablesModel,
-    sample_latent,
 )
 
 from sdg4varselect.exceptions import Sdg4vsWrongParametrization
@@ -48,9 +47,7 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
         **kwargs,
     ):
         AbstractModel.__init__(self, N, **kwargs)
-        AbstractLatentVariablesModel.__init__(
-            self, me_name, me_size=[self.N for _ in me_name]
-        )
+        AbstractLatentVariablesModel.__init__(self, me_name, me_size=N)
 
         self._j = J
 
@@ -108,6 +105,20 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
     def log_likelihood_without_prior(self, theta_reals1d, **kwargs) -> jnp.ndarray:
+        """Compute the log-likelihood without Gaussian prior.
+
+        Parameters
+        ----------
+        theta_reals1d : jnp.ndarray
+            Parameters used to the log-likelihood computation.
+        **kwargs : dict
+            Additional keyword arguments used in the mixed_effect_function
+
+        Returns
+        -------
+        jnp.ndarray
+            Log-likelihood values for each individual without Gaussian prior.
+        """
         params = self.parametrization.reals1d_to_params(theta_reals1d)
 
         Y = kwargs["Y"]
@@ -132,6 +143,20 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
 
     @functools.partial(jit, static_argnums=0)
     def log_likelihood_only_prior(self, theta_reals1d, **kwargs) -> jnp.ndarray:
+        """Compute log-likelihood with only the Gaussian prior.
+
+        Parameters
+        ----------
+        theta_reals1d : jnp.ndarray
+            Parameters used to the log-likelihood computation.
+        **kwargs : dict
+            a dict where all additional log_likelihood arguments can be found.
+
+        Returns
+        -------
+        jnp.ndarray
+            Log-likelihood values with only the Gaussian prior.
+        """
         params = self._parametrization.reals1d_to_params(theta_reals1d)
         return self.only_prior(params, **kwargs)
 
@@ -142,22 +167,26 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
         params_star,
         prngkey,
         **kwargs,
-    ):
-        key, prngkey = jrd.split(prngkey, num=2)
+    ) -> tuple[dict, dict]:
+        """Sample one data set for the model
 
-        D = len(self.latent_variables_name)
-        assert len(params_star.mean_latent) == D
+        Parameters
+        ----------
+        params_star : object
+            parameter used to sample the model
+        prngkey : jax.random.PRNGKey
+            A PRNG key, consumable by random functions used to sample randomly the model
+        **kwargs:
+            additional data to be pass to any function used in sample
 
-        sim_latent = sample_latent(
-            key, params_star, N=self.N
-        )  # jnp.array shape ?= (N,D)
-
-        sim = dict(
-            zip(
-                self.latent_variables_name,
-                [sim_latent[:, i] for i in range(D)],
-            )
-        )
+        Returns
+        -------
+        tuple[dict, dict]
+            A tuple containing:
+                - dict: Generated observations.
+                - dict: Simulated latent variables.
+        """
+        obs, sim = AbstractLatentVariablesModel.sample(self, params_star, prngkey)
 
         y_without_noise = self.mixed_effect_function(
             params_star, times=kwargs["mem_obs_time"], **sim, **kwargs, **self._cst
@@ -170,7 +199,4 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
 
         Y = y_without_noise + sim["eps"]
 
-        return (
-            {"Y": Y},  # obs
-            sim,
-        )
+        return (obs | {"Y": Y}, sim)
