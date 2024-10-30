@@ -266,27 +266,6 @@ class AbstractLatentVariablesModel(ABC):
         raise NotImplementedError
 
     # ============================================================== #
-    @functools.partial(jit, static_argnums=0)
-    def log_likelihood_array(self, theta_reals1d: jnp.ndarray, **kwargs):
-        """Compute likelihood array with individual components.
-
-        Parameters
-        ----------
-        theta_reals1d : jnp.ndarray
-            Parameters used to the log-likelihood computation.
-        **kwargs : dict
-            a dict where all additional log_likelihood arguments can be found.
-
-        Returns
-        -------
-        jnp.ndarray
-            Array of log-likelihood components for each individual.
-        """
-        return self.log_likelihood_without_prior(
-            theta_reals1d, **kwargs
-        ) + self.log_likelihood_only_prior(theta_reals1d, **kwargs)
-
-    # ============================================================== #
     def sample(self, params_star, prngkey) -> tuple[dict, dict]:
         """Sample latent variables for the model sampling
 
