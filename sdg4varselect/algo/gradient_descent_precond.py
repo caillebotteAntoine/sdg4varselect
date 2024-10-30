@@ -20,6 +20,14 @@ from sdg4varselect.outputs import GDResults
 from sdg4varselect.learning_rate import LearningRate
 
 
+default_step_size = {
+    "coef_heating": 0.65,
+    "preheating": 1000,
+    "heating": 3500,
+    "coef_preheating": float(jnp.log(1e-8)),
+}
+
+
 class GradientDescentPrecond(AbstractAlgoFit):
     """Gradient descent algorithm preconditioned by the Fisher Information Matrix or another.
 
@@ -55,14 +63,8 @@ class GradientDescentPrecond(AbstractAlgoFit):
     ):
         AbstractAlgoFit.__init__(self, max_iter)
 
-        self._heating = 3500
-
-        self.step_size = LearningRate(
-            coef_heating=0.65,
-            preheating=1000,
-            heating=self._heating,
-            coef_preheating=float(jnp.log(1e-8)),
-        )
+        self._heating = default_step_size["heating"]
+        self.step_size = LearningRate(**default_step_size)
 
         self._threshold = threshold
         self._preconditioner = preconditioner

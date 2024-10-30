@@ -54,7 +54,6 @@ class AbstractAlgoFit(ABC):
         self._partial_fit = partial_fit
         self._save_all = save_all
 
-    @abstractmethod
     def get_log_likelihood_kwargs(self, data: dict) -> dict:
         """Return all the needed data for the log likelihood computation
 
