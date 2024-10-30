@@ -8,6 +8,7 @@ Created by antoine.caillebotte@inrae.fr
 """
 
 import itertools
+from copy import copy
 
 import jax.numpy as jnp
 
@@ -17,15 +18,7 @@ from sdg4varselect.algo.preconditioner import AbstractPreconditioner
 
 from sdg4varselect.exceptions import Sdg4vsNanError
 from sdg4varselect.outputs import GDResults
-from sdg4varselect.learning_rate import LearningRate
-
-
-default_step_size = {
-    "coef_heating": 0.65,
-    "preheating": 1000,
-    "heating": 3500,
-    "coef_preheating": float(jnp.log(1e-8)),
-}
+from sdg4varselect.learning_rate import LearningRate, default_step_size
 
 
 class GradientDescentPrecond(AbstractAlgoFit):
@@ -63,8 +56,8 @@ class GradientDescentPrecond(AbstractAlgoFit):
     ):
         AbstractAlgoFit.__init__(self, max_iter)
 
-        self._heating = default_step_size["heating"]
-        self.step_size = LearningRate(**default_step_size)
+        self.step_size = copy(default_step_size)
+        self._heating = self.step_size.heating.step
 
         self._threshold = threshold
         self._preconditioner = preconditioner

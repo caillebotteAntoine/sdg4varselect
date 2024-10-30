@@ -186,3 +186,13 @@ class LearningRate:
         if label is None:
             return plt.plot(x, y)
         return plt.plot(x, y, label=label)
+
+
+_default_step_size_settings = {
+    "coef_heating": 0.65,
+    "preheating": 1000,
+    "heating": 3500,
+    "coef_preheating": float(jnp.log(1e-8)),
+}
+
+default_step_size = LearningRate(**_default_step_size_settings)

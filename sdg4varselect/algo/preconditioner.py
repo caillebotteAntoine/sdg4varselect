@@ -9,10 +9,13 @@ Created by antoine.caillebotte@inrae.fr
 
 import functools
 from abc import ABC, abstractmethod
+from copy import copy
 
 
 from jax import jit
 import jax.numpy as jnp
+
+from sdg4varselect.learning_rate import default_step_size
 
 
 class AbstractPreconditioner(ABC):
@@ -89,13 +92,14 @@ class Fisher(AbstractPreconditioner):
         Function to compute the Fisher step size.
     """
 
-    def __init__(
-        self, step_size_approx_sto: callable, step_size_fisher: callable
-    ) -> None:
+    def __init__(self) -> None:
         self._jac = jnp.zeros(shape=(1, 1))
 
-        self._step_size_approx_sto = step_size_approx_sto
-        self._step_size_fisher = step_size_fisher
+        self._step_size_approx_sto = copy(default_step_size)
+        self._step_size_approx_sto.heating = None
+
+        self._step_size_fisher = copy(self._step_size_approx_sto)
+        self._step_size_fisher.max = 0.9
 
     def initialize(self, jac_shape):
         """Initialize the Fisher preconditioner.
