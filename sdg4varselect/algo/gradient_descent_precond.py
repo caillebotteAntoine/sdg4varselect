@@ -40,18 +40,6 @@ class GradientDescentPrecond(AbstractAlgoFit):
 
     Methods
     -------
-    get_log_likelihood_kwargs(data):
-        Returns a dictionary of parameters required for log likelihood computation.
-
-    results_warper(model, data, results, chrono):
-        Transforms the results of the fitting process into a GDResults object.
-
-    _initialize_algo(model, log_likelihood_kwargs, theta_reals1d):
-        Initializes the algorithm parameters based on the model and initial parameters.
-
-    algorithm(model, log_likelihood_kwargs, theta_reals1d, freezed_components=None):
-        Runs the iterative gradient descent algorithm, yielding the current parameters and gradients.
-
     _one_gradient_descent(model, log_likelihood_kwargs, theta_reals1d, step):
         Executes one step of gradient descent, updating the parameters based on the computed gradients.
 
@@ -104,30 +92,15 @@ class GradientDescentPrecond(AbstractAlgoFit):
             self._step_size.heating if self._step_size.heating is not None else jnp.inf
         )
 
-    def get_log_likelihood_kwargs(self, data) -> dict:
-        """Return all the needed data for the log likelihood computation
-
-        Parameters
-        ----------
-        data : any
-            The data required for log likelihood computation.
-
-        Returns
-        -------
-        dict
-            A dictionary containing the necessary parameters for log likelihood computation.
-        """
-        return data
-
     def results_warper(self, model, data, results, chrono) -> GDResults:
-        """Warp results into GDResults object.
+        """Warp results into Sdg4vsResults object.
 
         Parameters
         ----------
         model : type[AbstractModel]
             The model used for the fitting.
-        data : any
-            The data used for fitting.
+        data : dict
+           a dict where all additional log_likelihood arguments can be found
         results : list
             The results obtained from the fitting.
         chrono : timedelta
@@ -135,10 +108,9 @@ class GradientDescentPrecond(AbstractAlgoFit):
 
         Returns
         -------
-        GDResults
-            An instance of GDResults containing the results.
+        Sdg4vsResults
+            An instance of Sdg4vsResults containing the results.
         """
-
         out = GDResults.new_from_list(results, chrono)
         return out
 
@@ -148,17 +120,6 @@ class GradientDescentPrecond(AbstractAlgoFit):
         log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
     ) -> None:
-        """Initialize the algorithm parameters.
-
-        Parameters
-        ----------
-        model : type[AbstractModel]
-            The model used for fitting.
-        log_likelihood_kwargs : dict
-            The arguments for computing the log likelihood.
-        theta_reals1d : jnp.ndarray
-            Initial parameters for the model.
-        """
         jac_shape = model.jac_log_likelihood(
             theta_reals1d, **log_likelihood_kwargs
         ).shape
@@ -168,11 +129,11 @@ class GradientDescentPrecond(AbstractAlgoFit):
     def algorithm(
         self,
         model: type[AbstractModel],
-        log_likelihood_kwargs,
+        log_likelihood_kwargs: dict,
         theta_reals1d: jnp.ndarray,
         freezed_components: jnp.ndarray = None,
     ):
-        """Run the iterative gradient descent algorithm.
+        """Run the stochastic gradient descent algorithm with preconditioning.
 
         Parameters
         ----------
@@ -188,9 +149,13 @@ class GradientDescentPrecond(AbstractAlgoFit):
         Yields
         ------
         tuple
-            A tuple containing the current parameters, gradient, preconditioner.
-        """
+            A tuple containing the updated parameters, gradient, and preconditioner state.
 
+        Raises
+        ------
+        Sdg4vsNanError
+            If NaN values are detected in `theta_reals1d` or in gradient during optimization.
+        """
         for step in itertools.count():
 
             out = self._algorithm_one_step(

@@ -15,6 +15,7 @@ import jax.numpy as jnp
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.exceptions import Sdg4vsNanError
+from sdg4varselect.outputs import Sdg4vsResults
 
 
 class AbstractAlgoFit(ABC):
@@ -54,13 +55,20 @@ class AbstractAlgoFit(ABC):
         self._save_all = save_all
 
     @abstractmethod
-    def get_log_likelihood_kwargs(self, data: dict):
+    def get_log_likelihood_kwargs(self, data: dict) -> dict:
         """Return all the needed data for the log likelihood computation
 
         Parameters
         ----------
-            data: input data dict for loglikelihood computation"""
-        raise NotImplementedError
+        data : any
+            The data required for log likelihood computation.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the necessary data for log likelihood computation.
+        """
+        return data
 
     # ============================================================== #
     @property
@@ -83,8 +91,20 @@ class AbstractAlgoFit(ABC):
         log_likelihood_kwargs: dict,
         theta_reals1d: jnp.ndarray,
     ) -> None:
-        """
-        Initialize the algorithm
+        """Initialize the algorithm parameters.
+
+        Parameters
+        ----------
+        model : type[AbstractModel]
+            The model used for fitting.
+        log_likelihood_kwargs : dict
+            The arguments for computing the log likelihood.
+        theta_reals1d : jnp.ndarray
+            Initial parameters for the model.
+        Raises
+        ------
+        NotImplementedError
+            If the method is not implemented in a subclass.
         """
         raise NotImplementedError
 
@@ -108,25 +128,39 @@ class AbstractAlgoFit(ABC):
             Initial parameters for the model.
         freezed_components : jnp.ndarray, optional
             boolean array indicating which parameter components should not be updated (default is None).
+
+        Yields
+        ------
+        tuple
+            A tuple containing the current results.
+        Raises
+        ------
+        NotImplementedError
+            If the method is not implemented in a subclass.
         """
         raise NotImplementedError
 
     @abstractmethod
     def results_warper(
         self, model: type[AbstractModel], data: dict, results: list, chrono: int
-    ):
-        """warp results
+    ) -> Sdg4vsResults:
+        """Warp results into Sdg4vsResults object.
 
         Parameters
         ----------
-            model: the model to be fitted
-            data: a dict where all additional log_likelihood arguments can be found
-            results: results of the algorithm
-            chrono: time elapsed while solving algorithm
+        model : type[AbstractModel]
+            The model used for the fitting.
+        data : dict
+           a dict where all additional log_likelihood arguments can be found
+        results : list
+            The results obtained from the fitting.
+        chrono : timedelta
+            The time taken for the fitting.
 
         Returns
         -------
-            Depends on algorithm class
+        Sdg4vsResults
+            An instance of Sdg4vsResults containing the results.
         """
         raise NotImplementedError
 
