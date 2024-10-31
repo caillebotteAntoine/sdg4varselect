@@ -116,7 +116,7 @@ class GDResults(Sdg4vsResults):
     fim: jnp.ndarray = None
     grad: jnp.ndarray = None
     chrono: timedelta = timedelta()
-    likelihood: jnp.ndarray = jnp.nan
+    log_likelihood: jnp.ndarray = jnp.nan
 
     @classmethod
     def new_from_list(cls, sdg_res, chrono) -> "GDResults":
@@ -144,7 +144,7 @@ class GDResults(Sdg4vsResults):
             fim=res[2],
             grad=jnp.array(res[1]),
             chrono=chrono,
-            likelihood=jnp.nan,
+            log_likelihood=jnp.nan,
         )
 
     @property
@@ -188,3 +188,9 @@ class GDResults(Sdg4vsResults):
 
 
 ###########################################################################################################
+
+
+class SGDResults(GDResults):
+    """Class to handle stochastic gradient descent results."""
+
+    latent_variables: dict[str, jnp.ndarray] = None
