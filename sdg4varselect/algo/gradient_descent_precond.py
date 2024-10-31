@@ -33,6 +33,17 @@ class GradientDescentPrecond(AbstractAlgoFit):
         An instance of a preconditioner that can computes precondtionned gradient
     threshold : float, optional
         A threshold for the gradient magnitude to determine convergence. The default value is 1e-4.
+    max_iter : int
+        Maximum number of iterations allowed for the algorithm.
+    ntry : int
+        Number of attempts to retry the algorithm if an error is encountered.
+    ntry_max : int
+        Maximum number of retry attempts to reset `_ntry` after each algorithm run.
+    partial_fit : bool
+        Flag to indicate if partial results should be returned if an error occurs.
+    save_all : bool
+        Flag to control whether intermediate iterations should be retained.
+
 
     Attributes
     ----------
@@ -49,12 +60,9 @@ class GradientDescentPrecond(AbstractAlgoFit):
     """
 
     def __init__(
-        self,
-        preconditioner: AbstractPreconditioner,
-        max_iter: int = 5000,
-        threshold=1e-4,
+        self, preconditioner: AbstractPreconditioner, threshold=1e-4, **kwargs
     ):
-        AbstractAlgoFit.__init__(self, max_iter)
+        AbstractAlgoFit.__init__(self, **kwargs)
 
         self.step_size = copy(default_step_size)
         self._heating = self.step_size.heating.step
@@ -107,6 +115,8 @@ class GradientDescentPrecond(AbstractAlgoFit):
             An instance of Sdg4vsResults containing the results.
         """
         out = GDResults.new_from_list(results, chrono)
+        out.log_likelihood = model.log_likelihood(out.last_theta, data)
+        out.reals1d_to_hstack_params(model)
         return out
 
     def _initialize_algo(

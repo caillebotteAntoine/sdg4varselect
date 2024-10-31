@@ -20,7 +20,7 @@ from sdg4varselect.algo.gradient_descent_precond import (
     GradientDescentPrecond as GD_Precond,
 )
 from sdg4varselect.algo.abstract.abstract_algo_mcmc import AbstractAlgoMCMC
-from sdg4varselect.outputs import GDResults
+from sdg4varselect.outputs import SGDResults
 
 
 from sdg4varselect.models.abstract.abstract_latent_variables_model import (
@@ -43,8 +43,20 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
     ----------
     prngkey : jax.random.PRNGKey
         A PRNG key, consumable by random functions.
+    preconditioner : AbstractPreconditioner
+        An instance of a preconditioner that can computes precondtionned gradient
+    threshold : float, optional
+        A threshold for the gradient magnitude to determine convergence. The default value is 1e-4.
     max_iter : int
         Maximum number of iterations allowed for the algorithm.
+    ntry : int
+        Number of attempts to retry the algorithm if an error is encountered.
+    ntry_max : int
+        Maximum number of retry attempts to reset `_ntry` after each algorithm run.
+    partial_fit : bool
+        Flag to indicate if partial results should be returned if an error occurs.
+    save_all : bool
+        Flag to control whether intermediate iterations should be retained.
 
     preconditioner : AbstractPreconditioner
         An instance of a preconditioner that can computes precondtionned gradient
@@ -73,12 +85,9 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
     """
 
     def __init__(
-        self,
-        preconditioner: AbstractPreconditioner,
-        max_iter: int = 5000,
-        threshold=1e-4,
+        self, preconditioner: AbstractPreconditioner, threshold=1e-4, **kwargs
     ):
-        GD_Precond.__init__(self, preconditioner, max_iter, threshold)
+        GD_Precond.__init__(self, preconditioner, threshold, **kwargs)
         AbstractAlgoMCMC.__init__(self)
         self._pre_heating = 1000
 
@@ -118,9 +127,12 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         """
         chrono_start = datetime.now()
 
-        out = GDResults.new_from_list(results, chrono)
+        out = SGDResults.new_from_list(results, chrono)
+        out.latent_variables = {}
+        for key, var in self.latent_variables.items():
+            out.latent_variables[key] = var.data
 
-        out.likelihood = log_likelihood_marginal(
+        out.log_likelihood = log_likelihood_marginal(
             model, self._prngkey, data, out.last_theta
         )
         out.reals1d_to_hstack_params(model)
