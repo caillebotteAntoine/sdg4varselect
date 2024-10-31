@@ -1,16 +1,18 @@
 """tests for the MCMC class"""
 
-# pylint: disable=C0116
+# pylint: disable=all
 # import pytest
 # import numpy as np
 
-# import jax.random as jrd
+import jax.random as jrd
 import jax.numpy as jnp
 
 import parametrization_cookbook.jax as pc
 
-# from sdg4varselect._mcmc import MCMC, gibbs_sampler
-
+from sdg4varselect._mcmc import MCMC, gibbs_sampler
+from sdg4varselect.models.abstract.abstract_latent_variables_model import (
+    log_gaussian_prior_cov,
+)
 
 parametrization = pc.NamedTuple(
     mu1=pc.RealPositive(scale=0.5, shape=(1,)),
@@ -21,35 +23,38 @@ params0 = {"mu1": jnp.array([0.5]), "gamma2_1": jnp.array([[0.00025]])}
 theta0_reals1d = parametrization.params_to_reals1d(**params0)
 
 
-# def likelihood_array(theta_reals1d, **kwargs):
-#     """return likelihood"""
-#     params = parametrization.reals1d_to_params(theta_reals1d)
+def likelihood_array(theta_reals1d, **kwargs):
+    """return likelihood"""
+    params = parametrization.reals1d_to_params(theta_reals1d)
 
-#     jnp.
-
-#     return log_gaussian_prior_cov(
-#         jnp.array([kwargs["x"]]).T,
-#         params.mu1,
-#         params.gamma2_1,
-#     )
+    return log_gaussian_prior_cov(
+        jnp.array([kwargs["x"]]).T,
+        params.mu1,
+        params.gamma2_1,
+    )
 
 
-# # x_mcmc = MCMC(1.0, sd=1, size=10, likelihood=likelihood_array, name="x")
-
-# # def gibbs(key):
-# #     for i in range(400):
-# #         key = x_mcmc.gibbs_sampler_step(
-# #             key,
-# #             theta0_reals1d,
-# #             parametrization=parametrization,
-# #             x=x,
-# #         )
+x_mcmc = MCMC(x0=1.0, sd=1, size=10, likelihood=likelihood_array, name="x")
+x = x_mcmc.data
 
 
-# # gibbs(jrd.PRNGKey(0))
-# # gibbs_sampler(x_mcmc.data, "x", 0.1, likelihood_array, theta0_reals1d,
-# #             parametrization=parametrization,
-# #             x=x)
+def gibbs(key):
+    for i in range(400):
+        key = x_mcmc.gibbs_sampler_step(
+            key,
+            theta0_reals1d,
+            x=x,
+        )
+
+
+gibbs_sampler(
+    jrd.PRNGKey(0),
+    "x",
+    0.1,
+    likelihood_array,
+    theta0_reals1d,
+    x=x,
+)
 
 
 # def test_gibbs_sampler():
