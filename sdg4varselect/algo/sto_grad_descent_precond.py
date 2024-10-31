@@ -78,7 +78,7 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         max_iter: int = 5000,
         threshold=1e-4,
     ):
-        GD_Precond.__init__(self, max_iter, preconditioner, threshold)
+        GD_Precond.__init__(self, preconditioner, max_iter, threshold)
         AbstractAlgoMCMC.__init__(self)
         self._pre_heating = 1000
 
@@ -130,8 +130,8 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
     def _initialize_algo(
         self,
         model: type[AbstractModel] = None,
-        log_likelihood_kwargs: dict = None,
         theta_reals1d: jnp.ndarray = None,
+        log_likelihood_kwargs: dict = None,
     ) -> None:
         assert isinstance(model, AbstractLatentVariablesModel)
         assert model is not None, "model must be specify !"
@@ -140,8 +140,8 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         ), "log_likelihood_kwargs must be specify !"
         assert theta_reals1d is not None, "theta_reals1d must be specify !"
 
-        AbstractAlgoMCMC._initialize_algo(self)
-        GD_Precond._initialize_algo(self, model, log_likelihood_kwargs, theta_reals1d)
+        AbstractAlgoMCMC._initialize_algo(self, model, theta_reals1d)
+        GD_Precond._initialize_algo(self, model, theta_reals1d, log_likelihood_kwargs)
 
         for _ in range(self._pre_heating):
             self._one_simulation(log_likelihood_kwargs, theta_reals1d)

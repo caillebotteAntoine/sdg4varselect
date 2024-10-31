@@ -112,8 +112,8 @@ class GradientDescentPrecond(AbstractAlgoFit):
     def _initialize_algo(
         self,
         model: type[AbstractModel],
-        log_likelihood_kwargs,
         theta_reals1d: jnp.ndarray,
+        log_likelihood_kwargs: dict,
     ) -> None:
         jac_shape = model.jac_log_likelihood(
             theta_reals1d, **log_likelihood_kwargs
@@ -152,7 +152,6 @@ class GradientDescentPrecond(AbstractAlgoFit):
             If NaN values are detected in `theta_reals1d` or in gradient during optimization.
         """
         for step in itertools.count():
-
             out = self._algorithm_one_step(
                 model, log_likelihood_kwargs, theta_reals1d, step
             )

@@ -188,7 +188,7 @@ class AbstractLatentVariablesModel(ABC):
         _, mean = self.mean_and_cov_latent(params)
 
         return {
-            "size": self._latent_variables_size[i],
+            "size": self._latent_variables_size,
             "mean": float(mean[i]),
         }
 
@@ -385,11 +385,14 @@ def log_likelihood_marginal(
     value_old = jnp.log((jnp.array(out[:-2]) / len(out[:-2])).sum(axis=0)).sum()
 
     n_simu = len(out)
-    while n_simu < size * 2 and abs(value - value_old).all() >= 1e-3:
-        n_simu += 1
-        prngkey, sample_key = jrd.split(prngkey, 2)
-        out.append(_new_likelihood(model, sample_key, data, theta_reals1d))
-        value_old = value
-        value = jnp.log((jnp.array(out) / len(out)).sum(axis=0)).sum()
+    while n_simu < size * 2 and (abs(value - value_old) >= 1e-2).all():
+        print(abs(value - value_old))
+        for _ in range(100):
+            n_simu += 1
+            prngkey, sample_key = jrd.split(prngkey, 2)
+            out.append(_new_likelihood(model, sample_key, data, theta_reals1d))
+            value_old = value
+            value = jnp.log((jnp.array(out) / len(out)).sum(axis=0)).sum()
 
+    print(abs(value - value_old) >= 1e-2)
     return value

@@ -87,8 +87,8 @@ class AbstractAlgoFit(ABC):
     def _initialize_algo(
         self,
         model: type[AbstractModel],
-        log_likelihood_kwargs: dict,
         theta_reals1d: jnp.ndarray,
+        log_likelihood_kwargs: dict,
     ) -> None:
         """Initialize the algorithm parameters.
 
@@ -96,10 +96,10 @@ class AbstractAlgoFit(ABC):
         ----------
         model : type[AbstractModel]
             The model used for fitting.
-        log_likelihood_kwargs : dict
-            The arguments for computing the log likelihood.
         theta_reals1d : jnp.ndarray
             Initial parameters for the model.
+        log_likelihood_kwargs : dict
+            The arguments for computing the log likelihood.
         Raises
         ------
         NotImplementedError
@@ -190,7 +190,7 @@ class AbstractAlgoFit(ABC):
 
         log_likelihood_kwargs = self.get_log_likelihood_kwargs(data)
 
-        self._initialize_algo(model, log_likelihood_kwargs, theta0_reals1d)
+        self._initialize_algo(model, theta0_reals1d, log_likelihood_kwargs)
         self._ntry = self._ntry_max
 
         iter_algo = itertools.islice(
