@@ -22,21 +22,21 @@ class AbstractAlgoFit(ABC):
     """Base class for implementing algorithms with common methods such as parameter initialization,
     iteration management, and results handling.
 
-    Attributes
+    Parameters
     ----------
-    _max_iter : int
+    max_iter : int
         Maximum number of iterations allowed for the algorithm.
 
-    _ntry : int
+    ntry : int
         Number of attempts to retry the algorithm if an error is encountered.
 
-    _ntry_max : int
+    ntry_max : int
         Maximum number of retry attempts to reset `_ntry` after each algorithm run.
 
-    _partial_fit : bool
+    partial_fit : bool
         Flag to indicate if partial results should be returned if an error occurs.
 
-    _save_all : bool
+    save_all : bool
         Flag to control whether intermediate iterations should be retained.
 
     """
