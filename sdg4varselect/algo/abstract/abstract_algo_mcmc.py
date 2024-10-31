@@ -7,9 +7,6 @@ initializing MCMC chains, handling latent variables, and performing MCMC samplin
 Created by antoine.caillebotte@inrae.fr
 """
 
-from functools import partial
-
-from jax import jit
 import jax.numpy as jnp
 import jax.random as jrd
 
@@ -89,66 +86,71 @@ class AbstractAlgoMCMC:
         """
         self._prngkey = prngkey
 
-    def _initialize_algo(self) -> None:
-        """Initialize MCMC-related components of the algorithm."""
-        for var in self.latent_variables.values():
-            var.reset()
-
-    # ============================================================== #
-    def reset_mcmc(
+    def _initialize_algo(
         self,
-        theta0: jnp.ndarray,
         model: type[AbstractLatentVariablesModel],
-    ):
-        """Reset MCMC chains based on a model's latent variables to a specific starting value.
+        theta_reals1d: jnp.ndarray,
+    ) -> None:
+        """Initialize the algorithm by reseting MCMC chains to a specific starting value.
 
         Parameters
         ----------
-        theta0 : jnp.ndarray
+        theta_reals1d : jnp.ndarray
             Initial values for model parameters.
         model : type[AbstractLatentVariablesModel]
             The model with latent variable definitions.
         """
+        params = model.parametrization.reals1d_to_params(theta_reals1d)
 
-        params0 = model.parametrization.reals1d_to_params(theta0)
-        for mcmc_name in model.latent_variables_name:
-            data = model.latent_variables_data(params0, mcmc_name)
-            self._latent_variables[mcmc_name].reset(x0=data["mean"])
+        for name, var in self.latent_variables.items():
+            data = model.latent_variables_data(params, name)
+            var.reset(x0=data["mean"])
 
+    # ============================================================== #
     def init_mcmc(
         self,
-        theta0: jnp.ndarray,
         model: type[AbstractLatentVariablesModel],
+        theta0: jnp.ndarray = None,
         sd: dict[str, float] = None,
+        adaptative_sd=True,
     ):
         """Initialize MCMC chains based on a model's latent variables.
 
         Parameters
         ----------
-        theta0 : jnp.ndarray
-            Initial values for model parameters.
         model : type[AbstractLatentVariablesModel]
             The model with latent variable definitions.
+        theta0 : jnp.ndarray, optional
+            Initial values for model parameters. (default is randomly drown)
         sd : dict[str, float], optional
             Standard deviation values for each MCMC chain (default is None).
+        adaptative_sd : bool, optional
+            A flag indicating whether to use adaptive standard deviation adjustments
+
 
         Raises
         ------
         KeyError
             If a latent variable with the same name already exists.
         """
+        if theta0 is None:
+            self._prngkey, key = jrd.split(self._prngkey)
+            theta0 = jrd.normal(key, shape=(model.parametrization.size,))
 
         params0 = model.parametrization.reals1d_to_params(theta0)
         for new_mcmc_name in model.latent_variables_name:
             data = model.latent_variables_data(params0, new_mcmc_name)
 
             self.add_mcmc(
-                data["mean"],
-                sd=1 if sd is None else sd[new_mcmc_name],
-                size=data["size"],
                 likelihood=model.log_likelihood_array,
+                sd=1 if sd is None else sd[new_mcmc_name],
+                x0=data["mean"],
+                size=data["size"],
                 name=new_mcmc_name,
             )
+
+        for var_lat in self.latent_variables.values():
+            var_lat.adaptative_sd = adaptative_sd
 
     def add_data(self, **kwargs) -> None:
         """Add variables to the MCMC solver data.
@@ -193,8 +195,6 @@ class AbstractAlgoMCMC:
         self.add_data(**dict(((new_mcmc_name, new_mcmc.data),)))
 
     # ============================================================== #
-
-    @partial(jit, static_argnums=0)
     def _one_simulation(self, likelihood_kwargs, theta_reals1d):
         """Perform one simulation step for each latent variable.
 
