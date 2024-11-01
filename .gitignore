@@ -16,3 +16,6 @@
 
 # work personal folder
 work/
+
+# build folder
+dist/
