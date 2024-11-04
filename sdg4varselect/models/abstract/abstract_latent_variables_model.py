@@ -14,8 +14,6 @@ Functions in this module include:
 Create by antoine.caillebotte@inrae.fr
 """
 
-# pylint: disable=C0116
-
 import functools
 from typing import Union, Type
 
