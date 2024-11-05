@@ -385,7 +385,7 @@ def log_likelihood_marginal(
     value_old = jnp.log((jnp.array(out[:-2]) / len(out[:-2])).sum(axis=0)).sum()
 
     n_simu = len(out)
-    while n_simu < size * 2 and (abs(value - value_old) >= 1e-2).all():
+    while n_simu < size * 2 and (abs(value / value_old - 1.0) >= 1e-2).all():
         print(abs(value - value_old))
         for _ in range(100):
             n_simu += 1
@@ -394,5 +394,4 @@ def log_likelihood_marginal(
             value_old = value
             value = jnp.log((jnp.array(out) / len(out)).sum(axis=0)).sum()
 
-    print(abs(value - value_old) >= 1e-2)
     return value
