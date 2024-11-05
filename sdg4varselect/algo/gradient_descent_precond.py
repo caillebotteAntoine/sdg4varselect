@@ -8,7 +8,7 @@ Created by antoine.caillebotte@inrae.fr
 """
 
 import itertools
-from copy import copy
+from copy import deepcopy
 
 import jax.numpy as jnp
 
@@ -64,7 +64,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
     ):
         AbstractAlgoFit.__init__(self, **kwargs)
 
-        self.step_size = copy(default_step_size)
+        self.step_size = deepcopy(default_step_size)
         self._heating = self.step_size.heating.step
 
         self._threshold = threshold

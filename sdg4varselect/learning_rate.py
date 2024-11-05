@@ -93,9 +93,6 @@ class LearningRate:
         coef_preheating: float = 1,
         heating: float = None,
         coef_heating: float = 1,
-        # settings: LearningRateSettings = LearningRateSettings(0, 1, None, 1),
-        # value_max: float = 1,
-        # step_flat: int = 0,
     ):
         """Initializes a new Learning rate object with the given parameters.
 
