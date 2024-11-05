@@ -58,12 +58,6 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
     save_all : bool
         Flag to control whether intermediate iterations should be retained.
 
-    preconditioner : AbstractPreconditioner
-        An instance of a preconditioner that can computes precondtionned gradient
-
-    threshold : float, optional
-        A threshold for the gradient magnitude to determine convergence. The default value is 1e-4.
-
     Attributes
     ----------
     _pre_heating : int
