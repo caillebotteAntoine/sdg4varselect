@@ -35,8 +35,6 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
         Number of time points or other repeated measures.
     me_name : list of str
         Names of the mixed effect variables.
-    **kwargs : dict
-        Additional parameters for initialization.
     """
 
     def __init__(
@@ -183,12 +181,7 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
 
     # ============================================================== #
     @abstractmethod
-    def sample(
-        self,
-        params_star,
-        prngkey,
-        **kwargs,
-    ) -> tuple[dict, dict]:
+    def sample(self, params_star, prngkey, **kwargs) -> tuple[dict, dict]:
         """Sample one data set for the model
 
         Parameters
