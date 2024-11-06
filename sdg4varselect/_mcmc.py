@@ -21,6 +21,7 @@ from jax import jit
 from jax import random as jrd
 
 from sdg4varselect._chain import Chain
+from sdg4varselect.exceptions import Sdg4vsNanError
 
 
 @partial(
@@ -32,7 +33,7 @@ def gibbs_sampler(
     data_name,  # 1
     standard_deviation,  # 2
     loglikelihood: callable,
-    theta_reals1d: jnp.ndarray,
+    current_score: jnp.ndarray,
     **kwargs
 ):
     """Parameters
@@ -44,11 +45,11 @@ def gibbs_sampler(
     standard_deviation : float
         The standard deviation for the proposal distribution used in Metropolis-Hastings.
     loglikelihood : callable
-        The log-likelihood function, which takes `theta_reals1d` and additional arguments from `kwargs`.
-    theta_reals1d : jnp.ndarray
-        Parameters used as input to `loglikelihood`.
+        The log-likelihood function, which takes arguments from `kwargs`.
+    current_score : jnp.ndarray
+        the current value of the log-likelihood
     **kwargs : dict
-        Additional arguments passed to `loglikelihood`, including the data to be sampled.
+        all data required for log-likelihood computation.
 
     Returns
     -------
@@ -58,17 +59,16 @@ def gibbs_sampler(
         The new sampled values for the specified data, after the acceptance-rejection step.
     nacceptance : int
         Number of accepted proposals in this sampling iteration.
+
     """
 
     shape = kwargs[data_name].shape
     old_data = kwargs[data_name].copy()
 
-    current_score = loglikelihood(theta_reals1d, **kwargs)
-
     # === proposal value ===
     key_bis, key = jrd.split(key)
     kwargs[data_name] += standard_deviation * jrd.normal(key_bis, shape=shape)
-    proposal_score = loglikelihood(theta_reals1d, **kwargs)
+    proposal_score = loglikelihood(**kwargs)
 
     # choose the new value
     key_bis, key = jrd.split(key)
@@ -266,25 +266,35 @@ class MCMC(Chain):
             out.append(data)
         return out
 
-    def gibbs_sampler_step(self, key, theta_reals1d: np.ndarray, **kwargs):
+    def gibbs_sampler_step(self, key, **kwargs):
         """Performs a single Gibbs sampling step, updates the chain, and adapts the acceptance and standard deviation.
 
         Parameters
         ----------
         key : jax.random.PRNGKey
             A PRNG key, consumable by random functions used to sample possible values for the chain
-        theta_reals1d : array-like
-            Parameters passed to the log-likelihood function used in the Gibbs sampler.
         **kwargs : dict
-            Additional arguments passed to `gibbs_sampler`, such as data required for log-likelihood calculations.
+            all data required for log-likelihood computation.
 
         Returns
         -------
         key_out : jax.random.PRNGKey
             Updated PRNG key for subsequent sampling steps.
+
+        Raises
+        ------
+        Sdg4vsNanError
+            If Nan is detected in the loglikelihood computation.
         """
+
+        current_score = self._likelihood(**kwargs)
+        if jnp.isnan(current_score).any():
+            raise Sdg4vsNanError(
+                "Nan detected in the loglikelihood during Gibbs Sampling!"
+            )
+
         key_out, data, nacceptance = gibbs_sampler(
-            key, self.name, self.__sd[-1], self._likelihood, theta_reals1d, **kwargs
+            key, self.name, self.__sd[-1], self._likelihood, current_score, **kwargs
         )
 
         self._data[:] = data

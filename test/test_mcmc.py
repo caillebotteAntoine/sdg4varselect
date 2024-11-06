@@ -38,23 +38,23 @@ x_mcmc = MCMC(x0=1.0, sd=1, size=10, likelihood=likelihood_array, name="x")
 x = x_mcmc.data
 
 
-def gibbs(key):
-    for i in range(400):
-        key = x_mcmc.gibbs_sampler_step(
-            key,
-            theta0_reals1d,
-            x=x,
-        )
+# def gibbs(key):
+#     for i in range(400):
+#         key = x_mcmc.gibbs_sampler_step(
+#             key,
+#             theta0_reals1d=theta0_reals1d,
+#             x=x,
+#         )
 
 
-gibbs_sampler(
-    jrd.PRNGKey(0),
-    "x",
-    0.1,
-    likelihood_array,
-    theta0_reals1d,
-    x=x,
-)
+# gibbs_sampler(
+#     jrd.PRNGKey(0),
+#     "x",
+#     0.1,
+#     likelihood_array,
+#     theta0_reals1d=theta0_reals1d,
+#     x=x,
+# )
 
 
 # def test_gibbs_sampler():
