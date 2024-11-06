@@ -124,7 +124,8 @@ class AbstractModel(ABC):
         """
         return self._parametrization
 
-    def hstack_params(self, params) -> jnp.ndarray:
+    @staticmethod
+    def hstack_params(params) -> jnp.ndarray:
         """Return a copy of the params array collapsed into one dimension.
 
         Parameters

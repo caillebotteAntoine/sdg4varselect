@@ -14,8 +14,6 @@ Functions in this module include:
 Create by antoine.caillebotte@inrae.fr
 """
 
-# pylint: disable=C0116
-
 import functools
 from typing import Union, Type
 
@@ -350,7 +348,7 @@ def log_likelihood_marginal(
     prngkey,
     data: dict,
     theta_reals1d: jnp.ndarray,
-    size=4000,
+    size=1000,
 ) -> jnp.ndarray:
     """
     Compute the marginal log-likelihood.
@@ -366,7 +364,7 @@ def log_likelihood_marginal(
     theta_reals1d : jnp.ndarray
         Parameters passed to the log-likelihood function.
     size : int, optional
-        Number of simulations for marginalization, by default 4000.
+        Number of simulations for marginalization, by default 1000.
 
     Returns
     -------

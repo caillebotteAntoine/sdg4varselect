@@ -327,3 +327,51 @@ class MCMC(Chain):
         # self.__lambda *= 0.999
         self.__sd.append(sd_prop)
         return None
+
+    def plot(self, fig=None, id_max=None):
+        """Plot the Markov Chain, acceptance rate, and proposal standard deviation (if adaptive)
+
+        Parameters
+        ----------
+        fig : matplotlib.figure.Figure, optional
+            A matplotlib figure object to plot on. If None, a new figure is created.
+        id_max : int, optional
+            The maximum number of iterations to plot. If None, all available iterations are plotted.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The matplotlib figure.
+        axs : numpy.ndarray
+            An array of the matplotlib axes.
+
+        Notes
+        -----
+        - The top plot shows the values of the MCMC chain up to `id_max`.
+        - The middle plot displays the acceptance rate over iterations.
+        - If the standard deviation is adaptive, a third plot shows the
+            evolution of the proposal standard deviation.
+        """
+
+        if id_max is None:
+            id_max = len(self.chain)
+        if len(self.sd) == 1:
+            axs = fig.subplots(2, 1, sharex=True)
+        else:
+            axs = fig.subplots(3, 1, sharex=True)
+
+        axs[0].set_title(label="MCMC of " + self.name)
+
+        axs[0].plot(self.chain[:id_max])
+        axs[0].set_ylabel("Chain")
+
+        axs[1].plot(self.acceptance_rate()[:id_max])
+        axs[1].set_ylabel("Acceptance rate")
+
+        if len(self.sd) != 1:
+            axs[2].plot(self.sd[:id_max])
+            axs[2].set_ylabel("Proposal sd")
+
+        axs[-1].set_xlabel("Iteration")
+
+        return fig, axs

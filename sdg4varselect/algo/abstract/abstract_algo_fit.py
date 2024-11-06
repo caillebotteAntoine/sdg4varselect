@@ -169,7 +169,7 @@ class AbstractAlgoFit(ABC):
         data: dict,
         theta0_reals1d: jnp.ndarray,
         freezed_components: jnp.ndarray = None,
-    ):  # pylint :disable=missing-return-type-doc
+    ) -> Sdg4vsResults:
         """Main method, run the algorithm according to model.
 
         Parameters
@@ -181,7 +181,7 @@ class AbstractAlgoFit(ABC):
 
         Returns
         -------
-        list
+        list : Type[Sdg4vsResults]
             Depends on algorithm class
         """
         chrono_start = datetime.now()
