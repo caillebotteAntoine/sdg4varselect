@@ -207,7 +207,7 @@ class AbstractAlgoMCMC:
         """
         for var_lat in self._latent_variables.values():
             self._prngkey = var_lat.gibbs_sampler_step(
-                self._prngkey, theta_reals1d, **likelihood_kwargs
+                self._prngkey, theta_reals1d=theta_reals1d, **likelihood_kwargs
             )
 
     # ============================================================== #
