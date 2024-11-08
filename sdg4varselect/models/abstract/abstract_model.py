@@ -4,12 +4,8 @@ This module defines the `AbstractModel` class, which serves as a template for cr
 Create by antoine.caillebotte@inrae.fr
 """
 
-# pylint: disable=C0116
-
 from abc import ABC, abstractmethod
 import functools
-
-# import numpy as np
 
 from typing import Union
 

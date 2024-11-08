@@ -19,6 +19,7 @@ from datetime import timedelta
 import jax.numpy as jnp
 
 
+from sdg4varselect._criterion_bic_ebic import BIC, eBIC
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.exceptions import Sdg4vsNanError
 
@@ -57,8 +58,17 @@ def _get_filename(
     return filename
 
 
+@dataclasses.dataclass
 class Sdg4vsResults:
-    """Class to handle results for the sdg4varselect package."""
+    """Class to handle results for the sdg4varselect package.
+
+    Attributes
+    ----------
+    chrono : timedelta, default=timedelta()
+        The duration of the gradient descent process.
+    """
+
+    chrono: timedelta = timedelta()
 
     @staticmethod
     def load(
@@ -132,12 +142,13 @@ class GDResults(Sdg4vsResults):
         The log-likelihood value associated with the optimization process.
     """
 
-    theta: jnp.ndarray
+    theta: jnp.ndarray = None
     theta_reals1d: jnp.ndarray = None
     fim: jnp.ndarray = None
     grad: jnp.ndarray = None
-    chrono: timedelta = timedelta()
     log_likelihood: jnp.ndarray = jnp.nan
+    bic: jnp.ndarray = None
+    ebic: jnp.ndarray = None
 
     @classmethod
     def new_from_list(cls, sdg_res, chrono) -> "GDResults":
@@ -158,6 +169,7 @@ class GDResults(Sdg4vsResults):
         res = [
             [sdg_res[i][j] for i in range(len(sdg_res))] for j in range(len(sdg_res[0]))
         ]
+        GDResults(chrono)
 
         return cls(
             theta=jnp.array(res[0]),
@@ -167,6 +179,21 @@ class GDResults(Sdg4vsResults):
             chrono=chrono,
             log_likelihood=jnp.nan,
         )
+
+    def update_bic(self, model):
+        """Update bic and ebic values.
+
+        Parameters
+        ----------
+        model : object
+            Model object containing the number of parameters (`P`) and the sample size (`N`)
+            required for BIC and eBIC computation.
+        """
+        P = model.P
+        N = model.N
+
+        self.bic = BIC(self.last_theta[-P:], self.log_likelihood, N)
+        self.ebic = eBIC(self.last_theta[-P:], self.log_likelihood, N)
 
     def shrink(self, row=None, col=None):
         """Reduce the dimensions of theta and grad based on provided indices.
@@ -259,13 +286,14 @@ class GDResults(Sdg4vsResults):
         grad = self.grad[id_not_nan]
 
         self.theta = jnp.array([theta[0], theta[-1]])
-        self.fim = None
+        self.fim = (self.fim[0], self.fim[1])
         self.grad = jnp.array([grad[0], grad[-1]])
 
 
 ###########################################################################################################
 
 
+@dataclasses.dataclass
 class SGDResults(GDResults):
     """
     Class to handle stochastic gradient descent (SGD) results.
@@ -320,15 +348,15 @@ class MultiGDResults:
 
     # === property === #
     @property
-    def likelihood(self):
-        """Get likelihood values from each GDResults instance.
+    def log_likelihood(self):
+        """Get log_likelihood values from each GDResults instance.
 
         Returns
         -------
         jnp.ndarray
-            Array of likelihood values.
+            Array of log_likelihood values.
         """
-        return jnp.array([x.likelihood for x in self])
+        return jnp.array([x.log_likelihood for x in self])
 
     @property
     def last_theta(self):
@@ -352,7 +380,41 @@ class MultiGDResults:
         """
         return jnp.array([x.theta for x in self])
 
+    @property
+    def bic(self):
+        """Get bic values from each GDResults instance.
+
+        Returns
+        -------
+        jnp.ndarray
+            Array of bic values.
+        """
+        return jnp.array([x.bic for x in self])
+
+    @property
+    def ebic(self):
+        """Get ebic values from each GDResults instance.
+
+        Returns
+        -------
+        jnp.ndarray
+            Array of ebic values.
+        """
+        return jnp.array([x.ebic for x in self])
+
     # ========================================= #
+    def update_bic(self, model):
+        """Update the BIC and eBIC scores for the model based on the final estimated parameters.
+
+        Parameters
+        ----------
+        model : object
+            Model object containing the number of parameters (`P`) and the sample size (`N`)
+            required for BIC and eBIC computation.
+        """
+        for res in self:
+            res.update_bic(model)
+
     def make_it_lighter(self):
         """Reduce memory usage in all contained GDResults instances."""
         for res in self:
@@ -399,11 +461,13 @@ class MultiGDResults:
         return out
 
     def sort(self):
-        """Sort results based on likelihood values."""
+        """Sort results based on log_likelihood values."""
         self.results = sorted(
             self.results,
             key=lambda x: (
-                -x.likelihood if len(x.likelihood.shape) == 0 else -x.likelihood[-1]
+                -x.log_likelihood
+                if len(x.log_likelihood.shape) == 0
+                else -x.log_likelihood[-1]
             ),
         )
 
@@ -412,7 +476,7 @@ class MultiGDResults:
 
     def plot_theta(
         self,
-        fig=None,
+        fig,
         params_star: jnp.ndarray = None,
         params_names: list[str] = None,
         log_scale: bool = True,
@@ -421,7 +485,7 @@ class MultiGDResults:
 
         Parameters
         ----------
-        fig : matplotlib.figure.Figure, optional
+        fig : matplotlib.figure.Figure
             Figure used for plotting.
         params_star : array-like, optional
             Reference parameter values.
@@ -491,4 +555,136 @@ class MultiGDResults:
         if len(fig.axes) > 0:
             fig.axes[0].set_title("Parameter")
 
+        return fig
+
+
+@dataclasses.dataclass
+class RegularizationPath(MultiGDResults):
+    """Class representing the regularization path of model parameters for varying regularization penalties.
+
+    This class stores results from a multi-gradient descent (GD) algorithm across different values of
+    a regularization parameter `lambda` (stored in `lbd_set`). It provides methods to standardize the
+    computed regularization path and plot the results for model evaluation and selection.
+
+    Parameters
+    ----------
+    lbd_set : jnp.ndarray
+        Array of regularization parameter values (`lambda` values) used in the regularization path.
+
+    Methods
+    -------
+    standardize()
+        Standardizes the regularization path by selecting the model with the lowest Bayesian Information
+        Criterion (BIC) or Extended Bayesian Information Criterion (eBIC) for each support.
+
+    plot(fig, P)
+        Plots the regularization path, showing the selected BIC and eBIC scores, as well as the parameter
+        values across the range of `lambda` values.
+    """
+
+    lbd_set: jnp.ndarray = jnp.nan
+
+    def standardize(self):
+        """Standardizes the regularization path by selecting models with the lowest BIC/eBIC.
+
+        This method iterates over the regularization path and, for each unique support of non-zero
+        parameters, finds the model with the minimum BIC score. The BIC and eBIC values for that
+        model are then assigned to all other models with the same support. This ensures consistency
+        in evaluation metrics across models with identical support.
+
+        Returns
+        -------
+        RegularizationPath
+            A standardized version of the `RegularizationPath` object with consistent BIC/eBIC values
+            for models with the same support.
+        """
+        out = deepcopy(self)
+        k = 0
+
+        while k < len(self):
+            supp_k = self[k].last_theta[-1] != 0
+            same_supp = []
+
+            i = k
+            supp_i = supp_k
+            while i < len(self) and (supp_i == supp_k).all():
+                same_supp.append(i)
+                i += 1
+                if i < len(self):
+                    supp_i = self[i].last_theta[-1] != 0
+
+            best_supp_id = k + self.bic[-1, same_supp].argmin()
+            k = i
+            # print(same_supp, best_supp_id)
+            for i in same_supp:
+                out[i].bic = self[best_supp_id].bic
+                out[i].ebic = self[best_supp_id].ebic
+
+        return out
+
+    def plot(self, fig, P):
+        """Plots the regularization path, showing parameter values and BIC/eBIC scores.
+
+        This method visualizes the evolution of parameter values across `lambda` values,
+        as well as the BIC and eBIC scores. For each score, a vertical line is drawn at the
+        optimal `lambda` where the score is minimized.
+
+        Parameters
+        ----------
+        fig : matplotlib.figure.Figure
+            Figure object on which to plot.
+        P : int
+            Number of parameters to display in the plot.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Figure containing the parameter plots.
+        """
+
+        def axvline_argmin(ax, x, color):
+            lbd = self.lbd_set[jnp.argmin(x)]
+
+            ax.axvline(x=lbd, color=color, linewidth=2, linestyle="--")
+            ax.text(
+                lbd,
+                0.8 * x.max() + 0.2 * x.min(),
+                rf"$\lambda$ = {lbd:.3e}",
+                color=color,
+                ha="center",
+                va="center",
+                rotation="vertical",
+                backgroundcolor="white",
+            )
+
+        def plot_bic(
+            ax, x, colors=("k", "w"), name=""
+        ):  # pylint: disable=missing-return-doc, missing-return-type-doc
+
+            (l1,) = ax.plot(
+                self.lbd_set, x, color=colors[0], linewidth=5, linestyle="-", label=name
+            )
+            (l2,) = ax.plot(
+                self.lbd_set, x, color=colors[1], linewidth=3, linestyle="--"
+            )
+            ax.set(ylabel="Score")
+
+            axvline_argmin(ax, x, color=colors[0])
+            return (l1, l2)
+
+        ax = fig.subplots(1, 1)
+
+        multi_theta_hd = self.last_theta[:, -P:]
+        ax.plot(self.lbd_set, multi_theta_hd)
+
+        ax.set_title("Regularization path")
+        ax.set_xlabel(r"Regularization penalty ($\lambda$)")
+        ax.set_ylabel(r"Parameter")
+
+        ax.set_xscale("log")
+
+        ax_bic = ax.twinx()
+        lines_bic = plot_bic(ax_bic, self.bic, colors=["b", "w"], name="BIC")
+        lines_ebic = plot_bic(ax_bic, self.ebic, colors=["r", "w"], name="eBIC")
+        fig.legend([lines_bic, lines_ebic], ["BIC", "eBIC"])
         return fig
