@@ -128,6 +128,8 @@ def plot_theta(
     p_star = None
     if params_star is not None:
         p_star = AbstractModel.hstack_params(params_star)
+    if params_star is not None:
+        params_names = np.array(params_names)
 
     if id_to_plot is not None:
         if not isinstance(id_to_plot[0], list):
@@ -142,8 +144,8 @@ def plot_theta(
             return [
                 x.shrink(col=col).plot_theta(
                     fig[i],
-                    p_star[np.array(col)],
-                    params_names[np.array(col)],
+                    p_star[np.array(col)] if p_star is not None else None,
+                    params_names[np.array(col)] if params_names is not None else None,
                     log_scale,
                 )
                 for i, col in enumerate(id_to_plot)

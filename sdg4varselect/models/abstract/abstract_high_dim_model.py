@@ -81,7 +81,9 @@ class AbstractHDModel:
         assert (
             self.P <= self.parametrization_size
         ), "high dimension length must be smaller than the parametrization_size"
-        return jnp.arange(self.parametrization_size) >= self.P
+        return (
+            jnp.arange(self.parametrization_size) > self.parametrization_size - self.P
+        )
 
     # @classmethod
     # def shrink_model_and_data(

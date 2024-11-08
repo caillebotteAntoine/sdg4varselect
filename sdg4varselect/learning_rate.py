@@ -154,6 +154,7 @@ class LearningRate:
             step,
         )
 
+    @functools.partial(jit, static_argnums=0)
     def __call__(self, step: int) -> float:
         return jnp.select(
             [

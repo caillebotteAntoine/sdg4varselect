@@ -221,7 +221,6 @@ class AbstractAlgoFit(ABC):
             else:
                 raise flag
         # every things is good
-
         out = self.results_warper(
             model, data, out, chrono=datetime.now() - chrono_start
         )

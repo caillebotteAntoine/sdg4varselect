@@ -8,6 +8,7 @@ Created by antoine.caillebotte@inrae.fr
 """
 
 from datetime import datetime
+from copy import deepcopy
 
 import jax.numpy as jnp
 
@@ -124,7 +125,7 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         out = SGDResults.new_from_list(results, chrono)
         out.latent_variables = {}
         for key, var in self.latent_variables.items():
-            out.latent_variables[key] = var.data
+            out.latent_variables[key] = deepcopy(var.data)
 
         out.log_likelihood = log_likelihood_marginal(
             model, self._prngkey, data, out.last_theta
