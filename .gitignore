@@ -19,3 +19,6 @@ work/
 
 # build folder
 dist/
+
+# documentation folder
+doc/build/
