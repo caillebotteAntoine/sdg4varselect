@@ -4,6 +4,7 @@ Documentation
 TODO
 
 .. automodule:: sdg4varselect
+   :toctree: generated/
    :members:
    :imported-members:
    :inherited-members:
@@ -16,13 +17,18 @@ TODO
 =======================================
 Available models in `Sdg4varselect`.
 
+
 .. currentmodule:: sdg4varselect.models
 
-
 .. autosummary::
-   :toctree: generated
+   :toctree: generated/models
+   :template: class.rst
 
-   abstract.abstract_model
+   AbstractModel
+   AbstractLatentVariablesModel
+   AbstractMixedEffectsModel
+   AbstractHDModel
+
 
 
 
@@ -33,8 +39,9 @@ Available algorithm in `Sdg4varselect`.
 .. currentmodule:: sdg4varselect.algo
 
 .. autosummary::
-   :toctree: generated
+   :toctree: generated/algo
+   :template: class.rst
 
-   SPGD_Prec
-   sto_prox_grad_descent_precond
-   sto_prox_grad_descent_precond.StochasticProximalGradientDescentPrecond
+   GradientDescentPrecond
+   StochasticGradientDescentPrecond
+   StochasticProximalGradientDescentPrecond

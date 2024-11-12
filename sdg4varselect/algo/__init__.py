@@ -17,14 +17,20 @@ Create by antoine.caillebotte@inrae.fr
 
 """
 
-from .gradient_descent_precond import (
-    GradientDescentPrecond as GD_Prec,
-)
+from .gradient_descent_precond import GradientDescentPrecond
 
-from .sto_grad_descent_precond import (
-    StochasticGradientDescentPrecond as SGD_Prec,
-)
+from .sto_grad_descent_precond import StochasticGradientDescentPrecond
 
-from .sto_prox_grad_descent_precond import (
-    StochasticProximalGradientDescentPrecond as SPGD_Prec,
-)
+from .sto_prox_grad_descent_precond import StochasticProximalGradientDescentPrecond
+
+# from .gradient_descent_precond import (
+#     GradientDescentPrecond as GD_Prec,
+# )
+
+# from .sto_grad_descent_precond import (
+#     StochasticGradientDescentPrecond as SGD_Prec,
+# )
+
+# from .sto_prox_grad_descent_precond import (
+#     StochasticProximalGradientDescentPrecond as SPGD_Prec,
+# )

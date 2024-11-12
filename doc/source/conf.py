@@ -17,7 +17,7 @@ author = "Caillebotte"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
-    # "numpydoc",
+    "numpydoc",
     "sphinx.ext.napoleon",
     "sphinx_rtd_theme",
 ]
@@ -34,7 +34,6 @@ exclude_patterns = []
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
 
@@ -44,7 +43,13 @@ release = version(project)
 version = release
 
 
-# include directories (w:separate build and source)
+html_theme = "sphinx_rtd_theme"
+html_theme_options = {
+    "body_max_width": "none",
+    "page_width": "auto",
+}
+
+
 import os
 import sys
 
