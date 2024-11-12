@@ -20,5 +20,6 @@ work/
 # build folder
 dist/
 
-# documentation folder
+# Sphinx documentation folder
 doc/build/
+doc/source/generated

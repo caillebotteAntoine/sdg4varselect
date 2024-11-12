@@ -15,9 +15,17 @@ author = "Caillebotte"
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    # "numpydoc",
     "sphinx.ext.napoleon",
     "sphinx_rtd_theme",
 ]
+
+modindex_common_prefix = ["sdg4varselect."]
+
+autodoc_default_flags = ["members", "inherited-members"]
+autoclass_content = "both"
 
 templates_path = ["_templates"]
 exclude_patterns = []
@@ -34,3 +42,10 @@ from importlib.metadata import version
 
 release = version(project)
 version = release
+
+
+# include directories (w:separate build and source)
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath("../.."))
