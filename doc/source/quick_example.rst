@@ -1,4 +1,4 @@
-Sdg4varselect in a nutshell
+Quick example : Logistic growth
 ***************************
 
 Comprehensive example

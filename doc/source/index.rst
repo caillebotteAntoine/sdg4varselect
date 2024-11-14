@@ -16,7 +16,7 @@ Welcome to Sdg4varselect's documentation!
    :caption: Getting Started
 
    ./install_sdg.rst
-   ./sdg_in_nutshell.rst
+   ./quick_example.rst
 
 .. toctree::
    :maxdepth: 4
@@ -24,6 +24,8 @@ Welcome to Sdg4varselect's documentation!
    :caption: Documentation
 
    ./documentation.rst
+   ./py-modindex
+
 
 Stochastic Descent Gradient : Estimation & Variables selection
 ==============================================================
@@ -36,5 +38,15 @@ TODO : quick Description of the package math background
 
 Further information
 -------------------
-
+d
 reference .bib
+
+
+
+.. autosummary::
+   :toctree: generated/
+   :recursive:
+
+   sdg4varselect
+
+* :ref:`genindex`

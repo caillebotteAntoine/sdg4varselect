@@ -23,10 +23,14 @@ extensions = [
 ]
 
 modindex_common_prefix = ["sdg4varselect."]
+# to remove sdg4varselect in front of all objects
+add_module_names = False
+
 
 autodoc_default_flags = ["members", "inherited-members"]
 autoclass_content = "both"
 
+autosummary_generate = True
 templates_path = ["_templates"]
 exclude_patterns = []
 
@@ -44,9 +48,13 @@ version = release
 
 
 html_theme = "sphinx_rtd_theme"
+# html_theme_options = {
+#     "body_max_width": "none",
+#     "page_width": "auto",
+# }
+
 html_theme_options = {
-    "body_max_width": "none",
-    "page_width": "auto",
+    "navigation_depth": 4,
 }
 
 

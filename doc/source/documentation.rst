@@ -1,19 +1,9 @@
-Documentation
+API Documentation
 ***************************
 
 TODO
 
-.. automodule:: sdg4varselect
-   :toctree: generated/
-   :members:
-   :imported-members:
-   :inherited-members:
-   :special-members: __init__
-   :undoc-members:
-   :show-inheritance:
-
-
-:mod:`sdg4varselect.models`: **Models**
+:mod:`\\.models`: **Models**
 =======================================
 Available models in `Sdg4varselect`.
 
@@ -29,12 +19,9 @@ Available models in `Sdg4varselect`.
    AbstractMixedEffectsModel
    AbstractHDModel
 
-
-
-
-:mod:`sdg4varselect.algo`: **Algo**
+:mod:`\\.algo`: **Algorithms**
 =======================================
-Available algorithm in `Sdg4varselect`.
+Available algorithms in `Sdg4varselect`.
 
 .. currentmodule:: sdg4varselect.algo
 
@@ -42,6 +29,56 @@ Available algorithm in `Sdg4varselect`.
    :toctree: generated/algo
    :template: class.rst
 
+   ./abstract/AbstractAlgoFit
+   ./abstract/AbstractAlgoMCMC
+
+   ./preconditionner/AbstractPreconditioner
+   ./preconditionner/Fisher
+   ./preconditionner/AdaGrad
+
    GradientDescentPrecond
    StochasticGradientDescentPrecond
    StochasticProximalGradientDescentPrecond
+
+:mod:`\\._mcmc`: **MCMC sampling**
+=======================================
+MCMC Sampler in `_mcmc`.
+
+.. currentmodule:: sdg4varselect
+
+.. autosummary::
+   :toctree: generated/mcmc
+   :template: class.rst
+
+   _chain.Chain
+   _mcmc.MCMC
+
+:mod:`\\.outputs`: **Results Objects**
+=======================================
+Available results objects in `outputs`.
+
+.. currentmodule:: sdg4varselect.outputs
+
+.. autosummary::
+   :toctree: generated/outputs
+   :template: class.rst
+
+   Sdg4vsResults
+   GDResults
+   SGDResults
+   MultiGDResults
+   RegularizationPath
+
+:mod:`\\.exceptions`: **Exceptions**
+=======================================
+Available exceptions in `Sdg4varselect`.
+
+.. currentmodule:: sdg4varselect.exceptions
+
+.. autosummary::
+   :toctree: generated/exceptions
+   :template: class.rst
+
+   Sdg4vsException
+   Sdg4vsNanError
+   Sdg4vsWrongParametrization
