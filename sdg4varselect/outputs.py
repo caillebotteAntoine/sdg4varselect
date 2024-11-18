@@ -330,7 +330,7 @@ class SGDResults(GDResults):
 ###########################################################################################################
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass()
 class MultiGDResults(Sdg4vsResults):
     """Iterable container for multiple GDResults instances.
 
@@ -343,7 +343,6 @@ class MultiGDResults(Sdg4vsResults):
     """
 
     results: list[Type[GDResults]] = dataclasses.field(default_factory=list)
-    chrono: timedelta = timedelta()
 
     def __post_init__(self):
         """Initialize MultiGDResults by cleaning NaN errors and reshaping."""
@@ -581,7 +580,7 @@ class MultiGDResults(Sdg4vsResults):
         return fig
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass()
 class RegularizationPath(MultiGDResults):
     """Class representing the regularization path of model parameters for varying regularization penalties.
 
@@ -612,7 +611,7 @@ class RegularizationPath(MultiGDResults):
 
         assert len(self.lbd_set) == len(
             self.results
-        ), "lbd_set must have the same size of the results list !"
+        ), f"lbd_set must have the same size of the results list: {len(self.lbd_set)} != {len(self.results)}"
 
     def standardize(self):
         """Standardizes the regularization path by selecting models with the lowest BIC/eBIC.

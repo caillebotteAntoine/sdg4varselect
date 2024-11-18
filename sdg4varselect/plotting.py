@@ -129,7 +129,7 @@ def plot_theta(
         The figure(s) created for the parameter plot.
     """
     if isinstance(x, (GDResults, SGDResults)):
-        x = MultiGDResults([x])
+        x = MultiGDResults(results=[x])
 
     assert isinstance(x, MultiGDResults)
 

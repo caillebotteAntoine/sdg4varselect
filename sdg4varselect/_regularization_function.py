@@ -95,6 +95,6 @@ def regularization_path(
                 break
             yield res_estim
 
-    out = RegularizationPath(list(iter_estim()), lbd_set=lbd_set)
+    out = RegularizationPath(results=list(iter_estim()), lbd_set=lbd_set)
     out.update_bic(model)
     return out
