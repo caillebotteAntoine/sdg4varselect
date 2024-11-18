@@ -126,9 +126,9 @@ class AbstractLatentVariablesModel(ABC):
         Size of latent variables.
     """
 
-    def __init__(self, me_name: list[str], me_size=int):
-        self._latent_variables_name = me_name
-        self._latent_variables_size = me_size
+    def __init__(self, size=int):
+        self._latent_variables_name = []
+        self._latent_variables_size = size
 
     @property
     def latent_variables_name(self):
@@ -139,6 +139,23 @@ class AbstractLatentVariablesModel(ABC):
     def latent_variables_size(self):
         """int: Size of latent variables."""
         return self._latent_variables_size
+
+    def add_latent_variables(self, name):
+        """Add a new latent variable to the model.
+
+        Parameters
+        ----------
+        name : str
+            The name of the new latent variable
+
+        Raises
+        ------
+        KeyError
+            If an latent variable with the same name already exists.
+        """
+        if name in self._latent_variables_name:
+            raise KeyError(name + " all ready exist as latent variables.")
+        self._latent_variables_name += [name]
 
     @functools.partial(jit, static_argnums=0)
     def mean_and_cov_latent(self, params):

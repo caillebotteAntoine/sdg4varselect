@@ -41,11 +41,10 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
         self,
         N: int,
         J: int,
-        me_name: list[str],
         **kwargs,
     ):
         AbstractModel.__init__(self, N, **kwargs)
-        AbstractLatentVariablesModel.__init__(self, me_name, me_size=N)
+        AbstractLatentVariablesModel.__init__(self, size=N)
 
         self._j = J
 

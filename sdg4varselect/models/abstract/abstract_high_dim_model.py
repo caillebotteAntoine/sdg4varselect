@@ -58,7 +58,7 @@ class AbstractHDModel:
 
     @P.setter
     def P(self, P):
-        self._p = P
+        self._p = int(P)
 
     @property
     def hd_mask(self) -> jnp.ndarray:
