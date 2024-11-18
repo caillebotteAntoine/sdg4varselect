@@ -105,6 +105,7 @@ class AbstractAlgoMCMC:
         for name, var in self.latent_variables.items():
             data = model.latent_variables_data(params, name)
             var.reset(x0=data["mean"])
+            var.likelihood = model.log_likelihood_array
 
     # ============================================================== #
     def init_mcmc(
@@ -132,6 +133,8 @@ class AbstractAlgoMCMC:
         ------
         KeyError
             If a latent variable with the same name already exists.
+
+        TODO check if mcmc have been init
         """
         if theta0 is None:
             self._prngkey, key = jrd.split(self._prngkey)

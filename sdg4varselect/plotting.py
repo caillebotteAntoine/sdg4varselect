@@ -19,7 +19,12 @@ from sdg4varselect.algo.sto_grad_descent_precond import (
     StochasticGradientDescentPrecond as SGD,
 )
 from sdg4varselect._mcmc import MCMC
-from sdg4varselect.outputs import MultiGDResults
+from sdg4varselect.outputs import (
+    GDResults,
+    SGDResults,
+    MultiGDResults,
+    RegularizationPath,
+)
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
 FIGSIZE = 8
@@ -105,7 +110,7 @@ def plot_theta(
 
     Parameters
     ----------
-    x : MultiGDResults
+    x : MultiGDResults, GDResults or SGDResults
         Results of stochastic gradient descent.
     fig : matplotlib.figure.Figure or list of matplotlib.figure.Figure, optional
         Figure(s) to use for plotting. If None, a new figure is created.
@@ -123,6 +128,9 @@ def plot_theta(
     list of matplotlib.figure.Figure or matplotlib.figure.Figure
         The figure(s) created for the parameter plot.
     """
+    if isinstance(x, (GDResults, SGDResults)):
+        x = MultiGDResults([x])
+
     assert isinstance(x, MultiGDResults)
 
     p_star = None
@@ -154,3 +162,32 @@ def plot_theta(
     if fig is None:
         fig = figure()
     return x.plot_theta(fig, p_star, params_names, log_scale)
+
+
+def plot_regpath(x, *, fig=None, P=None):
+    """Plots the regularization path, showing parameter values and BIC/eBIC scores.
+
+    This method visualizes the evolution of parameter values across `lambda` values,
+    as well as the BIC and eBIC scores. For each score, a vertical line is drawn at the
+    optimal `lambda` where the score is minimized.
+
+    Parameters
+    ----------
+    x : RegularizationPath
+        Results of the regularizationPath.
+    fig : matplotlib.figure.Figure or list of matplotlib.figure.Figure, optional
+        Figure(s) to use for plotting. If None, a new figure is created.
+    P : int
+        Number of parameters to display in the plot.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        Figure containing the parameter plots.
+    """
+    assert isinstance(x, RegularizationPath)
+
+    if fig is None:
+        fig = figure()
+
+    return x.plot(fig, P=P)

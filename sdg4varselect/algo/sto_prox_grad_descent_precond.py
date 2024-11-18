@@ -89,6 +89,10 @@ def proximal_operator(
     jnp.ndarray
         Array of parameters after applying the proximal operator.
     """
+    assert isinstance(lbd, (float, jnp.ndarray))
+    if isinstance(lbd, jnp.ndarray):
+        assert len(lbd.shape) == 0 or lbd.shape == theta_reals1d.shape
+
     return jnp.where(
         hd_mask,
         _prox(theta_reals1d, stepsize, lbd, alpha),
@@ -141,6 +145,7 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
     ):
         SGD_Prec.__init__(self, preconditioner, **kwargs)
 
+        self._preconditioned_lbd = False
         self._lbd = lbd
         self._alpha = alpha
 
@@ -199,7 +204,9 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
 
     # ============================================================== #
 
-    def _one_proximal_operator(self, theta_reals1d, step) -> jnp.ndarray:
+    def _one_proximal_operator(
+        self, theta_reals1d, step, preconditioner
+    ) -> jnp.ndarray:
         """Apply the proximal operator for a single step.
 
         Parameters
@@ -217,10 +224,16 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         if self._lbd is None:
             return theta_reals1d
 
+        regularization = (
+            self._lbd * jnp.diag(preconditioner)
+            if self._preconditioned_lbd
+            else self._lbd
+        )
+
         return proximal_operator(
             theta_reals1d,
             stepsize=self._step_size(step),
-            lbd=self._lbd,
+            lbd=regularization,
             alpha=self._alpha,
             hd_mask=self._hd_mask,
         )
@@ -245,6 +258,7 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         theta_reals1d = self._one_proximal_operator(
             theta_reals1d=theta_reals1d,
             step=step,
+            preconditioner=preconditioner,
         )
 
         return (theta_reals1d, grad_precond, preconditioner)

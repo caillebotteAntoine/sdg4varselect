@@ -150,6 +150,25 @@ class GDResults(Sdg4vsResults):
     bic: jnp.ndarray = None
     ebic: jnp.ndarray = None
 
+    # def expand(self, support):
+    #     def _expand(x):
+    #         shape = (x.shape[0], support.shape[0])
+    #         x_expand = jnp.zeros(shape=shape)
+    #         return = x_expand.at[:, jnp.where(support)[0]].set(x)
+
+    #     row, _ = self.theta.shape
+    #     theta_expand = jnp.zeros(shape=(row, support.shape[0]))
+    #     self.theta = theta_expand.at[:, jnp.where(support)[0]].set(self.theta)
+
+    # def __add__(self, x):
+    #     return GDResults(
+    #         theta=jnp.concatenate([self.theta, x.theta]),
+    #         theta_reals1d=jnp.concatenate([self.theta_reals1d, x.theta_reals1d]),
+    #         grad=jnp.concatenate([self.grad, x.grad]),
+    #         fim=self.fim + x.fim,
+    #         chrono=self.chrono + x.chrono,
+    #     )
+
     @classmethod
     def new_from_list(cls, sdg_res, chrono) -> "GDResults":
         """Create a new GDResults object from a list of results.
@@ -177,7 +196,6 @@ class GDResults(Sdg4vsResults):
             fim=res[2],
             grad=jnp.array(res[1]),
             chrono=chrono,
-            log_likelihood=jnp.nan,
         )
 
     def update_bic(self, model):
@@ -221,7 +239,7 @@ class GDResults(Sdg4vsResults):
 
         return out
 
-    def reshape(self, row, col=None):
+    def pad(self, row, col=None):
         """Pad theta and grad attributes to match specified dimensions.
 
         Parameters
@@ -237,20 +255,22 @@ class GDResults(Sdg4vsResults):
             A new GDResults instance with reshaped theta and grad.
         """
         out = deepcopy(self)
-        out.theta = jnp.pad(
-            self.theta,
-            (
-                (0, row - self.theta.shape[0]),
-                (0, 0 if col is None else (col - self.theta.shape[1])),
-            ),
-            constant_values=jnp.nan,
-        )
+        if out.theta is not None:
+            out.theta = jnp.pad(
+                self.theta,
+                (
+                    (0, row - self.theta.shape[0]),
+                    (0, 0 if col is None else (col - self.theta.shape[1])),
+                ),
+                constant_values=jnp.nan,
+            )
 
-        out.grad = jnp.pad(
-            self.grad,
-            ((0, row - self.grad.shape[0]), (0, 0)),
-            constant_values=jnp.nan,
-        )
+        if out.grad is not None:
+            out.grad = jnp.pad(
+                self.grad,
+                ((0, row - self.grad.shape[0]), (0, 0)),
+                constant_values=jnp.nan,
+            )
         return out
 
     @property
@@ -311,7 +331,7 @@ class SGDResults(GDResults):
 
 
 @dataclasses.dataclass
-class MultiGDResults:
+class MultiGDResults(Sdg4vsResults):
     """Iterable container for multiple GDResults instances.
 
     Attributes
@@ -332,7 +352,7 @@ class MultiGDResults:
 
         if len(self.results) > 0:
             max_row = max(run.theta.shape[-2] for run in self.results)
-            self.reshape(max_row, col=None)
+            self.pad(max_row, col=None)
 
         for item in self.results:
             self.chrono += item.chrono
@@ -340,8 +360,11 @@ class MultiGDResults:
     def __len__(self):
         return len(self.results)
 
-    def __getitem__(self, i) -> Type[GDResults]:
+    def __getitem__(self, i: int) -> Type[GDResults]:
         return self.results[i]
+
+    def __setitem__(self, i: int, res: Type[GDResults]) -> None:
+        self.results[i] = res
 
     def __iter__(self) -> Generator[None, Type[GDResults], None]:
         yield from self.results
@@ -420,7 +443,7 @@ class MultiGDResults:
         for res in self:
             res.make_it_lighter()
 
-    def reshape(self, row, col=None):
+    def pad(self, row, col=None):
         """Pad theta and grad in all GDResults instances to match specified dimensions.
 
         Parameters
@@ -437,7 +460,7 @@ class MultiGDResults:
         """
         out = deepcopy(self)
         for i, run in enumerate(out.results):
-            out.results[i] = run.reshape(row, col)
+            out.results[i] = run.pad(row, col)
         return out
 
     def shrink(self, row=None, col=None):
@@ -584,6 +607,13 @@ class RegularizationPath(MultiGDResults):
 
     lbd_set: jnp.ndarray = jnp.nan
 
+    def __post_init__(self):
+        super().__post_init__()
+
+        assert len(self.lbd_set) == len(
+            self.results
+        ), "lbd_set must have the same size of the results list !"
+
     def standardize(self):
         """Standardizes the regularization path by selecting models with the lowest BIC/eBIC.
 
@@ -602,7 +632,7 @@ class RegularizationPath(MultiGDResults):
         k = 0
 
         while k < len(self):
-            supp_k = self[k].last_theta[-1] != 0
+            supp_k = self[k].last_theta != 0
             same_supp = []
 
             i = k
@@ -611,18 +641,18 @@ class RegularizationPath(MultiGDResults):
                 same_supp.append(i)
                 i += 1
                 if i < len(self):
-                    supp_i = self[i].last_theta[-1] != 0
+                    supp_i = self[i].last_theta != 0
 
-            best_supp_id = k + self.bic[-1, same_supp].argmin()
+            best_supp_id = k + self.ebic[jnp.array(same_supp)].argmin()
             k = i
             # print(same_supp, best_supp_id)
             for i in same_supp:
-                out[i].bic = self[best_supp_id].bic
-                out[i].ebic = self[best_supp_id].ebic
+                out[i] = self[best_supp_id]
+                out[i].chrono = self[i].chrono
 
         return out
 
-    def plot(self, fig, P):
+    def plot(self, fig, P=None):
         """Plots the regularization path, showing parameter values and BIC/eBIC scores.
 
         This method visualizes the evolution of parameter values across `lambda` values,
@@ -674,6 +704,9 @@ class RegularizationPath(MultiGDResults):
 
         ax = fig.subplots(1, 1)
 
+        if P is None:
+            P = 0
+
         multi_theta_hd = self.last_theta[:, -P:]
         ax.plot(self.lbd_set, multi_theta_hd)
 
@@ -684,7 +717,7 @@ class RegularizationPath(MultiGDResults):
         ax.set_xscale("log")
 
         ax_bic = ax.twinx()
-        lines_bic = plot_bic(ax_bic, self.bic, colors=["b", "w"], name="BIC")
-        lines_ebic = plot_bic(ax_bic, self.ebic, colors=["r", "w"], name="eBIC")
-        fig.legend([lines_bic, lines_ebic], ["BIC", "eBIC"])
+        _ = plot_bic(ax_bic, self.bic, colors=["b", "w"], name="BIC")
+        _ = plot_bic(ax_bic, self.ebic, colors=["r", "w"], name="eBIC")
+        # fig.legend([lines_bic, lines_ebic], ["BIC", "eBIC"])
         return fig
