@@ -29,12 +29,12 @@ Available algorithms in `Sdg4varselect`.
    :toctree: generated/algo
    :template: class.rst
 
-   ./abstract/AbstractAlgoFit
-   ./abstract/AbstractAlgoMCMC
+   abstract.abstract_algo_fit.AbstractAlgoFit
+   abstract.abstract_algo_mcmc.AbstractAlgoMCMC
 
-   ./preconditionner/AbstractPreconditioner
-   ./preconditionner/Fisher
-   ./preconditionner/AdaGrad
+   preconditioner.AbstractPreconditioner
+   preconditioner.Fisher
+   preconditioner.AdaGrad
 
    GradientDescentPrecond
    StochasticGradientDescentPrecond
