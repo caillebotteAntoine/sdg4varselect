@@ -2,11 +2,10 @@
 Module for LearningRate class.
 
 Create by antoine.caillebotte@inrae.fr
+TODO : documentation
 """
 
 # pylint: disable-all
-
-import functools
 
 import dataclasses
 
@@ -19,7 +18,6 @@ from jax import jit
 import matplotlib.pyplot as plt
 
 
-@dataclasses.dataclass
 class _StepSettings:
     def __init__(self, step: float = 0, coef: float = 1):
 
@@ -29,8 +27,11 @@ class _StepSettings:
             raise TypeError("coef must be int or float")
         self.coef = coef
 
+    def __repr__(self) -> str:
+        return f"step : {self.step}, coef = {self.coef}"
+
     @property
-    def step(self):
+    def step(self) -> float:
         """return step"""
         return self._step
 
@@ -44,19 +45,56 @@ class _StepSettings:
 
 
 @dataclasses.dataclass
-class LearningRateSettings:
+class LearningRateSettings:  # pylint:disable = C0115
     preheating: _StepSettings = _StepSettings(0, 1)
     heating: _StepSettings = _StepSettings(None, 1)
 
-    def __init__(
-        self,
+    @classmethod
+    def new(
+        cls,
         preheating: float = 0,
         coef_preheating: float = 1,
         heating: float = None,
         coef_heating: float = 1,
-    ):
-        self.preheating = _StepSettings(preheating, coef_preheating)
-        self.heating = _StepSettings(heating, coef_heating)
+    ) -> "LearningRateSettings":  # pylint:disable = C0116
+        return cls(
+            preheating=_StepSettings(preheating, coef_preheating),
+            heating=_StepSettings(heating, coef_heating),
+        )
+
+    def __repr__(self) -> str:
+        return f"preheating({self.preheating}), heating({self.heating})"
+
+
+@jit
+def _preheating_value(x, step, coef):  # pylint:disable = C0103
+    return jax.lax.cond(
+        step == 0, lambda s: 0.0, lambda s: 1 * jnp.exp(coef * (1 - s / step)), x
+    )
+
+
+@jit
+def _heating_value(x, step, coef):
+    return jax.lax.cond(
+        x == step, lambda s: 0.0, lambda s: 1 / jnp.pow(s - step, coef), x
+    )
+
+
+@jit
+def call(
+    step: int, preheating_step, preheating_coef, heating_step, heating_coef, max
+) -> float:  # pylint:disable = C0116, R0913
+    return max * jnp.select(
+        [
+            step < preheating_step,
+            step >= 1 + heating_step,  # ~jnp.isnan(self._heating) and
+        ],
+        [
+            _preheating_value(step, preheating_step, preheating_coef),
+            _heating_value(step, heating_step, heating_coef),
+        ],
+        default=1.0,
+    )
 
 
 class LearningRate:
@@ -107,11 +145,14 @@ class LearningRate:
         """
         # if not isinstance(settings, LearningRateSettings):
         #     raise TypeError("preheating must be LearningRateSettings")
-        self._settings = LearningRateSettings(
+        self._settings = LearningRateSettings.new(
             preheating, coef_preheating, heating, coef_heating
         )
 
         self._max = 1
+
+    def __repr__(self) -> str:
+        return f"Learning rate [{self._settings}, max = {self._max}]"
 
     # === PROPERTY === #
     @property
@@ -135,37 +176,14 @@ class LearningRate:
         """return heating"""
         return self._settings.heating
 
-    @functools.partial(jit, static_argnums=0)
-    def _preheating_value(self, step):
-        return jax.lax.cond(
-            self.preheating.step == 0,
-            lambda s: 0.0,
-            lambda s: self._max
-            * jnp.exp(self.preheating.coef * (1 - s / self.preheating.step)),
-            step,
-        )
-
-    @functools.partial(jit, static_argnums=0)
-    def _heating_value(self, step):
-        return jax.lax.cond(
-            step == self.heating.step,
-            lambda s: 0.0,
-            lambda s: self._max / jnp.pow(s - self.heating.step, self.heating.coef),
-            step,
-        )
-
-    @functools.partial(jit, static_argnums=0)
     def __call__(self, step: int) -> float:
-        return jnp.select(
-            [
-                step < self.preheating.step,
-                step >= 1 + self.heating.step,  # ~jnp.isnan(self._heating) and
-            ],
-            [
-                self._preheating_value(step),
-                self._heating_value(step),
-            ],
-            default=self._max,
+        return call(
+            step,
+            self.preheating.step,
+            self.preheating.coef,
+            self.heating.step,
+            self.heating.coef,
+            self._max,
         )
 
     def plot(self, label=None):
@@ -179,7 +197,7 @@ class LearningRate:
         else:
             x = np.linspace(0, 5 * self.heating.step, num=4 * self.heating.step)
 
-        y = [self(i) for i in x]
+        y = [self(int(i)) for i in x]
 
         if label is None:
             return plt.plot(x, y)
