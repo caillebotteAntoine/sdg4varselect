@@ -101,7 +101,7 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         """
         return data | self.latent_data
 
-    def results_warper(self, model, data, results, chrono):
+    def results_warper(self, model, data, results, chrono) -> SGDResults:
         """Warp results into Sdg4vsResults object and calculate marginal likelihood.
 
         Parameters

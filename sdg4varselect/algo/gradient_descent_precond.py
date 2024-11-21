@@ -8,6 +8,7 @@ Created by antoine.caillebotte@inrae.fr
 """
 
 import itertools
+from datetime import datetime
 from copy import deepcopy
 
 import jax.numpy as jnp
@@ -114,9 +115,11 @@ class GradientDescentPrecond(AbstractAlgoFit):
         Sdg4vsResults
             An instance of Sdg4vsResults containing the results.
         """
+        chrono_start = datetime.now()
         out = GDResults.new_from_list(results, chrono)
         out.log_likelihood = model.log_likelihood(out.last_theta, data)
         out.reals1d_to_hstack_params(model)
+        out.chrono += datetime.now() - chrono_start
         return out
 
     def _initialize_algo(

@@ -9,7 +9,7 @@ estimation and selection.
 Created by antoine.caillebotte@inrae.fr
 """
 
-# pylint: disable=E1101
+from datetime import datetime
 from typing import Optional
 
 from jax import jit
@@ -181,6 +181,31 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
     @hd_mask.setter
     def hd_mask(self, mask: jnp.ndarray):
         self._hd_mask = mask
+
+    def results_warper(self, model, data, results, chrono):
+        """Warp results into Sdg4vsResults object and calculate marginal likelihood, bic and ebic.
+
+        Parameters
+        ----------
+        model : type[AbstractModel]
+            The model used for the fitting.
+        data : dict
+           a dict where all additional log_likelihood arguments can be found
+        results : list
+            The results obtained from the fitting.
+        chrono : timedelta
+            The time taken for the fitting.
+
+        Returns
+        -------
+        Sdg4vsResults
+            An instance of Sdg4vsResults containing the results, including marginal likelihood, bic and ebic.
+        """
+        out = SGD_Prec.results_warper(self, model, data, results, chrono)
+        chrono_start = datetime.now()
+        out.update_bic(model)
+        out.chrono += datetime.now() - chrono_start
+        return out
 
     def _initialize_algo(
         self,

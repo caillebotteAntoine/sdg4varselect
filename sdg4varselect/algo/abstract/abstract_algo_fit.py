@@ -83,6 +83,20 @@ class AbstractAlgoFit(ABC):
     def max_iter(self, max_iter: int):
         self._max_iter = max_iter
 
+    @property
+    def save_all(self) -> bool:
+        """returns the Flag to control whether intermediate iterations should be retained
+
+        Returns
+        -------
+            boolean Flag to control whether intermediate iterations should be retained
+        """
+        return self._save_all
+
+    @save_all.setter
+    def save_all(self, save_all: bool):
+        self._save_all = save_all
+
     @abstractmethod
     def _initialize_algo(
         self,
