@@ -7,6 +7,7 @@ model training and evaluation.
 Created by antoine.caillebotte@inrae.fr
 """
 
+import os
 import dataclasses
 
 import gzip
@@ -58,7 +59,7 @@ def _get_filename(
     return filename
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class Sdg4vsResults:
     """Class to handle results for the sdg4varselect package.
 
@@ -122,7 +123,7 @@ class Sdg4vsResults:
 ###########################################################################################################
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class GDResults(Sdg4vsResults):
     """Class to handle results from gradient descent optimization.
 
@@ -188,7 +189,6 @@ class GDResults(Sdg4vsResults):
         res = [
             [sdg_res[i][j] for i in range(len(sdg_res))] for j in range(len(sdg_res[0]))
         ]
-        GDResults(chrono)
 
         return cls(
             theta=jnp.array(res[0]),
@@ -257,18 +257,18 @@ class GDResults(Sdg4vsResults):
         out = deepcopy(self)
         if out.theta is not None:
             out.theta = jnp.pad(
-                self.theta,
+                out.theta,
                 (
-                    (0, row - self.theta.shape[0]),
-                    (0, 0 if col is None else (col - self.theta.shape[1])),
+                    (0, row - out.theta.shape[0]),
+                    (0, 0 if col is None else (col - out.theta.shape[1])),
                 ),
                 constant_values=jnp.nan,
             )
 
         if out.grad is not None:
             out.grad = jnp.pad(
-                self.grad,
-                ((0, row - self.grad.shape[0]), (0, 0)),
+                out.grad,
+                ((0, row - out.grad.shape[0]), (0, 0)),
                 constant_values=jnp.nan,
             )
         return out
@@ -313,7 +313,7 @@ class GDResults(Sdg4vsResults):
 ###########################################################################################################
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class SGDResults(GDResults):
     """
     Class to handle stochastic gradient descent (SGD) results.
@@ -330,7 +330,7 @@ class SGDResults(GDResults):
 ###########################################################################################################
 
 
-@dataclasses.dataclass()
+@dataclasses.dataclass(kw_only=True)
 class MultiGDResults(Sdg4vsResults):
     """Iterable container for multiple GDResults instances.
 
@@ -451,16 +451,9 @@ class MultiGDResults(Sdg4vsResults):
             Target number of rows.
         col : int, optional
             Target number of columns.
-
-        Returns
-        -------
-        MultiGDResults
-            A new MultiGDResults instance with reshaped theta and grad.
         """
-        out = deepcopy(self)
-        for i, run in enumerate(out.results):
-            out.results[i] = run.pad(row, col)
-        return out
+        for i, run in enumerate(self.results):
+            self.results[i] = run.pad(row, col)
 
     def shrink(self, row=None, col=None):
         """Reduce dimensions in all GDResults instances based on provided indices.
@@ -580,7 +573,7 @@ class MultiGDResults(Sdg4vsResults):
         return fig
 
 
-@dataclasses.dataclass()
+@dataclasses.dataclass(kw_only=True)
 class RegularizationPath(MultiGDResults):
     """Class representing the regularization path of model parameters for varying regularization penalties.
 
@@ -720,3 +713,111 @@ class RegularizationPath(MultiGDResults):
         _ = plot_bic(ax_bic, self.ebic, colors=["r", "w"], name="eBIC")
         # fig.legend([lines_bic, lines_ebic], ["BIC", "eBIC"])
         return fig
+
+
+@dataclasses.dataclass(kw_only=True)
+class MultiRegularizationPath(Sdg4vsResults):
+    """Iterable container for multiple RegularizationPath instances.
+
+    Attributes
+    ----------
+    results : list[Type[RegularizationPath]]
+        A list of RegularizationPath instances.
+    """
+
+    results: list[Type[RegularizationPath]] = dataclasses.field(default_factory=list)
+
+    def __post_init__(self):
+        for item in self.results:
+            self.chrono += item.chrono
+
+    @staticmethod
+    def load(
+        model: type[AbstractModel],
+        root: str = "",
+        filename_add_on: str = "",
+        add_on_id: list[int] = None,
+        clean_files=False,
+    ) -> "MultiRegularizationPath":
+        """Load results from a file.
+
+        Parameters
+        ----------
+        model : type[AbstractModel]
+            The model class used to determine the filename.
+        root : str, optional
+            The root directory for the filename (default is "").
+        filename_add_on : str, optional
+            An optional suffix to add to the filename (default is "").
+        add_on_id : list[int], optional
+            A list of integer IDs to append to the filename. If not empty, incremental IDs will
+            be tested for loading. If files are found, they will be merged.
+        clean_files : bool, optional
+            If True, intermediate files will be deleted after merging (default is False).
+
+        Returns
+        -------
+        MultiRegularizationPath
+            An object containing the merged results if multiple files were found,
+            or the results from a single file if no IDs were provided or only one file was found.
+
+        Raises
+        ------
+        FileNotFoundError
+            If no files are found for the specified IDs and no fallback results can be loaded.
+        """
+
+        if add_on_id is not None:
+            assert isinstance(add_on_id, list)
+
+            res = []
+            try:
+                for i in add_on_id:
+                    res.append(
+                        RegularizationPath.load(model, root, f"{filename_add_on}{i}")
+                    )
+                    add_on_id.append(i + 1)
+            except FileNotFoundError as exc_subfile:
+                add_on_id.pop()
+
+                if len(res) != 0:
+                    print(f"{len(res)} files found, merged into a single file :")
+                    out = MultiRegularizationPath(results=res)
+                    filename = f"{filename_add_on}all_{min(add_on_id)}_{max(add_on_id)}"
+                    out.save(model=model, root=root, filename_add_on=filename)
+                    if clean_files:
+                        for i in add_on_id:
+                            os.remove(
+                                _get_filename(
+                                    model, root, f"{filename_add_on}{i}.pkl.gz"
+                                )
+                            )
+
+                else:
+                    raise exc_subfile
+        else:
+            out = Sdg4vsResults.load(
+                model=model, root=root, filename_add_on=filename_add_on
+            )
+
+        return out
+
+    def __len__(self):
+        return len(self.results)
+
+    def __getitem__(self, i: int) -> Type[RegularizationPath]:
+        return self.results[i]
+
+    def __setitem__(self, i: int, res: Type[RegularizationPath]) -> None:
+        self.results[i] = res
+
+    @property
+    def last_theta(self):
+        """Get the last non-NaN row in theta from each RegularizationPath instance where ebic have minimal.
+
+        Returns
+        -------
+        jnp.ndarray
+            Array of last non-NaN theta row.
+        """
+        return jnp.array([x[jnp.argmin(x.ebic)].last_theta for x in self.results])
