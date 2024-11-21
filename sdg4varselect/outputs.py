@@ -403,6 +403,28 @@ class MultiGDResults(Sdg4vsResults):
         return jnp.array([x.theta for x in self])
 
     @property
+    def last_theta_reals1d(self):
+        """Get the last non-NaN row in theta_reals1d from each GDResults instance.
+
+        Returns
+        -------
+        jnp.ndarray
+            Array of last_reals1d non-NaN theta row.
+        """
+        return jnp.array([x.last_theta for x in self])
+
+    @property
+    def theta_reals1d(self):
+        """Get theta_reals1d values from each GDResults instance.
+
+        Returns
+        -------
+        jnp.ndarray
+            Array of theta_reals1d values.
+        """
+        return jnp.array([x.theta_reals1d for x in self])
+
+    @property
     def bic(self):
         """Get bic values from each GDResults instance.
 
