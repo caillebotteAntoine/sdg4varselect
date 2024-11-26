@@ -124,15 +124,172 @@ class Sdg4vsResults:
 
 
 @dataclasses.dataclass(kw_only=True)
-class GDResults(Sdg4vsResults):
+class FitResults(Sdg4vsResults):
+    """Class to handle results from fitting algorithm.
+
+    Attributes
+    ----------
+    theta : jnp.ndarray
+        The estimated model parameters iterations after the fitting algorithm.
+    theta_reals1d : jnp.ndarray
+        Real-valued 1D parameters, for internal model transformations.
+    theta_star :  jnp.ndarray
+        The true model parameters used for data simulation.
+
+    """
+
+    theta: jnp.ndarray = None
+    theta_reals1d: jnp.ndarray = None
+    _theta_star: jnp.ndarray = None
+
+    @property
+    def theta_star(self):
+        """Get true values of the parameter theta.
+
+        Returns
+        -------
+        jnp.ndarray
+            Array of theta_star values.
+        """
+        return self._theta_star
+
+    @theta_star.setter
+    def theta_star(self, x: jnp.ndarray):
+        if not isinstance(x, jnp.ndarray):
+            x = AbstractModel.hstack_params(x)
+        assert len(x.shape) == 0 or (x.shape[-1] == self.theta.shape[-1])
+        self._theta_star = x
+
+    @property
+    def last_theta(self) -> jnp.ndarray:
+        """Get the last non-NaN row in theta.
+
+        Returns
+        -------
+        jnp.ndarray
+            The last non-NaN theta row.
+        """
+        id_not_all_nan = jnp.logical_not(jnp.isnan(self.theta).all(axis=1))
+        out = self.theta[id_not_all_nan][-1]
+        return out
+
+    def _shrink(self, row=None, col=None):
+        """Reduce the dimensions of theta based on provided indices.
+
+        Parameters
+        ----------
+        row : int, optional
+            Row indices to keep.
+        col : int, optional
+            Column indices to keep.
+
+        """
+        assert row is not None or col is not None, "row or col must be provided !"
+
+        if row is not None:
+            row = jnp.array(row)
+            self.theta = self.theta[row]
+        if col is not None:
+            col = jnp.array(col)
+            self.theta = self.theta[:, col]
+
+            if self.theta_star is not None:
+                self.theta_star = self.theta_star[col]
+
+    def shrink(self, row=None, col=None):
+        """Reduce the dimensions of theta based on provided indices.
+
+        Parameters
+        ----------
+        row : int, optional
+            Row indices to keep.
+        col : int, optional
+            Column indices to keep.
+
+        Returns
+        -------
+        FitResults
+            A new FitResults instance with reduced dimensions.
+        """
+        out = deepcopy(self)
+        out._shrink(row=row, col=col)  # pylint: disable=protected-access
+        return out
+
+    def _pad(self, row, col=None):
+        """Pad theta attributes to match specified dimensions.
+
+        Parameters
+        ----------
+        row : int
+            Target number of rows for padding.
+        col : int, optional
+            Target number of columns for padding.
+
+        """
+        if self.theta is not None:
+            self.theta = jnp.pad(
+                self.theta,
+                (
+                    (0, row - self.theta.shape[0]),
+                    (0, 0 if col is None else (col - self.theta.shape[1])),
+                ),
+                constant_values=jnp.nan,
+            )
+
+    def pad(self, row, col=None):
+        """Pad theta attributes to match specified dimensions.
+
+        Parameters
+        ----------
+        row : int
+            Target number of rows for padding.
+        col : int, optional
+            Target number of columns for padding.
+
+        Returns
+        -------
+        FitResults
+            A new FitResults instance with reshaped theta
+        """
+        out = deepcopy(self)
+        out._pad(self, row=row, col=col)  # pylint: disable=protected-access
+        return out
+
+    def reals1d_to_hstack_params(self, model) -> None:
+        """Convert the theta reals 1-D parameters to a stacked parameter representation.
+
+        Parameters
+        ----------
+        model : AbstractModel
+            The model used to convert real-valued parameters.
+        """
+        tmp = [model.parametrization.reals1d_to_params(t) for t in self.theta]
+
+        self.theta_reals1d = self.theta
+        self.theta = jnp.array([model.hstack_params(t) for t in tmp])
+
+    def make_it_lighter(self) -> None:
+        """Reduce memory usage by keeping only first and last theta values."""
+        id_not_nan = jnp.logical_not(jnp.isnan(self.theta).any(axis=1))
+        theta = self.theta[id_not_nan]
+        theta_reals1d = self.theta_reals1d[id_not_nan]
+
+        self.theta = jnp.array([theta[0], theta[-1]])
+        self.theta_reals1d = jnp.array([theta_reals1d[0], theta_reals1d[-1]])
+
+
+@dataclasses.dataclass(kw_only=True)
+class GDResults(FitResults):
     """Class to handle results from gradient descent optimization.
 
     Attributes
     ----------
     theta : jnp.ndarray
-        The estimated model parameters iterations after gradient descent.
-    theta_reals1d : jnp.ndarray, optional
+        The estimated model parameters iterations after the fitting algorithm.
+    theta_reals1d : jnp.ndarray
         Real-valued 1D parameters, for internal model transformations.
+    theta_star :  jnp.ndarray
+        The true model parameters used for data simulation.
     fim : jnp.ndarray, optional
         Fisher Information Matrix for parameter estimation precision.
     grad : jnp.ndarray, optional
@@ -143,32 +300,11 @@ class GDResults(Sdg4vsResults):
         The log-likelihood value associated with the optimization process.
     """
 
-    theta: jnp.ndarray = None
-    theta_reals1d: jnp.ndarray = None
     fim: jnp.ndarray = None
     grad: jnp.ndarray = None
     log_likelihood: jnp.ndarray = jnp.nan
     bic: jnp.ndarray = None
     ebic: jnp.ndarray = None
-
-    # def expand(self, support):
-    #     def _expand(x):
-    #         shape = (x.shape[0], support.shape[0])
-    #         x_expand = jnp.zeros(shape=shape)
-    #         return = x_expand.at[:, jnp.where(support)[0]].set(x)
-
-    #     row, _ = self.theta.shape
-    #     theta_expand = jnp.zeros(shape=(row, support.shape[0]))
-    #     self.theta = theta_expand.at[:, jnp.where(support)[0]].set(self.theta)
-
-    # def __add__(self, x):
-    #     return GDResults(
-    #         theta=jnp.concatenate([self.theta, x.theta]),
-    #         theta_reals1d=jnp.concatenate([self.theta_reals1d, x.theta_reals1d]),
-    #         grad=jnp.concatenate([self.grad, x.grad]),
-    #         fim=self.fim + x.fim,
-    #         chrono=self.chrono + x.chrono,
-    #     )
 
     @classmethod
     def new_from_list(cls, sdg_res, chrono) -> "GDResults":
@@ -228,14 +364,11 @@ class GDResults(Sdg4vsResults):
         GDResults
             A new GDResults instance with reduced dimensions.
         """
-        assert row is not None or col is not None, "row or col must be provided !"
-
         out = deepcopy(self)
+        FitResults._shrink(out, row=row, col=col)  # pylint: disable=protected-access
         if row is not None:
-            out.theta = out.theta[row]
+            row = jnp.array(row)
             out.grad = out.grad[row]
-        if col is not None:
-            out.theta = out.theta[:, col]
 
         return out
 
@@ -255,16 +388,7 @@ class GDResults(Sdg4vsResults):
             A new GDResults instance with reshaped theta and grad.
         """
         out = deepcopy(self)
-        if out.theta is not None:
-            out.theta = jnp.pad(
-                out.theta,
-                (
-                    (0, row - out.theta.shape[0]),
-                    (0, 0 if col is None else (col - out.theta.shape[1])),
-                ),
-                constant_values=jnp.nan,
-            )
-
+        FitResults._shrink(out, row=row, col=col)  # pylint: disable=protected-access
         if out.grad is not None:
             out.grad = jnp.pad(
                 out.grad,
@@ -273,39 +397,12 @@ class GDResults(Sdg4vsResults):
             )
         return out
 
-    @property
-    def last_theta(self) -> jnp.ndarray:
-        """Get the last non-NaN row in theta.
-
-        Returns
-        -------
-        jnp.ndarray
-            The last non-NaN theta row.
-        """
-        id_not_all_nan = jnp.logical_not(jnp.isnan(self.theta).all(axis=1))
-        out = self.theta[id_not_all_nan][-1]
-        return out
-
-    def reals1d_to_hstack_params(self, model) -> None:
-        """Convert the theta reals 1-D parameters to a stacked parameter representation.
-
-        Parameters
-        ----------
-        model : AbstractModel
-            The model used to convert real-valued parameters.
-        """
-        tmp = [model.parametrization.reals1d_to_params(t) for t in self.theta]
-
-        self.theta_reals1d = self.theta
-        self.theta = jnp.array([model.hstack_params(t) for t in tmp])
-
     def make_it_lighter(self) -> None:
         """Reduce memory usage by keeping only first and last theta and grad values."""
+        FitResults.make_it_lighter(self)
         id_not_nan = jnp.logical_not(jnp.isnan(self.theta).any(axis=1))
-        theta = self.theta[id_not_nan]
         grad = self.grad[id_not_nan]
 
-        self.theta = jnp.array([theta[0], theta[-1]])
         self.fim = (self.fim[0], self.fim[1])
         self.grad = jnp.array([grad[0], grad[-1]])
 
@@ -369,6 +466,24 @@ class MultiGDResults(Sdg4vsResults):
         yield from self.results
 
     # === property === #
+    @property
+    def theta_star(self):
+        """Get true values of the parameter theta from the first GDResults instance.
+
+        Returns
+        -------
+        jnp.ndarray
+            Array of theta_star values.
+        """
+        if len(self) == 0:
+            return None
+        return self[0].theta_star
+
+    @theta_star.setter
+    def theta_star(self, x: jnp.ndarray):
+        for res in self:
+            res.theta_star = x
+
     @property
     def log_likelihood(self):
         """Get log_likelihood values from each GDResults instance.
@@ -514,7 +629,6 @@ class MultiGDResults(Sdg4vsResults):
     def plot_theta(
         self,
         fig,
-        params_star: jnp.ndarray = None,
         params_names: list[str] = None,
         log_scale: bool = True,
     ):
@@ -524,8 +638,6 @@ class MultiGDResults(Sdg4vsResults):
         ----------
         fig : matplotlib.figure.Figure
             Figure used for plotting.
-        params_star : array-like, optional
-            Reference parameter values.
         params_names : list of str, optional
             Names of parameters for labeling.
         log_scale : bool, default=True
@@ -571,8 +683,8 @@ class MultiGDResults(Sdg4vsResults):
                 ax.set_yscale("log")
 
         x = self.theta.T
-        if params_star is not None:
-            assert x.shape[0] == params_star.shape[0]
+        if self.theta_star is not None:
+            assert x.shape[0] == self.theta_star.shape[0]
 
         if params_names is not None:
             # params_names = np.array(params_names)
@@ -584,7 +696,7 @@ class MultiGDResults(Sdg4vsResults):
             ax = fig.add_subplot(ntheta, 1, i + 1)
             ax_plot_theta(
                 x[i],
-                None if params_star is None else params_star[i],
+                None if self.theta_star is None else self.theta_star[i],
                 None if params_names is None else params_names[i],
                 color=f"C{i}",
             )
@@ -789,34 +901,38 @@ class MultiRegularizationPath(Sdg4vsResults):
             If no files are found for the specified IDs and no fallback results can be loaded.
         """
 
+        def load_next(i):  # pylint: disable=missing-return-doc, missing-return-type-doc
+            try:
+                out = RegularizationPath.load(model, root, f"{filename_add_on}{i}")
+            except FileNotFoundError as exc:  # if file not found :
+                return [exc]
+
+            return [out] + load_next(i + 1)
+
         if add_on_id is not None:
             assert isinstance(add_on_id, list)
-
             res = []
-            try:
+            exc = FileNotFoundError()
+            add_on_id_max = max(add_on_id)
+            for i, add_on in enumerate(add_on_id):  # check all id in the list
+                new_res = load_next(add_on)
+                add_on_id_max = max(add_on_id_max, i + len(new_res))
+                exc = new_res.pop()
+                res += new_res
+
+            if len(res) == 0:
+                raise exc
+
+            print(f"{len(res)} files found, merged into a single file :")
+            out = MultiRegularizationPath(results=res)
+            filename = f"{filename_add_on}all_{min(add_on_id)}_{max(add_on_id)}"
+            out.save(model=model, root=root, filename_add_on=filename)
+            if clean_files:
                 for i in add_on_id:
-                    res.append(
-                        RegularizationPath.load(model, root, f"{filename_add_on}{i}")
+                    os.remove(
+                        _get_filename(model, root, f"{filename_add_on}{i}.pkl.gz")
                     )
-                    add_on_id.append(i + 1)
-            except FileNotFoundError as exc_subfile:
-                add_on_id.pop()
 
-                if len(res) != 0:
-                    print(f"{len(res)} files found, merged into a single file :")
-                    out = MultiRegularizationPath(results=res)
-                    filename = f"{filename_add_on}all_{min(add_on_id)}_{max(add_on_id)}"
-                    out.save(model=model, root=root, filename_add_on=filename)
-                    if clean_files:
-                        for i in add_on_id:
-                            os.remove(
-                                _get_filename(
-                                    model, root, f"{filename_add_on}{i}.pkl.gz"
-                                )
-                            )
-
-                else:
-                    raise exc_subfile
         else:
             out = Sdg4vsResults.load(
                 model=model, root=root, filename_add_on=filename_add_on
@@ -843,3 +959,41 @@ class MultiRegularizationPath(Sdg4vsResults):
             Array of last non-NaN theta row.
         """
         return jnp.array([x[jnp.argmin(x.ebic)].last_theta for x in self.results])
+
+    @property
+    def theta_star(self):
+        """Get true values of the parameter theta from the first RegularizationPath instance.
+
+        Returns
+        -------
+        jnp.ndarray
+            Array of theta_star values.
+        """
+        if len(self) == 0:
+            return None
+        return self[0].theta_star
+
+    @theta_star.setter
+    def theta_star(self, x: jnp.ndarray):
+        for res in self:
+            res.theta_star = x
+
+    def shrink(self, row=None, col=None):
+        """Reduce dimensions in all RegularizationPath instances based on provided indices.
+
+        Parameters
+        ----------
+        row : int, optional
+            Row indices to keep.
+        col : int, optional
+            Column indices to keep.
+
+        Returns
+        -------
+        MultiRegularizationPath
+            A new MultiRegularizationPath instance with reduced dimensions.
+        """
+        out = deepcopy(self)
+        for i, run in enumerate(out.results):
+            out.results[i] = run.shrink(row, col)
+        return out
