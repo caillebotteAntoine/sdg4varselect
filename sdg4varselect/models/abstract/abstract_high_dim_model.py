@@ -82,7 +82,7 @@ class AbstractHDModel:
             self.P <= self.parametrization_size
         ), "high dimension length must be smaller than the parametrization_size"
         return (
-            jnp.arange(self.parametrization_size) > self.parametrization_size - self.P
+            jnp.arange(self.parametrization_size) >= self.parametrization_size - self.P
         )
 
     # @classmethod
