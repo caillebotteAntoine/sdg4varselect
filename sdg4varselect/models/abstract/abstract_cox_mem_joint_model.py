@@ -143,7 +143,6 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
 
         log(h(t)) = log(h0(t))+\beta^T U +f(\alpha,params, t))
         """
-        return self._cox.log_hazard(params, times, cov, **kwargs)
         link_values = self.link_function(params.alpha, params, times, **kwargs)
         log_h = self._cox.log_hazard(params, times, cov, **kwargs)
         # print(params.alpha)
