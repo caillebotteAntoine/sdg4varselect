@@ -388,7 +388,7 @@ class GDResults(FitResults):
             A new GDResults instance with reshaped theta and grad.
         """
         out = deepcopy(self)
-        FitResults._shrink(out, row=row, col=col)  # pylint: disable=protected-access
+        FitResults._pad(out, row=row, col=col)  # pylint: disable=protected-access
         if out.grad is not None:
             out.grad = jnp.pad(
                 out.grad,
@@ -731,7 +731,7 @@ class RegularizationPath(MultiGDResults):
         values across the range of `lambda` values.
     """
 
-    lbd_set: jnp.ndarray = jnp.nan
+    lbd_set: jnp.ndarray
 
     def __post_init__(self):
         super().__post_init__()
@@ -900,10 +900,12 @@ class MultiRegularizationPath(Sdg4vsResults):
         FileNotFoundError
             If no files are found for the specified IDs and no fallback results can be loaded.
         """
+        all_loaded_id = []
 
         def load_next(i):  # pylint: disable=missing-return-doc, missing-return-type-doc
             try:
                 out = RegularizationPath.load(model, root, f"{filename_add_on}{i}")
+                all_loaded_id.append(i)
             except FileNotFoundError as exc:  # if file not found :
                 return [exc]
 
@@ -913,10 +915,8 @@ class MultiRegularizationPath(Sdg4vsResults):
             assert isinstance(add_on_id, list)
             res = []
             exc = FileNotFoundError()
-            add_on_id_max = max(add_on_id)
             for i, add_on in enumerate(add_on_id):  # check all id in the list
                 new_res = load_next(add_on)
-                add_on_id_max = max(add_on_id_max, i + len(new_res))
                 exc = new_res.pop()
                 res += new_res
 
@@ -925,10 +925,10 @@ class MultiRegularizationPath(Sdg4vsResults):
 
             print(f"{len(res)} files found, merged into a single file :")
             out = MultiRegularizationPath(results=res)
-            filename = f"{filename_add_on}all_{min(add_on_id)}_{max(add_on_id)}"
+            filename = f"{filename_add_on}all_{min(all_loaded_id)}_{max(all_loaded_id)}"
             out.save(model=model, root=root, filename_add_on=filename)
             if clean_files:
-                for i in add_on_id:
+                for i in all_loaded_id:
                     os.remove(
                         _get_filename(model, root, f"{filename_add_on}{i}.pkl.gz")
                     )
