@@ -375,17 +375,31 @@ def plot_selection(
     axes.set_title("Estimation of the remaining zero components", fontsize=15)
 
     tt = x[id_zeros]
-    points = np.array(
-        sum(
-            [
-                [(i, xx) for xx in tt[i] if xx != 0]
-                for i in range(tt.shape[0])
-                if np.abs(tt[i]).sum() != 0
-            ],
-            [],
-        )
+    points = sum(
+        [
+            [(i, xx) for xx in tt[i] if xx != 0]
+            for i in range(tt.shape[0])
+            if np.abs(tt[i]).sum() != 0
+        ],
+        [],
     )
 
-    axes.scatter(points[:, 0], points[:, 1], facecolors="none", edgecolors="k")
-    axes.hlines(0, xmin=0, xmax=tt.shape[0], colors="k")
+    ticks = np.array([0, len(id_zeros) - 1])
+
+    if len(points) != 0:
+        points = np.array(points)
+        axes.scatter(points[:, 0], points[:, 1], facecolors="none", edgecolors="k")
+
+        ticks = np.unique(
+            np.array(
+                [0] + list(np.unique(points[:, 0])) + [len(id_zeros) - 1],
+                dtype=np.int64,
+            )
+        )
+
+    axes.set_xticks(ticks=ticks)
+    if params_names is not None:
+        axes.set_xticklabels(labels=params_names[id_zeros[ticks]])
+
+    axes.hlines(0, xmin=0, xmax=tt.shape[0] - 1, colors="k")
     return [fig_non_zeros, fig_zeros]
