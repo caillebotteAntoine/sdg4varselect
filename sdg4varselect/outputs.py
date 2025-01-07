@@ -151,6 +151,11 @@ class GDResults(FitResults):
         self.fim = (self.fim[0], self.fim[1])
         self.grad = jnp.array([grad[0], grad[-1]])
 
+    def make_it_minimal(self) -> None:
+        """Reduce memory usage by removing grad and fim values."""
+        self.fim = None
+        self.grad = None
+
 
 ###########################################################################################################
 
@@ -261,17 +266,6 @@ class MultiGDResults(Sdg4vsResults):
             Array of theta values.
         """
         return jnp.array([x.theta for x in self])
-
-    @property
-    def last_theta_reals1d(self):
-        """Get the last non-NaN row in theta_reals1d from each GDResults instance.
-
-        Returns
-        -------
-        jnp.ndarray
-            Array of last_reals1d non-NaN theta row.
-        """
-        return jnp.array([x.last_theta for x in self])
 
     @property
     def theta_reals1d(self):
@@ -729,6 +723,13 @@ class MultiRegularizationPath(Sdg4vsResults):
     def theta_star(self, x: jnp.ndarray):
         for res in self:
             res.theta_star = x
+
+    def make_it_minimal(self):
+        """Reduce memory usage in all contained instances."""
+        for reg_res in self:
+            for i, res in enumerate(reg_res):
+                if i != jnp.argmin(reg_res.ebic):
+                    res.make_it_minimal()
 
     def shrink(self, row=None, col=None):
         """Reduce dimensions in all RegularizationPath instances based on provided indices.
