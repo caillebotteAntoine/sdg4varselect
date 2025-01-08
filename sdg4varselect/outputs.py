@@ -672,6 +672,7 @@ class MultiRegularizationPath(Sdg4vsResults):
             filename_add_on_all = (
                 f"{filename_add_on}all_{min(all_loaded_id)}_{max(all_loaded_id)}"
             )
+            out.make_it_minimal()
             out.save(filename=filename, root=root, filename_add_on=filename_add_on_all)
             if clean_files:
                 for i in all_loaded_id:
