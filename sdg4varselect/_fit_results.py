@@ -163,6 +163,19 @@ class FitResults(Sdg4vsResults):
         out = self.theta[id_not_all_nan][-1]
         return out
 
+    @property
+    def last_theta_reals1d(self) -> jnp.ndarray:
+        """Get the last non-NaN row in theta_reals1d.
+
+        Returns
+        -------
+        jnp.ndarray
+            The last non-NaN theta_reals1d row.
+        """
+        id_not_all_nan = jnp.logical_not(jnp.isnan(self.theta_reals1d).all(axis=1))
+        out = self.theta_reals1d[id_not_all_nan][-1]
+        return out
+
     def _shrink(self, row=None, col=None):
         """Reduce the dimensions of theta based on provided indices.
 
