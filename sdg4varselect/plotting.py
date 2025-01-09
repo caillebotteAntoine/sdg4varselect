@@ -45,7 +45,7 @@ def figure(height=None, width=None):
     matplotlib.figure.Figure
         The created figure with specified dimensions.
     """
-    fig = plt.figure()
+    fig = plt.figure(layout="constrained")
     fig.set_figheight(FIGSIZE if height is None else height)
     fig.set_figwidth(FIGSIZE if width is None else width)
     return fig
@@ -345,6 +345,7 @@ def plot_selection(
                 params_names=params_names,
                 id_zeros=id_zeros,
                 id_non_zeros=id_non_zeros,
+                width_ratios=width_ratios,
             )
             for i, xx in enumerate(x)
         ]
@@ -403,3 +404,89 @@ def plot_selection(
 
     axes.hlines(0, xmin=0, xmax=tt.shape[0] - 1, colors="k")
     return [fig_non_zeros, fig_zeros]
+
+
+def plot_selection_percentage(
+    x, id_non_zeros, id_zeros, *, fig=None, params_names=None, width_ratios=(1, 4)
+):  # pylint: disable=too-many-arguments
+    """
+    Plot selection percentage of non-zero and zero components for a given set of results.
+
+    This function generates a figure with two subplots: one for the non-zero components
+    and another for the zero components. It can handle both individual `MultiRegularizationPath`
+    and `MultiGDResults` objects or lists of such objects.
+
+    Parameters
+    ----------
+    x : MultiRegularizationPath or MultiGDResults or list
+        A `MultiRegularizationPath` or `MultiGDResults` object, or a list of such objects to be visualized.
+    id_non_zeros : list[int]
+        Indices of the non-zero components to be visualized.
+    id_zeros : list[int]
+        Indices of the zero components to be visualized.
+    fig : matplotlib.figure.Figure, optional
+          Matplotlib figure to add subplots to. If None, a new figure is created.
+    params_names : list, optional
+          List of parameter names for the components being visualized. If None, no titles are shown.
+    width_ratios : tuple, optional
+          Width ratio for the two subfigures (non-zero and zero components). Default is
+
+    Returns
+    -------
+    list of matplotlib.figure.Figure
+        list of figures created
+
+    Raises
+    ------
+    AssertionError:
+        If any input validation fails (e.g., invalid index, shape mismatch).
+    """
+    id_zeros = np.array(id_zeros)
+    id_non_zeros = np.array(id_non_zeros)
+    params_names = np.array(params_names)
+
+    assert isinstance(x, (MultiGDResults, MultiRegularizationPath))
+
+    x = np.array(x.last_theta.T != 0, np.float64)
+
+    n_selected = x.sum(axis=-1)
+    percentage_selected = n_selected / x.shape[1] * 100
+
+    if fig is None:
+        fig = figure()
+
+    ax_non_zeros, ax_zeros = fig.subplots(1, 2, sharey=True, width_ratios=width_ratios)
+
+    # === NON ZEROS === #
+    ax_non_zeros.set_title(
+        "Selection percentage of\nthe non-zero components", fontsize=15
+    )
+    ax_non_zeros.set_ylabel("Selection percentage")
+
+    ax_non_zeros.stem(range(len(id_non_zeros)), percentage_selected[id_non_zeros])
+
+    if params_names is not None:
+        ax_non_zeros.set_xticks(ticks=range(len(id_non_zeros)))
+        ax_non_zeros.set_xticklabels(labels=params_names[id_non_zeros])
+
+    # === ZEROS === #
+    ax_zeros.set_title(
+        "Selection percentage of\nthe remaining zero components", fontsize=15
+    )
+
+    ax_zeros.stem(range(len(id_zeros)), percentage_selected[id_zeros])
+
+    ticks = np.unique(
+        np.array(
+            [0]
+            + [tick for tick, i in enumerate(id_zeros) if n_selected[i] != 0]
+            + [len(id_zeros) - 1],
+            dtype=np.int64,
+        )
+    )
+    ax_zeros.yaxis.set_tick_params(labelleft=True)
+    ax_zeros.set_xticks(ticks=ticks)
+    if params_names is not None:
+        ax_zeros.set_xticklabels(labels=params_names[id_zeros[ticks]])
+
+    return fig
