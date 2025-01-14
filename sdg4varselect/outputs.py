@@ -440,9 +440,6 @@ class MultiGDResults(Sdg4vsResults):
                 color=f"C{i}",
             )
 
-        if len(fig.axes) > 0:
-            fig.axes[0].set_title("Parameter")
-
         return fig
 
 
