@@ -58,9 +58,9 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
         self._mem = deepcopy(mem)
         self._cox = deepcopy(cox)
         AbstractCoxModel.__init__(self, N=cox.N, P=cox.P, **kwargs)
-        AbstractLatentVariablesModel.__init__(
-            self, self._mem.latent_variables_name, self._mem.latent_variables_size
-        )
+        AbstractLatentVariablesModel.__init__(self, self._mem.latent_variables_size)
+        for name in self._mem.latent_variables_name:
+            self.add_latent_variables(name)
 
     def init_parametrization(self):
         params = self._mem.parametrization._params | self._cox._parametrization._params
@@ -81,14 +81,18 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
-    def log_baseline_hazard(self, params, times, **kwargs):
+    def log_baseline_hazard(self, params, survival_int_range, **kwargs):
         """Define the log of the baseline hazard. Must be implemented by subclasses."""
-        return self._cox.log_baseline_hazard(params, times, **kwargs)
+        return self._cox.log_baseline_hazard(params, survival_int_range, **kwargs)
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
     def link_function(
-        self, alpha, params, times: jnp.ndarray, **kwargs  # shape = (N,num)
+        self,
+        alpha,
+        params,
+        survival_int_range: jnp.ndarray,
+        **kwargs,  # shape = (N,num)
     ):
         """Define the link function for the model. Must be implemented by subclasses.
 
@@ -98,7 +102,7 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
             Alpha parameter for the link function.
         params : dict
             Model parameters.
-        times : jnp.ndarray
+        survival_int_range : jnp.ndarray
             Array of surival observations, shape (N, num).
         **kwargs : dict
             Additional parameters.
@@ -115,7 +119,7 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
     def log_hazard(
         self,
         params,
-        times: jnp.ndarray,  # shape = (N,num)
+        survival_int_range: jnp.ndarray,  # shape = (N,num)
         cov: jnp.ndarray,  # shape = (N,p)
         **kwargs,
     ) -> jnp.ndarray:  # shape = (N, num)
@@ -125,7 +129,7 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
         ----------
         params : dict
             Model parameters.
-        times : jnp.ndarray
+        survival_int_range : jnp.ndarray
             Array of time points, shape (N, num).
         cov : jnp.ndarray
             Covariates matrix, shape (N, p).
@@ -143,8 +147,10 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
 
         log(h(t)) = log(h0(t))+\beta^T U +f(\alpha,params, t))
         """
-        link_values = self.link_function(params.alpha, params, times, **kwargs)
-        log_h = self._cox.log_hazard(params, times, cov, **kwargs)
+        link_values = self.link_function(
+            params.alpha, params, survival_int_range, **kwargs
+        )
+        log_h = self._cox.log_hazard(params, survival_int_range, cov, **kwargs)
         # print(params.alpha)
         return log_h + link_values
 
