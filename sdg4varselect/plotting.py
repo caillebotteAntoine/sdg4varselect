@@ -137,6 +137,9 @@ def plot_theta(
         if not isinstance(id_to_plot[0], list):
             id_to_plot = [id_to_plot]
 
+            if not isinstance(fig, (list, np.ndarray)):
+                fig = [fig]
+
         if fig is None:
             fig = [figure() for _ in id_to_plot]
 
