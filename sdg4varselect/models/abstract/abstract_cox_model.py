@@ -131,14 +131,14 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
     # ============================================================== #
     @abstractmethod
     @functools.partial(jit, static_argnums=0)
-    def log_baseline_hazard(self, params, times, **kwargs):
+    def log_baseline_hazard(self, params, survival_int_range, **kwargs):
         """Calculate the log of the baseline hazard.
 
         Parameters
         ----------
         params : dict
             Parameters of the model.
-        times : jnp.ndarray
+        survival_int_range : jnp.ndarray
             Array of survival observation, shape (N, num).
         **kwargs : dict
             Additional keyword arguments.
@@ -155,7 +155,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
     def log_hazard(
         self,
         params,
-        times: jnp.ndarray,  # shape = (N,num)
+        survival_int_range: jnp.ndarray,  # shape = (N,num)
         cov: jnp.ndarray,  # shape = (N,p)
         **kwargs,
     ) -> jnp.ndarray:  # shape = (N, num)
@@ -169,7 +169,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         ----------
         params : dict
             Model parameters.
-        times : jnp.ndarray
+        survival_int_range : jnp.ndarray
             Array of time points, shape (N, num).
         cov : jnp.ndarray
             Covariates matrix, shape (N, p).
@@ -181,11 +181,11 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         jnp.ndarray
             Log hazard values, shape (N, num).
         """
-        h0_values = self.log_baseline_hazard(params, times, **kwargs)
-        assert h0_values.shape == times.shape
+        h0_values = self.log_baseline_hazard(params, survival_int_range, **kwargs)
+        assert h0_values.shape == survival_int_range.shape
 
         beta_prod_cov = (cov @ params.beta)[:, None]
-        assert beta_prod_cov.shape[0] == times.shape[0]
+        assert beta_prod_cov.shape[0] == survival_int_range.shape[0]
 
         return beta_prod_cov + h0_values
 
@@ -217,6 +217,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         T = kwargs["T"]
         cov = kwargs["cov"]
         delta = kwargs["delta"]
+        survival_int_range = kwargs["survival_int_range"]
 
         (N,) = T.shape
         (p,) = params.beta.shape
@@ -230,18 +231,18 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
 
         # ================= survival_fct ================= #
         # log_survival_fct = - int_0^T hazard(s) ds
-        times = jnp.linspace(0, T, num=100)[1:].T
+        log_hazard_value = self.log_hazard(params, **self._cst, **kwargs)
+        assert survival_int_range.shape == log_hazard_value.shape
 
-        log_hazard_value = self.log_hazard(params, times=times, **self._cst, **kwargs)
-        assert times.shape == log_hazard_value.shape
-
-        log_survival_fct = -integrate.trapezoid(jnp.exp(log_hazard_value), times)
+        log_survival_fct = -integrate.trapezoid(
+            jnp.exp(log_hazard_value), survival_int_range
+        )
         assert log_survival_fct.shape == (N,)
         # =============== end survival_fct =============== #
 
         # ================= hazard_fct ================= #
         # log_hazard_fct = delta * log(b*a^-b * T^{b-1}) + beta^T U + alpha*m(T, phi_g)
-        # Comme times[:,-1] == T, on peut faire :
+        # Comme survival_int_range[:,-1] == T, on peut faire :
         log_hazard_fct = log_hazard_value[:, -1]
         assert log_hazard_fct.shape == (N,)
         # =============== end hazard_fct =============== #
@@ -249,6 +250,10 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         return jnp.where(delta, log_hazard_fct, 0) + log_survival_fct
 
     # ============================================================== #
+    def auto_def_survival_int_range(self):
+        """jnp.linspace(0, T, num=100)[1:].T"""
+        return {"survival_int_range": jnp.linspace(0, T, num=100)[1:].T}, {}
+
     @abstractmethod
     def censoring_simulation(self, prngkey, T, params_star, **kwargs):
         """Simulate censoring times.
@@ -400,5 +405,8 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         sim["C"] = censoring
         sim["T_searching_uni"] = uni
         sim["f_min_searching"] = f(tmp)
+
+        survival_int_range, _ = self.auto_def_survival_int_range()
+        obs.update(survival_int_range)
 
         return obs, sim
