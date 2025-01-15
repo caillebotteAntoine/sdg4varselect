@@ -235,7 +235,10 @@ class AbstractAlgoFit(ABC):
             else:
                 raise flag
         # every things is good
-        out = self.results_warper(
+        if len(out) == 0:
+            print("the result is empty, no iteration has been performed!")
+            return None
+
+        return self.results_warper(
             model, data, out, chrono=datetime.now() - chrono_start
         )
-        return out
