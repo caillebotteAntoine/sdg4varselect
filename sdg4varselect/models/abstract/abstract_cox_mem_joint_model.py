@@ -57,7 +57,7 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
         self._alpha_scale = alpha_scale
         self._mem = deepcopy(mem)
         self._cox = deepcopy(cox)
-        AbstractCoxModel.__init__(self, N=cox.N, P=cox.P, **kwargs)
+        AbstractCoxModel.__init__(self, N=mem.N, P=cox.P, **kwargs)
         AbstractLatentVariablesModel.__init__(self, self._mem.latent_variables_size)
         for name in self._mem.latent_variables_name:
             self.add_latent_variables(name)
@@ -195,7 +195,6 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
         cox_log_likelihood_array = AbstractCoxModel.log_likelihood_array(
             self, theta_reals1d, **kwargs
         )
-        return cox_log_likelihood_array
         return mem_log_likelihood_array + cox_log_likelihood_array
 
     @functools.partial(jit, static_argnums=0)
