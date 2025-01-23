@@ -21,7 +21,7 @@ from jax import jit
 from jax import random as jrd
 
 from sdg4varselect._chain import Chain
-from sdg4varselect.exceptions import Sdg4vsNanError
+from sdg4varselect.exceptions import Sdg4vsNanError, Sdg4vsInfError
 
 
 @partial(
@@ -285,12 +285,19 @@ class MCMC(Chain):
         ------
         Sdg4vsNanError
             If Nan is detected in the loglikelihood computation.
+        Sdg4vsInfError
+            If Nan is detected in the loglikelihood computation.
         """
 
         current_score = self._likelihood(**kwargs)
         if jnp.isnan(current_score).any():
             raise Sdg4vsNanError(
                 "Nan detected in the loglikelihood during Gibbs Sampling!"
+            )
+
+        if jnp.isinf(current_score).any():
+            raise Sdg4vsInfError(
+                "Inf detected in the loglikelihood during Gibbs Sampling!"
             )
 
         key_out, data, nacceptance = gibbs_sampler(

@@ -13,5 +13,9 @@ class Sdg4vsNanError(Sdg4vsException):
     """Sdg4Varselect Error related to Nan in array."""
 
 
+class Sdg4vsInfError(Sdg4vsException):
+    """Sdg4Varselect Error related to Inf in array."""
+
+
 class Sdg4vsWrongParametrization(Sdg4vsException):
     """Sdg4Varselect Error related to wrong parametrization in models."""
