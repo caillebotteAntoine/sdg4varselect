@@ -17,7 +17,7 @@ from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.algo.abstract.abstract_algo_fit import AbstractAlgoFit
 from sdg4varselect.algo.preconditioner import AbstractPreconditioner
 
-from sdg4varselect.exceptions import Sdg4vsNanError
+from sdg4varselect.exceptions import Sdg4vsException, Sdg4vsNanError, Sdg4vsInfError
 from sdg4varselect.outputs import GDResults
 from sdg4varselect.learning_rate import LearningRate, default_step_size
 
@@ -44,6 +44,9 @@ class GradientDescentPrecond(AbstractAlgoFit):
         Flag to indicate if partial results should be returned if an error occurs.
     save_all : bool
         Flag to control whether intermediate iterations should be retained.
+    save_preconditionner : bool
+        Flag to control whether preconditioner values are to be retained
+        (warning: risk of using a large amount of memory).
 
 
     Attributes
@@ -70,6 +73,22 @@ class GradientDescentPrecond(AbstractAlgoFit):
 
         self._threshold = threshold
         self._preconditioner = preconditioner
+        self._save_preconditionner = False
+
+    @property
+    def save_preconditioner(self) -> bool:
+        """returns the Flag to control whether preconditioner values are to be retained
+        (warning: risk of using a large amount of memory).
+
+        Returns
+        -------
+            boolean Flag to control whether preconditioner values are to be retained
+        """
+        return self._save_preconditioner
+
+    @save_preconditioner.setter
+    def save_preconditioner(self, save_preconditioner: bool):
+        self._save_preconditioner = save_preconditioner
 
     @property
     def step_size(self) -> LearningRate:
@@ -83,13 +102,6 @@ class GradientDescentPrecond(AbstractAlgoFit):
 
     @step_size.setter
     def step_size(self, step_size: LearningRate) -> None:
-        """Set the step size and update the heating parameter.
-
-        Parameters
-        ----------
-            step_size: LearningRate
-                the new step_size value
-        """
         self._step_size = step_size
 
         self._heating = (
@@ -165,19 +177,16 @@ class GradientDescentPrecond(AbstractAlgoFit):
             If NaN values are detected in `theta_reals1d` or in gradient during optimization.
         """
         for step in itertools.count():
-            out = self._algorithm_one_step(
-                model, log_likelihood_kwargs, theta_reals1d, step
-            )
+            try:
+                out = self._algorithm_one_step(
+                    model, log_likelihood_kwargs, theta_reals1d, step
+                )
+            except Sdg4vsException as exc:
+                yield exc
+                break
+
             theta_reals1d = jnp.where(freezed_components, theta_reals1d, out[0])
             out = (theta_reals1d,) + out[1:]
-
-            if jnp.isnan(theta_reals1d).any():
-                yield Sdg4vsNanError("nan detected in theta !")
-                break
-
-            if jnp.isnan(out[1]).any():
-                yield Sdg4vsNanError("nan detected in gradient !")
-                break
 
             yield out
 
@@ -223,11 +232,19 @@ class GradientDescentPrecond(AbstractAlgoFit):
 
         theta_reals1d += grad_precond
 
-        return (
-            theta_reals1d,
-            grad_precond,
-            preconditioner,
-        )
+        if jnp.isnan(theta_reals1d).any():
+            raise Sdg4vsNanError("nan detected in theta !")
+
+        if jnp.isnan(grad_precond).any():
+            raise Sdg4vsNanError("nan detected in gradient !")
+
+        if jnp.isinf(theta_reals1d).any():
+            raise Sdg4vsInfError("inf detected in theta !")
+
+        if jnp.isinf(grad_precond).any():
+            raise Sdg4vsInfError("inf detected in gradient !")
+
+        return (theta_reals1d, grad_precond, preconditioner)
 
     def _algorithm_one_step(
         self,
@@ -254,6 +271,8 @@ class GradientDescentPrecond(AbstractAlgoFit):
         tuple
             A tuple containing updated parameters, preconditioned gradient, and the preconditioner.
         """
-        return self._one_gradient_descent(
+        (theta_reals1d, grad_precond, preconditioner) = self._one_gradient_descent(
             model, log_likelihood_kwargs, theta_reals1d, step
         )
+        preconditioner = preconditioner if self._save_preconditionner else None
+        return (theta_reals1d, grad_precond, preconditioner)

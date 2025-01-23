@@ -14,7 +14,7 @@ import jax.numpy as jnp
 
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
-from sdg4varselect.exceptions import Sdg4vsNanError
+from sdg4varselect.exceptions import Sdg4vsException
 from sdg4varselect.outputs import Sdg4vsResults
 
 
@@ -222,7 +222,7 @@ class AbstractAlgoFit(ABC):
                 out[1] = last
 
         flag = out[-1]
-        if isinstance(flag, Sdg4vsNanError):
+        if isinstance(flag, Sdg4vsException):
             self._ntry -= 1
             if self._ntry > 1:
                 print(f"try again because of : {flag}")
@@ -230,14 +230,14 @@ class AbstractAlgoFit(ABC):
             # ie all attempts have failed
             if self._partial_fit:
                 print(f"{flag} : partial result returned !")
-                while len(out) != 0 and isinstance(out[-1], Sdg4vsNanError):
+                while len(out) != 0 and isinstance(out[-1], Sdg4vsException):
                     out.pop()  # remove error
             else:
                 raise flag
         # every things is good
         if len(out) == 0:
             print("the result is empty, no iteration has been performed!")
-            return None
+            return out
 
         return self.results_warper(
             model, data, out, chrono=datetime.now() - chrono_start
