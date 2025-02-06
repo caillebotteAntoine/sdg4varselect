@@ -203,8 +203,50 @@ class AdaGrad(AbstractPreconditioner):
         self._adagrad += gradient**2
         self._adagrad_past.append(self._adagrad)
 
-        precond = 1 / jnp.sqrt(self._regularization + self._adagrad)
+        precond = jnp.sqrt(self._regularization + self._adagrad)
         assert precond.shape == gradient.shape
 
-        grad_precond = precond * gradient
-        return precond, grad_precond
+        grad_precond = gradient / precond
+        return jnp.diag(precond), grad_precond
+
+
+class Identity(AbstractPreconditioner):
+    """Default preconditioner for stochastic gradient descent.
+
+    This preconditioner is simply the identity
+    """
+
+    def __init__(self) -> None:
+        pass
+
+    def initialize(self, jac_shape):
+        """Initialize the Fisher preconditioner.
+
+        Parameters
+        ----------
+        jac_shape : tuple
+            The shape of the Jacobian matrix to initialize.
+        """
+
+    @functools.partial(jit, static_argnums=0)
+    def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
+        """Compute the preconditioned gradient using Fisher information.
+
+        Parameters
+        ----------
+        gradient : jnp.ndarray
+            The gradient to be preconditioned.
+        jacobian : jnp.ndarray
+            The Jacobian matrix used for preconditioning.
+        step : float
+            The current step size.
+
+        Returns
+        -------
+        tuple
+            A tuple containing:
+                - jnp.ndarray: The precondition matrix.
+                - jnp.ndarray: The preconditioned gradient.
+        """
+
+        return jnp.diag(jnp.ones(gradient.shape)), gradient
