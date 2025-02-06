@@ -57,9 +57,12 @@ class Sdg4vsResults:
     ----------
     chrono : timedelta, default=timedelta()
         The duration of the gradient descent process.
+    chrono_iter : timedelta, default=timedelta()
+        The duration of the each step of the gradient descent process.
     """
 
     chrono: timedelta = timedelta()
+    chrono_iter: list[timedelta] = None
 
     @staticmethod
     def load(

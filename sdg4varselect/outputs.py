@@ -77,6 +77,7 @@ class GDResults(FitResults):
             fim=res[2],
             grad=jnp.array(res[1]),
             chrono=chrono,
+            chrono_iter=res[3],
         )
 
     def update_bic(self, model):
@@ -317,6 +318,11 @@ class MultiGDResults(Sdg4vsResults):
         """Reduce memory usage in all contained GDResults instances."""
         for res in self:
             res.make_it_lighter()
+
+    def make_it_minimal(self):
+        """Reduce memory usage in all contained instances."""
+        for res in self:
+            res.make_it_minimal()
 
     def pad(self, row, col=None):
         """Pad theta and grad in all GDResults instances to match specified dimensions.

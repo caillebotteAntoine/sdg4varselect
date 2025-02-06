@@ -177,6 +177,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
             If NaN values are detected in `theta_reals1d` or in gradient during optimization.
         """
         for step in itertools.count():
+            chrono = datetime.now()
             try:
                 out = self._algorithm_one_step(
                     model, log_likelihood_kwargs, theta_reals1d, step
@@ -188,7 +189,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
             theta_reals1d = jnp.where(freezed_components, theta_reals1d, out[0])
             out = (theta_reals1d,) + out[1:]
 
-            yield out
+            yield out + (datetime.now() - chrono,)
 
             if step > self._heating and jnp.sqrt((out[1] ** 2).sum()) < self._threshold:
                 break
