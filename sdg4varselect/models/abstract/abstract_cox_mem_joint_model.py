@@ -63,10 +63,12 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
             self.add_latent_variables(name)
 
     def init_parametrization(self):
-        params = self._mem.parametrization._params | self._cox._parametrization._params
-        self._parametrization = pc.NamedTuple(
-            alpha=pc.Real(scale=self._alpha_scale), **params
+        params = (
+            self._mem.parametrization._params
+            | {"alpha": pc.Real(scale=self._alpha_scale)}
+            | self._cox._parametrization._params
         )
+        self._parametrization = pc.NamedTuple(**params)
         self._mem._parametrization = self._parametrization
         self._cox._parametrization = self._parametrization
         self._cst |= self._mem._cst | self._cox._cst
