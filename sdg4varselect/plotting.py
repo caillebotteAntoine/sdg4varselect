@@ -189,34 +189,37 @@ def plot_regpath(x, *, fig=None, P=None):
     return x.plot(fig, P=P)
 
 
-def plot_estimation(
+def plot_boxplot(
     x,
     *,
     fig=None,
-    params_names: list = None,
-    id_to_plot: Union[list[list[int]], list[int]] = None,
+    row_names: list = None,
+    hline=None,
+    row_to_plot: Union[list[list[int]], list[int]] = None,
     xlabels=None,
     nrows=4,
     ncols=4,
     **kwargs,
 ):  # pylint: disable=too-many-arguments
     """
-    Plot estimation results for a given set of MultiRegularizationPath objects.
+    Plot scalar value for a given matrix.
 
-    This function generates subplots to visualize the parameter estimation results.
-    It supports multiple `MultiRegularizationPath` objects, plotting them on a grid
-    defined by `nrows` and `ncols`, and highlights specific components based on their
-    indices.
+    This function generates subplots to visualize the matrix values.
+    It supports plotting on a grid defined by `nrows` and `ncols`,
+    and highlights specific components based on their indices.
 
     Parameters
     ----------
-    x : list of MultiRegularizationPath
-        List of MultiRegularizationPath objects to be plotted.
+    x : jnp.ndarray
+        the matrix  to be plotted.
     fig : matplotlib.figure.Figure, optional
         Matplotlib figure to add subplots to If None, a new figure is created.
-    params_names : list, optional
+    row_names : list, optional
           List of parameter names corresponding to the components being plotted. If None, no titles are shown.
-    id_to_plot : list of int or list of list of int, optional):
+    hline : list, optional
+          List of scalar value corresponding to the horizontal lines being plotted in each boxplot.
+          If None, no lines are shown.
+    row_to_plot : list of int or list of list of int, optional):
         Indices of the components  to be plotted. If None, all components are plotted.
     xlabels : list, optional
         List of labels for the x-axis ticks. Default is None.
@@ -237,23 +240,16 @@ def plot_estimation(
     AssertionError:
         If any input validation fails (e.g., invalid index, shape mismatch).
     """
+    if not isinstance(x, np.ndarray):
+        x = np.array(x)
 
-    if isinstance(x, MultiRegularizationPath):
-        x = [x]
-    assert isinstance(x, list)
-    for xx in x:
-        assert isinstance(xx, MultiRegularizationPath)
+    if row_to_plot is None:
+        row_to_plot = list(range(x.shape[0]))
 
-    p_star = x[0].theta_star
-    x = np.array([xx.last_theta for xx in x]).T
-
-    if id_to_plot is None:
-        id_to_plot = list(range(x.shape[0]))
-
-    for ii in id_to_plot:
+    for ii in row_to_plot:
         assert 0 <= ii < x.shape[0]
 
-    assert len(id_to_plot) <= nrows * ncols
+    assert len(row_to_plot) <= nrows * ncols
 
     if fig is None:
         fig = figure()
@@ -263,9 +259,13 @@ def plot_estimation(
     def boxplot(x, *, fig, hline=None, facecolor="W", title=None):
         axes = fig.add_subplot(1, 1, 1)
         bp = axes.boxplot(
-            x,
+            (
+                x[~np.isnan(x)]
+                if len(x.shape) == 1
+                else np.array([xx[~np.isnan(xx)] for xx in x])
+            ),
             patch_artist=True,
-            labels=xlabels if xlabels is not None else None,
+            tick_labels=xlabels if xlabels is not None else None,
             **kwargs,
         )
 
@@ -281,17 +281,60 @@ def plot_estimation(
         if title is not None:
             axes.set_title(title)
 
-    for i, col in enumerate(id_to_plot):
+    for i, row in enumerate(row_to_plot):
         boxplot(
-            x=x[col],
+            x=x[row],
             fig=subfigs[i // ncols][i % ncols],
-            hline=None if p_star is None else p_star[col],
+            hline=None if hline is None else hline[row],
             facecolor=f"C{i}",
-            title=None if params_names is None else params_names[col],
+            title=None if row_names is None else row_names[row],
             **kwargs,
         )
 
     return fig
+
+
+def plot_estimation(x, **kwargs):
+    """
+    Plot estimation results for a given set of MultiRegularizationPath objects.
+
+    This function generates subplots to visualize the parameter estimation results.
+    It supports multiple `MultiRegularizationPath` objects, plotting them on a grid
+    defined by `nrows` and `ncols`, and highlights specific components based on their
+    indices.
+
+    Parameters
+    ----------
+    x : list of MultiRegularizationPath
+        List of MultiRegularizationPath objects to be plotted.
+
+    **kwargs:
+        Additional arguments passed to `plot_boxplot` or `boxplot`.
+
+    Returns
+    -------
+    list of matplotlib.figure.Figure
+        The Matplotlib figure object containing the generated subplots.
+
+    Raises
+    ------
+    AssertionError:
+        If any input validation fails (e.g., invalid index, shape mismatch).
+
+    See Also
+    --------
+    plot_boxplot : main plotting function
+    """
+
+    if isinstance(x, MultiRegularizationPath):
+        x = [x]
+    assert isinstance(x, list)
+    for xx in x:
+        assert isinstance(xx, MultiRegularizationPath)
+
+    p_star = x[0].theta_star
+    x = np.array([xx.last_theta for xx in x]).T
+    return plot_boxplot(x, hline=p_star, **kwargs)
 
 
 def plot_selection(
@@ -447,6 +490,25 @@ def plot_selection_percentage(
     id_zeros = np.array(id_zeros)
     id_non_zeros = np.array(id_non_zeros)
     params_names = np.array(params_names)
+
+    if isinstance(x, list):
+        assert any(
+            isinstance(xx, (MultiGDResults, MultiRegularizationPath)) for xx in x
+        )
+        if fig is not None and isinstance(fig, list):
+            assert len(x) == len(fig)
+
+        return [
+            plot_selection_percentage(
+                xx,
+                fig=None if fig is None else fig[i],
+                params_names=params_names,
+                id_zeros=id_zeros,
+                id_non_zeros=id_non_zeros,
+                width_ratios=width_ratios,
+            )
+            for i, xx in enumerate(x)
+        ]
 
     assert isinstance(x, (MultiGDResults, MultiRegularizationPath))
 

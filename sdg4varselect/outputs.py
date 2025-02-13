@@ -585,7 +585,7 @@ class RegularizationPath(MultiGDResults):
         ax.set_xscale("log")
 
         ax_bic = ax.twinx()
-        _ = plot_bic(ax_bic, self.bic, colors=["b", "w"], name="BIC")
+        # _ = plot_bic(ax_bic, self.bic, colors=["b", "w"], name="BIC")
         _ = plot_bic(ax_bic, self.ebic, colors=["r", "w"], name="eBIC")
         # fig.legend([lines_bic, lines_ebic], ["BIC", "eBIC"])
         return fig
