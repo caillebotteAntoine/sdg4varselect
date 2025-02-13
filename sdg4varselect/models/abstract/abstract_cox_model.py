@@ -233,11 +233,15 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         # log_survival_fct = - int_0^T hazard(s) ds
         log_hazard_value = self.log_hazard(params, **self._cst, **kwargs)
         assert survival_int_range.shape == log_hazard_value.shape
+        # assert not jnp.isnan(log_hazard_value).any()
+        # assert not jnp.isinf(log_hazard_value).any()
 
         log_survival_fct = -integrate.trapezoid(
             jnp.exp(log_hazard_value), survival_int_range
         )
         assert log_survival_fct.shape == (N,)
+        # assert jnp.isnan(log_survival_fct).any()
+        # assert jnp.isinf(log_survival_fct).any()
         # =============== end survival_fct =============== #
 
         # ================= hazard_fct ================= #
@@ -250,7 +254,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         return jnp.where(delta, log_hazard_fct, 0) + log_survival_fct
 
     # ============================================================== #
-    def auto_def_survival_int_range(self):
+    def auto_def_survival_int_range(self, T, **kwargs):
         """jnp.linspace(0, T, num=100)[1:].T"""
         return {"survival_int_range": jnp.linspace(0, T, num=100)[1:].T}, {}
 
