@@ -10,9 +10,7 @@ import jax.numpy as jnp
 import parametrization_cookbook.jax as pc
 
 from sdg4varselect._mcmc import MCMC, gibbs_sampler
-from sdg4varselect.models.abstract.abstract_latent_variables_model import (
-    log_gaussian_prior_cov,
-)
+from jax.scipy.stats import multivariate_normal
 
 parametrization = pc.NamedTuple(
     mu1=pc.RealPositive(scale=0.5, shape=(1,)),
@@ -27,7 +25,7 @@ def likelihood_array(theta_reals1d, **kwargs):
     """return likelihood"""
     params = parametrization.reals1d_to_params(theta_reals1d)
 
-    return log_gaussian_prior_cov(
+    return multivariate_normal(
         jnp.array([kwargs["x"]]).T,
         params.mu1,
         params.gamma2_1,

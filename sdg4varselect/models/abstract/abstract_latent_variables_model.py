@@ -22,6 +22,7 @@ from abc import ABC, abstractmethod
 from jax import jit
 import jax.numpy as jnp
 import jax.random as jrd
+from jax.scipy.stats import multivariate_normal
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
@@ -59,42 +60,43 @@ def _sample_latent(prngkey, params, N):
     )
 
 
-@jit
-def log_gaussian_prior_cov(
-    x: jnp.ndarray, mean: jnp.ndarray, cov: jnp.ndarray
-) -> jnp.ndarray:
-    """Compute the log probability of a Gaussian prior with covariance matrix.
+# @jit
+# def log_gaussian_prior_cov(
+#     x: jnp.ndarray, mean: jnp.ndarray, cov: jnp.ndarray
+# ) -> jnp.ndarray:
+#     """Compute the log probability of a Gaussian prior with covariance matrix.
 
-        sqrt((2pi)^D det(cov)) * exp[-1/2(x-m)^T cov^-1 (x-m)]
+#         sqrt((2pi)^D det(cov)) * exp[-1/2(x-m)^T cov^-1 (x-m)]
 
-    Parameters
-    ----------
-    x : jnp.ndarray
-        Observed data of shape `(N, D)`.
-    mean : jnp.ndarray
-        Mean of the latent variables with shape `(D,)`.
-    cov : jnp.ndarray
-        Covariance matrix of the latent variables with shape `(D, D)`.
+#     Parameters
+#     ----------
+#     x : jnp.ndarray
+#         Observed data of shape `(N, D)`.
+#     mean : jnp.ndarray
+#         Mean of the latent variables with shape `(D,)`.
+#     cov : jnp.ndarray
+#         Covariance matrix of the latent variables with shape `(D, D)`.
 
-    Returns
-    -------
-    jnp.ndarray
-        Log probability values of shape `(N,)`.
-    """
-    N, D = x.shape
-    assert mean.shape == (D,)
-    assert cov.shape == (D, D)
+#     Returns
+#     -------
+#     jnp.ndarray
+#         Log probability values of shape `(N,)`.
+#     """
+#     N, D = x.shape
+#     assert mean.shape == (D,)
+#     assert cov.shape == (D, D)
 
-    x_sub_mean = x - mean
+#     return multivariate_normal.logpdf(x, mean, cov)
+# x_sub_mean = x - mean
 
-    out = (
-        jnp.linalg.slogdet(cov)[1]  # log du det
-        + D * jnp.log(2 * jnp.pi)
-        + ((x_sub_mean @ jnp.linalg.inv(cov)) * x_sub_mean).sum(axis=1)
-    )
+# out = (
+#     jnp.linalg.slogdet(cov)[1]  # log du det
+#     + D * jnp.log(2 * jnp.pi)
+#     + ((x_sub_mean @ jnp.linalg.inv(cov)) * x_sub_mean).sum(axis=1)
+# )
 
-    assert out.shape == (N,)
-    return -out / 2
+# assert out.shape == (N,)
+# return -out / 2
 
 
 class AbstractLatentVariablesModel(ABC):
@@ -157,31 +159,31 @@ class AbstractLatentVariablesModel(ABC):
             raise KeyError(name + " all ready exist as latent variables.")
         self._latent_variables_name += [name]
 
-    @functools.partial(jit, static_argnums=0)
-    def mean_and_cov_latent(self, params):
-        """
-        Get mean and covariance of latent variables.
+    # @functools.partial(jit, static_argnums=0)
+    # def mean_and_cov_latent(self, params):
+    #     """
+    #     Get mean and covariance of latent variables.
 
-        Parameters
-        ----------
-        params : object
-            Contains attributes `mean_latent` and `cov_latent`.
+    #     Parameters
+    #     ----------
+    #     params : object
+    #         Contains attributes `mean_latent` and `cov_latent`.
 
-        Returns
-        -------
-        tuple of jnp.ndarray
-            Tuple containing covariance matrix and formatted mean vector.
-        """
-        mean = _mean_formatting(params.mean_latent)
-        if len(mean.shape) > 1 and mean.shape[1] == 1:
-            mean = mean[:, 0]
-        assert len(mean.shape) == 1
+    #     Returns
+    #     -------
+    #     tuple of jnp.ndarray
+    #         Tuple containing covariance matrix and formatted mean vector.
+    #     """
+    #     mean = _mean_formatting(params.mean_latent)
+    #     if len(mean.shape) > 1 and mean.shape[1] == 1:
+    #         mean = mean[:, 0]
+    #     assert len(mean.shape) == 1
 
-        cov = params.cov_latent
+    #     cov = params.cov_latent
 
-        z = jnp.zeros(shape=(cov.shape[0] - mean.shape[0],))
-        mean = jnp.concatenate([z, mean])
-        return cov, mean
+    #     z = jnp.zeros(shape=(cov.shape[0] - mean.shape[0],))
+    #     mean = jnp.concatenate([z, mean])
+    #     return cov, mean
 
     def latent_variables_data(self, params, name):
         """
@@ -200,7 +202,11 @@ class AbstractLatentVariablesModel(ABC):
             Dictionary with `size` and `mean` of the latent variable.
         """
         i = self._latent_variables_name.index(name)
-        _, mean = self.mean_and_cov_latent(params)
+        # _, mean = self.mean_and_cov_latent(params)
+        mean = _mean_formatting(params.mean_latent)
+        if len(mean.shape) > 1 and mean.shape[1] == 1:
+            mean = mean[:, 0]
+        assert len(mean.shape) == 1
 
         return {
             "size": self._latent_variables_size,
@@ -226,9 +232,8 @@ class AbstractLatentVariablesModel(ABC):
             Log-likelihood with only the Gaussian prior.
         """
         data = [kwargs[name] for name in self._latent_variables_name]
-        # cov, mean = self.mean_and_cov_latent(params)
 
-        return log_gaussian_prior_cov(
+        return multivariate_normal.logpdf(
             x=jnp.array(data).T,
             mean=_mean_formatting(params.mean_latent),
             cov=params.cov_latent,
