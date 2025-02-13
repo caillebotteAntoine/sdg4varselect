@@ -31,10 +31,22 @@ class AbstractPreconditioner(ABC):
         Positional arguments for initialization.
     **kwargs : dict
         Keyword arguments for initialization.
+    preconditioner : jnp.ndarray
+        Last value computed of the preconditionner
     """
 
-    def __init__(self, *args, **kwargs) -> None:
-        pass
+    def __init__(self) -> None:
+        self._preconditioner = None
+
+    @property
+    def preconditioner(self) -> jnp.ndarray:
+        """Return the last value computed of the preconditionner
+
+        Returns
+        -------
+        jnp.ndarray
+            last preconditionner"""
+        return self._preconditioner
 
     @abstractmethod
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
@@ -93,6 +105,8 @@ class Fisher(AbstractPreconditioner):
     """
 
     def __init__(self) -> None:
+        AbstractPreconditioner.__init__(self)
+
         self._jac = jnp.zeros(shape=(1, 1))
 
         self._step_size_approx_sto = deepcopy(default_step_size)
@@ -110,6 +124,7 @@ class Fisher(AbstractPreconditioner):
             The shape of the Jacobian matrix to initialize.
         """
         self._jac = jnp.zeros(shape=jac_shape)  # approximated jac
+        self._preconditioner = self._jac.T @ self._jac
 
     @functools.partial(jit, static_argnums=0)
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
@@ -144,12 +159,12 @@ class Fisher(AbstractPreconditioner):
         # Fisher computation
         fim = self._jac.T @ self._jac / self._jac.shape[0]
 
-        precond = step_size_fisher * fim + (1 - step_size_fisher) * jnp.eye(
-            fim.shape[0]
-        )
-        grad_precond = jnp.linalg.solve(precond, gradient)
+        self._preconditioner = step_size_fisher * fim + (
+            1 - step_size_fisher
+        ) * jnp.eye(fim.shape[0])
+        grad_precond = jnp.linalg.solve(self._preconditioner, gradient)
 
-        return precond, grad_precond
+        return self._preconditioner, grad_precond
 
 
 class AdaGrad(AbstractPreconditioner):
@@ -165,6 +180,7 @@ class AdaGrad(AbstractPreconditioner):
     """
 
     def __init__(self, regularization=1) -> None:
+        AbstractPreconditioner.__init__(self)
         self._adagrad = jnp.zeros(shape=(1, 1))
         self._adagrad_past = []
         self._regularization = regularization
@@ -179,6 +195,7 @@ class AdaGrad(AbstractPreconditioner):
         """
         self._adagrad = jnp.zeros(shape=(jac_shape[1],))
         self._adagrad_past = [self._adagrad]
+        self._preconditioner = jnp.sqrt(self._regularization + self._adagrad)
 
     @functools.partial(jit, static_argnums=0)
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
@@ -203,11 +220,11 @@ class AdaGrad(AbstractPreconditioner):
         self._adagrad += gradient**2
         self._adagrad_past.append(self._adagrad)
 
-        precond = jnp.sqrt(self._regularization + self._adagrad)
-        assert precond.shape == gradient.shape
+        self._preconditioner = jnp.sqrt(self._regularization + self._adagrad)
+        assert self._preconditioner.shape == gradient.shape
 
-        grad_precond = gradient / precond
-        return jnp.diag(precond), grad_precond
+        grad_precond = gradient / self._preconditioner
+        return jnp.diag(self._preconditioner), grad_precond
 
 
 class Identity(AbstractPreconditioner):
@@ -217,7 +234,7 @@ class Identity(AbstractPreconditioner):
     """
 
     def __init__(self) -> None:
-        pass
+        AbstractPreconditioner.__init__(self)
 
     def initialize(self, jac_shape):
         """Initialize the Fisher preconditioner.
@@ -227,6 +244,7 @@ class Identity(AbstractPreconditioner):
         jac_shape : tuple
             The shape of the Jacobian matrix to initialize.
         """
+        self._preconditioner = jnp.diag(jnp.ones(shape=(jac_shape[1],)))
 
     @functools.partial(jit, static_argnums=0)
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
@@ -249,4 +267,4 @@ class Identity(AbstractPreconditioner):
                 - jnp.ndarray: The preconditioned gradient.
         """
 
-        return jnp.diag(jnp.ones(gradient.shape)), gradient
+        return self._preconditioner, gradient

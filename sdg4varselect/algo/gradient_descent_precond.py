@@ -131,6 +131,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
         out = GDResults.new_from_list(results, chrono)
         out.log_likelihood = model.log_likelihood(out.last_theta, data)
         out.reals1d_to_hstack_params(model)
+        out.fim = self._preconditioner.preconditioner
         out.chrono += datetime.now() - chrono_start
         return out
 
