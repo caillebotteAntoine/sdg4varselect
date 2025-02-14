@@ -73,7 +73,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
 
         self._threshold = threshold
         self._preconditioner = preconditioner
-        self._save_preconditionner = False
+        self._save_preconditioner = False
 
     @property
     def save_preconditioner(self) -> bool:
@@ -276,5 +276,5 @@ class GradientDescentPrecond(AbstractAlgoFit):
         (theta_reals1d, grad_precond, preconditioner) = self._one_gradient_descent(
             model, log_likelihood_kwargs, theta_reals1d, step
         )
-        preconditioner = preconditioner if self._save_preconditionner else None
+        preconditioner = preconditioner if self._save_preconditioner else None
         return (theta_reals1d, grad_precond, preconditioner)

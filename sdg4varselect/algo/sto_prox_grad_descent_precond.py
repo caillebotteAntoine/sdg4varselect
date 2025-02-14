@@ -286,5 +286,5 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
             preconditioner=preconditioner,
         )
 
-        preconditioner = preconditioner if self._save_preconditionner else None
+        preconditioner = preconditioner if self._save_preconditioner else None
         return (theta_reals1d, grad_precond, preconditioner)

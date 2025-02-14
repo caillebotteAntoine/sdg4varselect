@@ -14,7 +14,7 @@ import jax.numpy as jnp
 
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
-from sdg4varselect.exceptions import Sdg4vsException
+from sdg4varselect.exceptions import Sdg4vsException, Sdg4vsInfError, Sdg4vsNanError
 from sdg4varselect.outputs import Sdg4vsResults
 
 
@@ -197,8 +197,21 @@ class AbstractAlgoFit(ABC):
         -------
         list : Type[Sdg4vsResults]
             Depends on algorithm class
+        Raises
+        ------
+        Sdg4vsNanError
+            If NaN values are detected in starting value `theta0_reals1d`.
+        Sdg4vsInfError
+            If Inf values are detected in starting value `theta0_reals1d`.
         """
         chrono_start = datetime.now()
+
+        if jnp.isnan(theta0_reals1d).any():
+            raise Sdg4vsNanError("nan detected in theta0 !")
+
+        if jnp.isinf(theta0_reals1d).any():
+            raise Sdg4vsInfError("inf detected in theta0 !")
+
         if freezed_components is None:
             freezed_components = jnp.zeros(shape=theta0_reals1d.shape, dtype=jnp.bool)
 

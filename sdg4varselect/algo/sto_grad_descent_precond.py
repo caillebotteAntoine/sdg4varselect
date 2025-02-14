@@ -168,5 +168,5 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         (theta_reals1d, grad_precond, preconditioner) = self._one_gradient_descent(
             model, log_likelihood_kwargs, theta_reals1d, step
         )
-        preconditioner = preconditioner if self._save_preconditionner else None
+        preconditioner = preconditioner if self._save_preconditioner else None
         return (theta_reals1d, grad_precond, preconditioner)

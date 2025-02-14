@@ -195,7 +195,7 @@ class AdaGrad(AbstractPreconditioner):
         """
         self._adagrad = jnp.zeros(shape=(jac_shape[1],))
         self._adagrad_past = [self._adagrad]
-        self._preconditioner = jnp.sqrt(self._regularization + self._adagrad)
+        self._preconditioner = self._regularization * jnp.ones(shape=(jac_shape[1],))
 
     @functools.partial(jit, static_argnums=0)
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
