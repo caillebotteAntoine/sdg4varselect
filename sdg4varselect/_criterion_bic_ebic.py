@@ -138,4 +138,5 @@ def compute_metrics(x, x_star, tol=0):
     )
     metrics["MSE"] = jnp.mean((x - x_star) ** 2)
 
+    metrics["TP+FP"] = tp + fp
     return metrics
