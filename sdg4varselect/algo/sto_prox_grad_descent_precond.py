@@ -229,9 +229,7 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
 
     # ============================================================== #
 
-    def _one_proximal_operator(
-        self, theta_reals1d, step, preconditioner
-    ) -> jnp.ndarray:
+    def _one_proximal_operator(self, theta_reals1d, step) -> jnp.ndarray:
         """Apply the proximal operator for a single step.
 
         Parameters
@@ -250,7 +248,7 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
             return theta_reals1d
 
         regularization = (
-            self._lbd * jnp.diag(preconditioner)
+            self._lbd * jnp.diag(self._preconditioner.value)
             if self._preconditioned_lbd
             else self._lbd
         )
@@ -280,11 +278,6 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         )
 
         # Proximal operator
-        theta_reals1d = self._one_proximal_operator(
-            theta_reals1d=theta_reals1d,
-            step=step,
-            preconditioner=preconditioner,
-        )
+        theta_reals1d = self._one_proximal_operator(theta_reals1d, step)
 
-        preconditioner = preconditioner if self._save_preconditioner else None
         return (theta_reals1d, grad_precond, preconditioner)

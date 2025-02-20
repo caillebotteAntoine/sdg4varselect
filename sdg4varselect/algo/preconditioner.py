@@ -7,7 +7,6 @@ to improve the convergence of stochastic gradient descent algorithms.
 Created by antoine.caillebotte@inrae.fr
 """
 
-import functools
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
@@ -39,7 +38,7 @@ class AbstractPreconditioner(ABC):
         self._preconditioner = None
 
     @property
-    def preconditioner(self) -> jnp.ndarray:
+    def value(self) -> jnp.ndarray:
         """Return the last value computed of the preconditionner
 
         Returns
@@ -90,6 +89,48 @@ class AbstractPreconditioner(ABC):
         raise NotImplementedError
 
 
+@jit
+def compute_fisher(gradient, jac, jac_current, step_size_approx_sto, step_size_fisher):
+    """Compute the preconditioned gradient using Fisher information.
+
+    Parameters
+    ----------
+    gradient : jnp.ndarray
+        The gradient to be preconditioned.
+    jac : jnp.ndarray
+        The last approximated jacobian.
+    jac_current : jnp.ndarray
+        The current jacobian.
+    step_size_approx_sto : callable
+        Function to compute the approximate step size.
+    step_size_fisher : callable
+        Function to compute the Fisher step size.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+            - jnp.ndarray: The precondition matrix.
+            - jnp.ndarray: The preconditioned gradient.
+            - jnp.ndarray: The approximated jacobian.
+    """
+
+    # Jacobian approximate
+    jac = (1 - step_size_approx_sto) * jac + step_size_approx_sto * jac_current
+
+    # gradient = self._jac.mean(axis=0)
+
+    # Fisher computation
+    fim = jac.T @ jac / jac.shape[0]
+
+    preconditioner = step_size_fisher * fim + (1 - step_size_fisher) * jnp.eye(
+        fim.shape[0]
+    )
+    grad_precond = jnp.linalg.solve(preconditioner, gradient)
+
+    return preconditioner, grad_precond, jac
+
+
 class Fisher(AbstractPreconditioner):
     """Fisher preconditioner for stochastic gradient descent.
 
@@ -126,7 +167,6 @@ class Fisher(AbstractPreconditioner):
         self._jac = jnp.zeros(shape=jac_shape)  # approximated jac
         self._preconditioner = self._jac.T @ self._jac
 
-    @functools.partial(jit, static_argnums=0)
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
         """Compute the preconditioned gradient using Fisher information.
 
@@ -148,23 +188,40 @@ class Fisher(AbstractPreconditioner):
         """
         step_size_approx_sto = self._step_size_approx_sto(step)
         step_size_fisher = self._step_size_fisher(step)
+        self._preconditioner, grad_precond, self._jac = compute_fisher(
+            gradient, self._jac, jacobian, step_size_approx_sto, step_size_fisher
+        )
 
-        # Jacobian approximate
-        self._jac = (
-            1 - step_size_approx_sto
-        ) * self._jac + step_size_approx_sto * jacobian
+        return grad_precond
 
-        # gradient = self._jac.mean(axis=0)
 
-        # Fisher computation
-        fim = self._jac.T @ self._jac / self._jac.shape[0]
+@jit
+def compute_adagrad(adagrad, gradient, regularization) -> jnp.ndarray:
+    """Compute the preconditioned gradient using AdaGrad method.
 
-        self._preconditioner = step_size_fisher * fim + (
-            1 - step_size_fisher
-        ) * jnp.eye(fim.shape[0])
-        grad_precond = jnp.linalg.solve(self._preconditioner, gradient)
+    Parameters
+    ----------
+    adagrad : jnp.ndarray
+        The value of the Adagrad all ready calculated.
+    gradient : jnp.ndarray
+        The gradient to be preconditioned.
+    regularization : float, optional
+        Regularization term to avoid division by zero (default is 1).
 
-        return self._preconditioner, grad_precond
+    Returns
+    -------
+    tuple
+        A tuple containing:
+            - jnp.ndarray: The precondition matrix.
+            - jnp.ndarray: The preconditioned gradient.
+            - jnp.ndarray: The approximated jacobian.
+    """
+    adagrad += gradient**2
+    preconditioner = jnp.sqrt(regularization + adagrad)
+    # assert preconditioner.shape == gradient.shape
+
+    grad_precond = gradient / preconditioner
+    return jnp.diag(preconditioner), grad_precond, adagrad
 
 
 class AdaGrad(AbstractPreconditioner):
@@ -197,7 +254,6 @@ class AdaGrad(AbstractPreconditioner):
         self._adagrad_past = [self._adagrad]
         self._preconditioner = self._regularization * jnp.ones(shape=(jac_shape[1],))
 
-    @functools.partial(jit, static_argnums=0)
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
         """Compute the preconditioned gradient using AdaGrad.
 
@@ -212,19 +268,14 @@ class AdaGrad(AbstractPreconditioner):
 
         Returns
         -------
-        tuple
-            A tuple containing:
-                - jnp.ndarray: The precondition matrix.
-                - jnp.ndarray: The preconditioned gradient.
+        jnp.ndarray
+            The preconditioned gradient.
         """
-        self._adagrad += gradient**2
+        self._preconditioner, grad_precond, self._adagrad = compute_adagrad(
+            self._adagrad, gradient, self._regularization
+        )
         self._adagrad_past.append(self._adagrad)
-
-        self._preconditioner = jnp.sqrt(self._regularization + self._adagrad)
-        assert self._preconditioner.shape == gradient.shape
-
-        grad_precond = gradient / self._preconditioner
-        return jnp.diag(self._preconditioner), grad_precond
+        return grad_precond
 
 
 class Identity(AbstractPreconditioner):
@@ -246,9 +297,8 @@ class Identity(AbstractPreconditioner):
         """
         self._preconditioner = jnp.diag(jnp.ones(shape=(jac_shape[1],)))
 
-    @functools.partial(jit, static_argnums=0)
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
-        """Compute the preconditioned gradient using Fisher information.
+        """Compute the preconditioned gradient using Identity information.
 
         Parameters
         ----------
@@ -261,10 +311,8 @@ class Identity(AbstractPreconditioner):
 
         Returns
         -------
-        tuple
-            A tuple containing:
-                - jnp.ndarray: The precondition matrix.
-                - jnp.ndarray: The preconditioned gradient.
+        jnp.ndarray
+            The preconditioned gradient.
         """
 
-        return self._preconditioner, gradient
+        return gradient
