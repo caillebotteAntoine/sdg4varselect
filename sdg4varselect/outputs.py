@@ -197,7 +197,7 @@ class MultiGDResults(Sdg4vsResults):
         while Sdg4vsNanError in self.results:
             self.results.remove(Sdg4vsNanError)
 
-        if len(self.results) > 0 and len(self.results[0]) > 0:
+        if len(self.results) > 0:
             max_row = max(run.theta.shape[-2] for run in self.results)
             self.pad(max_row, col=None)
 
