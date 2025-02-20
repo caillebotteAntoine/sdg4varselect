@@ -188,7 +188,7 @@ class LearningRate:
 
     def plot(self, label=None):
         if jnp.isnan(self.heating.step):
-            if self.preheating == 0:
+            if self.preheating.step == 0:
                 x = np.linspace(0, 200)
             else:
                 x = np.linspace(
@@ -212,3 +212,8 @@ _default_step_size_settings = {
 }
 
 default_step_size = LearningRate(**_default_step_size_settings)
+
+
+cst_step_size = LearningRate(
+    preheating=0, coef_heating=1, heating=None, coef_preheating=1
+)
