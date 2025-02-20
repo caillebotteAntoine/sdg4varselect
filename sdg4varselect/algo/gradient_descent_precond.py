@@ -7,7 +7,6 @@ the Fisher Information Matrix to improve convergence.
 Created by antoine.caillebotte@inrae.fr
 """
 
-import itertools
 from datetime import datetime
 from copy import deepcopy
 
@@ -17,9 +16,9 @@ from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.algo.abstract.abstract_algo_fit import AbstractAlgoFit
 from sdg4varselect.algo.preconditioner import AbstractPreconditioner
 
-from sdg4varselect.exceptions import Sdg4vsException, Sdg4vsNanError, Sdg4vsInfError
+from sdg4varselect.exceptions import Sdg4vsNanError, Sdg4vsInfError
 from sdg4varselect.outputs import GDResults
-from sdg4varselect.learning_rate import LearningRate, default_step_size
+from sdg4varselect.learning_rate import LearningRate, cst_step_size
 
 
 class GradientDescentPrecond(AbstractAlgoFit):
@@ -68,8 +67,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
     ):
         AbstractAlgoFit.__init__(self, **kwargs)
 
-        self.step_size = deepcopy(default_step_size)
-        self._heating = self.step_size.heating.step
+        self.step_size = deepcopy(cst_step_size)
 
         self._threshold = threshold
         self._preconditioner = preconditioner
@@ -105,9 +103,12 @@ class GradientDescentPrecond(AbstractAlgoFit):
         self._step_size = step_size
 
         self._heating = (
-            self._step_size.heating if self._step_size.heating is not None else jnp.inf
+            self._step_size.heating.step
+            if self._step_size.heating.step is not None
+            else jnp.inf
         )
 
+    # ============================================================== #
     def results_warper(self, model, data, results, chrono) -> GDResults:
         """Warp results into Sdg4vsResults object.
 
@@ -147,55 +148,6 @@ class GradientDescentPrecond(AbstractAlgoFit):
         self._preconditioner.initialize(jac_shape)
 
     # ============================================================== #
-    def algorithm(
-        self,
-        model: type[AbstractModel],
-        log_likelihood_kwargs: dict,
-        theta_reals1d: jnp.ndarray,
-        freezed_components: jnp.ndarray = None,
-    ):
-        """Run the stochastic gradient descent algorithm with preconditioning.
-
-        Parameters
-        ----------
-        model : type[AbstractModel]
-            the model to be fitted
-        log_likelihood_kwargs : dict
-            a dict where all additional log_likelihood arguments can be found
-        theta_reals1d : jnp.ndarray
-            Initial parameters for the model.
-        freezed_components : jnp.ndarray, optional
-            boolean array indicating which parameter components should not be updated (default is None).
-
-        Yields
-        ------
-        tuple
-            A tuple containing the updated parameters, gradient, and preconditioner state.
-
-        Raises
-        ------
-        Sdg4vsNanError
-            If NaN values are detected in `theta_reals1d` or in gradient during optimization.
-        """
-        for step in itertools.count():
-            chrono = datetime.now()
-            try:
-                out = self._algorithm_one_step(
-                    model, log_likelihood_kwargs, theta_reals1d, step
-                )
-            except Sdg4vsException as exc:
-                yield exc
-                break
-
-            theta_reals1d = jnp.where(freezed_components, theta_reals1d, out[0])
-            out = (theta_reals1d,) + out[1:]
-
-            yield out + (datetime.now() - chrono,)
-
-            if step > self._heating and jnp.sqrt((out[1] ** 2).sum()) < self._threshold:
-                break
-
-    # ============================================================== #
     def _one_gradient_descent(
         self,
         model: type[AbstractModel],
@@ -227,7 +179,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
         grad = jac_current.mean(axis=0)
 
         # Preconditionner
-        preconditioner, grad_precond = self._preconditioner.get_preconditioned_gradient(
+        grad_precond = self._preconditioner.get_preconditioned_gradient(
             grad, jac_current, step
         )
         grad_precond *= self._step_size(step)
@@ -246,7 +198,34 @@ class GradientDescentPrecond(AbstractAlgoFit):
         if jnp.isinf(grad_precond).any():
             raise Sdg4vsInfError("inf detected in gradient !")
 
+        preconditioner = (
+            self._preconditioner.value if self._save_preconditioner else None
+        )
         return (theta_reals1d, grad_precond, preconditioner)
+
+    # ============================================================== #
+    def breacking_rules(self, step, one_step_results):
+        """Determine whether to stop the optimization process.
+
+        This function checks if the stopping criteria are met based on the number of iterations
+        and the norm of the gradient.
+
+        Parameters
+        ----------
+        step : int
+            The current iteration step.
+        one_step_results : tuple
+            The tuple returned by the _algorithm_one_step function
+
+        Returns
+        -------
+        bool
+            True if the stopping conditions are met, otherwise False.
+        """
+        return (
+            step > self._heating
+            and jnp.sqrt((one_step_results[1] ** 2).sum()) < self._threshold
+        )
 
     def _algorithm_one_step(
         self,
@@ -276,5 +255,4 @@ class GradientDescentPrecond(AbstractAlgoFit):
         (theta_reals1d, grad_precond, preconditioner) = self._one_gradient_descent(
             model, log_likelihood_kwargs, theta_reals1d, step
         )
-        preconditioner = preconditioner if self._save_preconditioner else None
         return (theta_reals1d, grad_precond, preconditioner)

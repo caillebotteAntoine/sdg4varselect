@@ -97,6 +97,31 @@ class AbstractAlgoFit(ABC):
     def save_all(self, save_all: bool):
         self._save_all = save_all
 
+    # ============================================================== #
+    @abstractmethod
+    def results_warper(
+        self, model: type[AbstractModel], data: dict, results: list, chrono: int
+    ) -> Sdg4vsResults:
+        """Warp results into Sdg4vsResults object.
+
+        Parameters
+        ----------
+        model : type[AbstractModel]
+            The model used for the fitting.
+        data : dict
+           a dict where all additional log_likelihood arguments can be found
+        results : list
+            The results obtained from the fitting.
+        chrono : timedelta
+            The time taken for the fitting.
+
+        Returns
+        -------
+        Sdg4vsResults
+            An instance of Sdg4vsResults containing the results.
+        """
+        raise NotImplementedError
+
     @abstractmethod
     def _initialize_algo(
         self,
@@ -121,7 +146,66 @@ class AbstractAlgoFit(ABC):
         """
         raise NotImplementedError
 
+    # ============================================= #
+    # === method to be defined in child classes === #
+    # ====== to define any type of algorithm ====== #
+    # ============================================= #
     @abstractmethod
+    def breacking_rules(self, step, one_step_results):
+        """Abstract method to determine whether to stop the optimization process.
+
+        This method should be implemented in subclasses to define custom stopping criteria
+        for the optimization algorithm.
+
+        Parameters
+        ----------
+        step : int
+            The current iteration step.
+        one_step_results : tuple
+            The tuple returned by the _algorithm_one_step function
+
+        Returns
+        -------
+        bool
+            True if the stopping conditions are met, otherwise False.
+
+        Raises
+        ------
+        NotImplementedError
+            If the method is not implemented in a subclass.
+        """
+        raise NotImplementedError
+
+    def _algorithm_one_step(
+        self,
+        model: type[AbstractModel],
+        log_likelihood_kwargs,
+        theta_reals1d: jnp.ndarray,
+        step: int,
+    ):
+        """Perform one step of the algorithm.
+
+        Parameters
+        ----------
+        model : type[AbstractModel]
+            the model to be fitted
+        log_likelihood_kwargs : dict
+            a dict where all additional log_likelihood arguments can be found
+        theta_reals1d : jnp.ndarray
+            Initial parameters for the model.
+        step : int
+            The current iteration step.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the updated parameters and any additional arguments.
+        """
+        raise NotImplementedError
+
+    # ============================================================== #
+    # ============================================================== #
+    # ============================================================== #
     def algorithm(
         self,
         model: type[AbstractModel],
@@ -151,31 +235,25 @@ class AbstractAlgoFit(ABC):
         NotImplementedError
             If the method is not implemented in a subclass.
         """
-        raise NotImplementedError
 
-    @abstractmethod
-    def results_warper(
-        self, model: type[AbstractModel], data: dict, results: list, chrono: int
-    ) -> Sdg4vsResults:
-        """Warp results into Sdg4vsResults object.
+        for step in itertools.count():
+            chrono = datetime.now()
+            try:
+                out = self._algorithm_one_step(
+                    model, log_likelihood_kwargs, theta_reals1d, step
+                )
+            except Sdg4vsException as exc:
+                yield exc
+                break
 
-        Parameters
-        ----------
-        model : type[AbstractModel]
-            The model used for the fitting.
-        data : dict
-           a dict where all additional log_likelihood arguments can be found
-        results : list
-            The results obtained from the fitting.
-        chrono : timedelta
-            The time taken for the fitting.
+            theta_reals1d = jnp.where(freezed_components, theta_reals1d, out[0])
+            out = (theta_reals1d,) + out[1:]
 
-        Returns
-        -------
-        Sdg4vsResults
-            An instance of Sdg4vsResults containing the results.
-        """
-        raise NotImplementedError
+            one_step_results = out + (datetime.now() - chrono,)
+            yield one_step_results
+
+            if self.breacking_rules(step, one_step_results):
+                break
 
     def fit(
         self,
