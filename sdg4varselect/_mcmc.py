@@ -67,15 +67,16 @@ def gibbs_sampler(
 
     # === proposal value ===
     key_bis, key = jrd.split(key)
-    kwargs[data_name] += standard_deviation * jrd.normal(key_bis, shape=shape)
-    proposal_score = loglikelihood(**kwargs)
+    # kwargs[data_name] += standard_deviation * jrd.normal(key_bis, shape=shape)
+    proposal = old_data + standard_deviation * jrd.normal(key_bis, shape=shape)
+    proposal_score = loglikelihood(**{**kwargs, data_name: proposal})
 
     # choose the new value
     key_bis, key = jrd.split(key)
     rd = jnp.log(jrd.uniform(key_bis, shape=shape))
     rejected_id = proposal_score - current_score <= rd
 
-    out = rejected_id * old_data + (1 - rejected_id) * kwargs[data_name]
+    out = rejected_id * old_data + (1 - rejected_id) * proposal
     nacceptance = out.size - rejected_id.sum()
 
     return key, out, nacceptance
@@ -323,15 +324,11 @@ class MCMC(Chain):
             return None
 
         sd_prop = self.__sd[-1]
-        rate = 0.02 * self.acceptance_rate(-1) + 0.98 * self.acceptance_rate(-2)
-
-        if rate < 0.4:
-            sd_prop /= 1 + self.__lambda
-
-        else:  # if rate > 0.6:
-            sd_prop *= 1 + self.__lambda
-
-        # self.__lambda *= 0.999
+        rate = 0.2 * self.acceptance_rate(-1) + 0.8 * self.acceptance_rate(
+            -2
+        )  # lissage
+        sd_prop *= jnp.exp(self.__lambda * (rate - 0.4))
+        self.__lambda *= 0.999
         self.__sd.append(sd_prop)
         return None
 
