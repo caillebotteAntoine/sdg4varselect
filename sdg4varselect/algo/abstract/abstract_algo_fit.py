@@ -303,7 +303,7 @@ class AbstractAlgoFit(ABC):
                 model, log_likelihood_kwargs, theta0_reals1d, freezed_components
             ),
             self._max_iter,
-        )
+        )  #  creating iterators for efficient looping
 
         if self._save_all:
             out = list(iter_algo)

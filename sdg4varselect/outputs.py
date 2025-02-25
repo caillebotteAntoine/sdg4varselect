@@ -173,6 +173,7 @@ class SGDResults(GDResults):
     """
 
     latent_variables: dict[str, jnp.ndarray] = None
+    grad_log_likelihood_marginal: jnp.ndarray = None
 
 
 ###########################################################################################################

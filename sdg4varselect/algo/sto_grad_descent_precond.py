@@ -7,6 +7,7 @@ the Fisher Information Matrix to improve convergence.
 Created by antoine.caillebotte@inrae.fr
 """
 
+import warnings
 from datetime import datetime
 from copy import deepcopy
 
@@ -131,6 +132,22 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
             model, self._prngkey, data, out.last_theta
         )
         out.reals1d_to_hstack_params(model)
+
+        log_likelihood_kwargs = self.get_log_likelihood_kwargs(data)
+        theta_estim = out.last_theta_reals1d
+        out.grad_log_likelihood_marginal = self.grad_log_likelihood_marginal(
+            model, log_likelihood_kwargs, theta_estim
+        )
+
+        cv_check = jnp.abs(out.grad_log_likelihood_marginal) > 1e-1
+        if cv_check.sum() != 0:
+            warnings.warn(
+                (
+                    f"\nThe algorithm may not have converged, {int(cv_check.sum())} components "
+                    "of the gradient of the log marginal likelihood are not sufficiently small"
+                )
+            )
+
         out.chrono += datetime.now() - chrono_start
         return out
 

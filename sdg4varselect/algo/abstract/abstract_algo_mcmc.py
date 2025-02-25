@@ -7,6 +7,8 @@ initializing MCMC chains, handling latent variables, and performing MCMC samplin
 Created by antoine.caillebotte@inrae.fr
 """
 
+from typing import Type
+
 import jax.numpy as jnp
 import jax.random as jrd
 
@@ -214,3 +216,59 @@ class AbstractAlgoMCMC:
             )
 
     # ============================================================== #
+
+    def grad_log_likelihood_marginal(
+        self,
+        model: Type[AbstractLatentVariablesModel],
+        log_likelihood_kwargs: dict,
+        theta_reals1d: jnp.ndarray,
+        size=300,
+    ) -> jnp.ndarray:
+        """
+        Compute the marginal log-likelihood.
+
+        Parameters
+        ----------
+        model : Union[Type[AbstractModel], Type[AbstractLatentVariablesModel]]
+            Model instance.
+        log_likelihood_kwargs : dict
+            a dict where all log_likelihood arguments can be found.
+        theta_reals1d : jnp.ndarray
+            Parameters passed to the log-likelihood function.
+        size : int, optional
+            Number of simulations for marginalization, by default 1000.
+
+        Returns
+        -------
+        jnp.ndarray
+            Marginal log-likelihood.
+        """
+
+        out = []
+        for _ in range(size):
+            # Simulation
+            self._one_simulation(log_likelihood_kwargs, theta_reals1d)
+            # Jacobian
+            jac = model.jac_log_likelihood(theta_reals1d, **log_likelihood_kwargs)
+            # Gradient
+            out.append(jac.mean(axis=0))
+
+        value = jnp.array(out).mean(axis=0)
+        value_old = jnp.array(out[:-2]).mean(axis=0)
+
+        n_simu = len(out)
+        while n_simu < size * 2 and (abs(value / value_old - 1.0) >= 1e-2).all():
+            print(abs(value - value_old))
+            for _ in range(100):
+                n_simu += 1
+                # Simulation
+                self._one_simulation(log_likelihood_kwargs, theta_reals1d)
+                # Jacobian
+                jac = model.jac_log_likelihood(theta_reals1d, **log_likelihood_kwargs)
+                # Gradient
+                out.append(jac.mean(axis=0))
+
+                value_old = value
+                value = jnp.array(out).mean(axis=0)
+
+        return value
