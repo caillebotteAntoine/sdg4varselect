@@ -7,6 +7,8 @@ Created by antoine.caillebotte@inrae.fr
 from typing import Callable
 import functools
 
+import datetime
+
 import jax.random as jrd
 import jax.numpy as jnp
 
@@ -90,7 +92,9 @@ def regularization_path(
             res_estim, flag_selection = estim_fct_with_flag(model=model, **kwargs)
 
             if flag_selection:
-                for _ in range(len(lbd_set) - i):
+                yield res_estim
+                res_estim.chrono = datetime.timedelta(0)
+                for _ in range(len(lbd_set) - i - 1):
                     yield res_estim
                 break
             yield res_estim

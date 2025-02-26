@@ -55,6 +55,7 @@ class AbstractAlgoMCMC:
         self._prngkey = jrd.PRNGKey(0)
         self._latent_variables: dict[str, MCMC] = {}
         self._latent_data: dict[str, jnp.ndarray] = {}
+        self.n_simulation = 1
 
     @property
     def latent_variables(self) -> dict[str, MCMC]:
@@ -201,7 +202,7 @@ class AbstractAlgoMCMC:
 
     # ============================================================== #
     def _one_simulation(self, likelihood_kwargs, theta_reals1d):
-        """Perform one simulation step for each latent variable.
+        """Perform one or several simulation step for each latent variable.
 
         Parameters
         ----------
@@ -210,10 +211,11 @@ class AbstractAlgoMCMC:
         theta_reals1d : jnp.ndarray
             Current parameter values for the model.
         """
-        for var_lat in self._latent_variables.values():
-            self._prngkey = var_lat.gibbs_sampler_step(
-                self._prngkey, theta_reals1d=theta_reals1d, **likelihood_kwargs
-            )
+        for _ in range(self.n_simulation):
+            for var_lat in self._latent_variables.values():
+                self._prngkey = var_lat.gibbs_sampler_step(
+                    self._prngkey, theta_reals1d=theta_reals1d, **likelihood_kwargs
+                )
 
     # ============================================================== #
 
