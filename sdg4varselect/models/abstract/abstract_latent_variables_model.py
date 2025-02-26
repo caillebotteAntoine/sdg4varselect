@@ -23,8 +23,19 @@ from jax import jit
 import jax.numpy as jnp
 import jax.random as jrd
 from jax.scipy.stats import multivariate_normal
+from jax.scipy.special import logsumexp
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
+
+
+def _cov_formatting(cov):
+    if isinstance(cov, (tuple, list)):
+        cov = jnp.hstack(cov)
+
+    if len(cov.shape) == 1:
+        return jnp.diag(cov)
+
+    return cov
 
 
 def _mean_formatting(mean, size):
@@ -55,54 +66,12 @@ def _sample_latent(prngkey, params, N):
         Generated samples with shape `(N, D)`.
     """
     D = params.cov_latent.shape[0]
-    mean_latent = _mean_formatting(params.mean_latent, size=D)
+    mean = _mean_formatting(params.mean_latent, size=D)
+    cov = _cov_formatting(params.cov_latent)
 
     shape = (N,)  # mean.shape[0])
-
-    assert len(mean_latent) == D
-
-    return jrd.multivariate_normal(
-        prngkey, mean=mean_latent, cov=params.cov_latent, shape=shape
-    )
-
-
-# @jit
-# def log_gaussian_prior_cov(
-#     x: jnp.ndarray, mean: jnp.ndarray, cov: jnp.ndarray
-# ) -> jnp.ndarray:
-#     """Compute the log probability of a Gaussian prior with covariance matrix.
-
-#         sqrt((2pi)^D det(cov)) * exp[-1/2(x-m)^T cov^-1 (x-m)]
-
-#     Parameters
-#     ----------
-#     x : jnp.ndarray
-#         Observed data of shape `(N, D)`.
-#     mean : jnp.ndarray
-#         Mean of the latent variables with shape `(D,)`.
-#     cov : jnp.ndarray
-#         Covariance matrix of the latent variables with shape `(D, D)`.
-
-#     Returns
-#     -------
-#     jnp.ndarray
-#         Log probability values of shape `(N,)`.
-#     """
-#     N, D = x.shape
-#     assert mean.shape == (D,)
-#     assert cov.shape == (D, D)
-
-#     return multivariate_normal.logpdf(x, mean, cov)
-# x_sub_mean = x - mean
-
-# out = (
-#     jnp.linalg.slogdet(cov)[1]  # log du det
-#     + D * jnp.log(2 * jnp.pi)
-#     + ((x_sub_mean @ jnp.linalg.inv(cov)) * x_sub_mean).sum(axis=1)
-# )
-
-# assert out.shape == (N,)
-# return -out / 2
+    assert len(mean) == D
+    return jrd.multivariate_normal(prngkey, mean=mean, cov=cov, shape=shape)
 
 
 class AbstractLatentVariablesModel(ABC):
@@ -210,10 +179,9 @@ class AbstractLatentVariablesModel(ABC):
         """
         data = [kwargs[name] for name in self._latent_variables_name]
         mean = _mean_formatting(params.mean_latent, len(data))
+        cov = _cov_formatting(params.cov_latent)
 
-        return multivariate_normal.logpdf(
-            x=jnp.array(data).T, mean=mean, cov=params.cov_latent
-        )
+        return multivariate_normal.logpdf(x=jnp.array(data).T, mean=mean, cov=cov)
 
     @abstractmethod
     def log_likelihood_only_prior(self, theta_reals1d, **kwargs) -> jnp.ndarray:
@@ -300,7 +268,7 @@ class AbstractLatentVariablesModel(ABC):
 
 
 @functools.partial(jit, static_argnums=0)
-def _new_likelihood(
+def _new_log_likelihood(
     model: Union[Type[AbstractModel], Type[AbstractLatentVariablesModel]],
     sample_key,
     data,
@@ -335,11 +303,9 @@ def _new_likelihood(
         )
     )
 
-    return jnp.exp(
-        model.log_likelihood_without_prior(
-            theta_reals1d, **data, **var_lat_sample
-        )  # log(f(Y|phi_sim)) ; shape = (N,)
-    )  # f(Y|phi_sim) ; shape = (N,)
+    return model.log_likelihood_without_prior(
+        theta_reals1d, **data, **var_lat_sample
+    )  # log(f(Y|phi_sim)) ; shape = (N,)
 
 
 def log_likelihood_marginal(
@@ -374,12 +340,16 @@ def log_likelihood_marginal(
     out = []
     for _ in range(size):
         prngkey, sample_key = jrd.split(prngkey, 2)
-        out.append(_new_likelihood(model, sample_key, data, theta_reals1d))
+        out.append(
+            _new_log_likelihood(model, sample_key, data, theta_reals1d)
+        )  # log(f(Y|phi_sim)) ; shape = (N,)
 
-    # return jnp.log((jnp.array(out) / len(out)).sum(axis=0)).sum()
-
-    value = jnp.log((jnp.array(out) / len(out)).sum(axis=0)).sum()
-    value_old = jnp.log((jnp.array(out[:-2]) / len(out[:-2])).sum(axis=0)).sum()
+    value = logsumexp(
+        jnp.log(jnp.array(out)), b=1 / len(out), axis=0
+    ).sum()  # f(Y|phi_sim) ; shape = (N,)
+    value_old = logsumexp(
+        jnp.log(jnp.array(out[:-2])), b=1 / len(out[:-2]), axis=0
+    ).sum()
 
     n_simu = len(out)
     while n_simu < size * 2 and (abs(value / value_old - 1.0) >= 1e-2).all():
@@ -387,8 +357,7 @@ def log_likelihood_marginal(
         for _ in range(100):
             n_simu += 1
             prngkey, sample_key = jrd.split(prngkey, 2)
-            out.append(_new_likelihood(model, sample_key, data, theta_reals1d))
-            value_old = value
-            value = jnp.log((jnp.array(out) / len(out)).sum(axis=0)).sum()
-
+            out.append(_new_log_likelihood(model, sample_key, data, theta_reals1d))
+        value_old = value
+        value = logsumexp(jnp.log(jnp.array(out)), b=1 / len(out), axis=0).sum()
     return value
