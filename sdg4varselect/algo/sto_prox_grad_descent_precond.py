@@ -273,11 +273,11 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         self._one_simulation(log_likelihood_kwargs, theta_reals1d)
 
         # Gradient descent
-        (theta_reals1d, grad_precond, preconditioner) = self._one_gradient_descent(
+        (theta_reals1d, grad, preconditioner) = self._one_gradient_descent(
             model, log_likelihood_kwargs, theta_reals1d, step
         )
 
         # Proximal operator
         theta_reals1d = self._one_proximal_operator(theta_reals1d, step)
 
-        return (theta_reals1d, grad_precond, preconditioner)
+        return (theta_reals1d, grad, preconditioner)

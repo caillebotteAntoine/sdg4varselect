@@ -171,7 +171,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
         Returns
         -------
         tuple
-            A tuple containing updated parameters, preconditioned gradient, and the preconditioner.
+            A tuple containing updated parameters, gradient, and the preconditioner.
         """
         # Jacobian
         jac_current = model.jac_log_likelihood(theta_reals1d, **log_likelihood_kwargs)
@@ -201,7 +201,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
         preconditioner = (
             self._preconditioner.value if self._save_preconditioner else None
         )
-        return (theta_reals1d, grad_precond, preconditioner)
+        return (theta_reals1d, grad, preconditioner)
 
     # ============================================================== #
     def breacking_rules(self, step, one_step_results):
@@ -252,7 +252,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
         tuple
             A tuple containing updated parameters, preconditioned gradient, and the preconditioner.
         """
-        (theta_reals1d, grad_precond, preconditioner) = self._one_gradient_descent(
+        (theta_reals1d, grad, preconditioner) = self._one_gradient_descent(
             model, log_likelihood_kwargs, theta_reals1d, step
         )
-        return (theta_reals1d, grad_precond, preconditioner)
+        return (theta_reals1d, grad, preconditioner)
