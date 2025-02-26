@@ -344,12 +344,9 @@ def log_likelihood_marginal(
             _new_log_likelihood(model, sample_key, data, theta_reals1d)
         )  # log(f(Y|phi_sim)) ; shape = (N,)
 
-    value = logsumexp(
-        jnp.log(jnp.array(out)), b=1 / len(out), axis=0
-    ).sum()  # f(Y|phi_sim) ; shape = (N,)
-    value_old = logsumexp(
-        jnp.log(jnp.array(out[:-2])), b=1 / len(out[:-2]), axis=0
-    ).sum()
+    # f(Y|phi_sim) ; shape = (N,)
+    value = logsumexp(jnp.array(out), b=1 / len(out), axis=0).sum()
+    value_old = logsumexp(jnp.array(out[:-2]), b=1 / len(out[:-2]), axis=0).sum()
 
     n_simu = len(out)
     while n_simu < size * 2 and (abs(value / value_old - 1.0) >= 1e-2).all():
@@ -357,7 +354,11 @@ def log_likelihood_marginal(
         for _ in range(100):
             n_simu += 1
             prngkey, sample_key = jrd.split(prngkey, 2)
-            out.append(_new_log_likelihood(model, sample_key, data, theta_reals1d))
+            out.append(
+                _new_log_likelihood(model, sample_key, data, theta_reals1d)
+            )  # log(f(Y|phi_sim)) ; shape = (N,)
+
         value_old = value
-        value = logsumexp(jnp.log(jnp.array(out)), b=1 / len(out), axis=0).sum()
+        # f(Y|phi_sim) ; shape = (N,)
+        value = logsumexp(jnp.array(out), b=1 / len(out), axis=0).sum()
     return value
