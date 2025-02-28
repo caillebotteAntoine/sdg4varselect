@@ -47,6 +47,7 @@ class GDResults(FitResults):
 
     fim: jnp.ndarray = None
     grad: jnp.ndarray = None
+    grad_precond: jnp.ndarray = None
     log_likelihood: jnp.ndarray = jnp.nan
     bic: jnp.ndarray = None
     ebic: jnp.ndarray = None
@@ -74,10 +75,11 @@ class GDResults(FitResults):
         return cls(
             theta=jnp.array(res[0]),
             theta_reals1d=None,
-            fim=res[2],
+            fim=res[3],
             grad=jnp.array(res[1]),
+            grad_precond=jnp.array(res[2]),
             chrono=chrono,
-            chrono_iter=res[3],
+            chrono_iter=res[4],
         )
 
     def update_bic(self, model):

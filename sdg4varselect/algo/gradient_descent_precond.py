@@ -201,7 +201,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
         preconditioner = (
             self._preconditioner.value if self._save_preconditioner else None
         )
-        return (theta_reals1d, grad, preconditioner)
+        return (theta_reals1d, grad, grad_precond, preconditioner)
 
     # ============================================================== #
     def breacking_rules(self, step, one_step_results):

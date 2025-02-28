@@ -281,6 +281,7 @@ class AdaGrad(AbstractPreconditioner):
             self._adagrad, gradient, self._regularization
         )
         self._past.append(self._adagrad)
+        self._preconditioner *= self._scale
         return self._scale * grad_precond
 
 
@@ -290,8 +291,9 @@ class Identity(AbstractPreconditioner):
     This preconditioner is simply the identity
     """
 
-    def __init__(self) -> None:
+    def __init__(self, scale=None) -> None:
         AbstractPreconditioner.__init__(self)
+        self._scale = scale
 
     def initialize(self, jac_shape):
         """Initialize the Fisher preconditioner.
@@ -301,7 +303,12 @@ class Identity(AbstractPreconditioner):
         jac_shape : tuple
             The shape of the Jacobian matrix to initialize.
         """
-        self._preconditioner = jnp.diag(jnp.ones(shape=(jac_shape[1],)))
+        if self._scale is not None:
+            assert self._scale.shape == (jac_shape[1],)
+        else:
+            self._scale = jnp.ones(shape=(jac_shape[1],))
+
+        self._preconditioner = jnp.diag(self._scale)
 
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
         """Compute the preconditioned gradient using Identity information.
@@ -321,7 +328,7 @@ class Identity(AbstractPreconditioner):
             The preconditioned gradient.
         """
 
-        return gradient
+        return self._scale * gradient
 
 
 @jit
@@ -436,6 +443,7 @@ class RMSP(AbstractPreconditioner):
             self._eg2, gradient, self._regularization
         )
         self._past.append(self._eg2)
+        self._preconditioner *= self._scale
         return self._scale * grad_precond
 
 
@@ -502,4 +510,5 @@ class ADAM(RMSP):
             self._eg2, gradient=self._eg, regularization=self._regularization
         )
         self._past.append(self._eg2)
+        self._preconditioner *= self._scale
         return self._scale * grad_precond

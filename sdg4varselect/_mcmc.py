@@ -326,7 +326,7 @@ class MCMC(Chain):
         sd_prop = self.__sd[-1]
         # lissage
         rate = 0.2 * self.acceptance_rate(-1) + 0.8 * self.acceptance_rate(-2)
-        sd_prop *= jnp.exp(self.__lambda * (rate - 0.6))
+        sd_prop *= jnp.exp(self.__lambda * (rate - 0.4))
         self.__lambda *= 0.999
         self.__sd.append(sd_prop)
         return None
