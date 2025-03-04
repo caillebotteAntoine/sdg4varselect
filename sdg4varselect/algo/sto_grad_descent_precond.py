@@ -14,6 +14,7 @@ from copy import deepcopy
 import jax.numpy as jnp
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
+from sdg4varselect.exceptions import Sdg4vsException
 from sdg4varselect.models.abstract.abstract_latent_variables_model import (
     log_likelihood_marginal,
 )
@@ -135,18 +136,22 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
 
         log_likelihood_kwargs = self.get_log_likelihood_kwargs(data)
         theta_estim = out.last_theta_reals1d
-        out.grad_log_likelihood_marginal = self.grad_log_likelihood_marginal(
-            model, log_likelihood_kwargs, theta_estim
-        )
 
-        cv_check = jnp.abs(out.grad_log_likelihood_marginal) > 1e-1
-        if cv_check.sum() != 0:
-            warnings.warn(
-                (
-                    f"\nThe algorithm may not have converged, {int(cv_check.sum())} components "
-                    "of the gradient of the log marginal likelihood are not sufficiently small"
-                )
+        try:
+            out.grad_log_likelihood_marginal = self.grad_log_likelihood_marginal(
+                model, log_likelihood_kwargs, theta_estim
             )
+            cv_check = jnp.abs(out.grad_log_likelihood_marginal) > 1e-1
+            if cv_check.sum() != 0:
+                warnings.warn(
+                    (
+                        f"\nThe algorithm may not have converged, {int(cv_check.sum())} components "
+                        "of the gradient of the log marginal likelihood are not sufficiently small"
+                    )
+                )
+        except Sdg4vsException as exc:
+            out.grad_log_likelihood_marginal = exc
+            print(exc)
 
         out.chrono += datetime.now() - chrono_start
         return out
@@ -164,7 +169,7 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         ), "log_likelihood_kwargs must be specify !"
         assert theta_reals1d is not None, "theta_reals1d must be specify !"
 
-        AbstractAlgoMCMC._initialize_algo(self, model, theta_reals1d)
+        AbstractAlgoMCMC._initialize_algo(self, model)
         GD_Precond._initialize_algo(self, model, theta_reals1d, log_likelihood_kwargs)
 
         for _ in range(self._pre_heating):

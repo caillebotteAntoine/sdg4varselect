@@ -64,10 +64,10 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
         Raises
         ------
         Sdg4vsWrongParametrization
-            If a mandatory parameter (mean_latent, cov_latent, var_residual) is missing.
+            If a mandatory parameter (cov_latent, var_residual) is missing.
         """
         AbstractModel.init(self)
-        mandatory_parameter = ["mean_latent", "cov_latent", "var_residual"]
+        mandatory_parameter = ["cov_latent", "var_residual"]
         for mandatory_name in mandatory_parameter:
             if (
                 mandatory_name not in self._parametrization.idx_params._fields

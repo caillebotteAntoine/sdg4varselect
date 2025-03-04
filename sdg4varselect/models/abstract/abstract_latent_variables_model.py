@@ -38,15 +38,6 @@ def _cov_formatting(cov):
     return cov
 
 
-def _mean_formatting(mean, size):
-    if isinstance(mean, (tuple, list)):
-        mean = jnp.hstack(mean)
-
-    z = jnp.zeros(shape=(size - mean.shape[0],))
-    mean = jnp.concatenate([mean, z])
-    return mean
-
-
 def _sample_latent(prngkey, params, N):
     """
     Generate samples from a multivariate normal distribution using latent mean and covariance.
@@ -56,7 +47,7 @@ def _sample_latent(prngkey, params, N):
     prngkey : jax.random.PRNGKey
         Random key for reproducibility.
     params : object
-        Contains the attributes `mean_latent` and `cov_latent`.
+        Contains the attribute `cov_latent`.
     N : int
         Number of samples to draw.
 
@@ -66,11 +57,10 @@ def _sample_latent(prngkey, params, N):
         Generated samples with shape `(N, D)`.
     """
     D = params.cov_latent.shape[0]
-    mean = _mean_formatting(params.mean_latent, size=D)
+    mean = jnp.zeros(shape=(D,))
     cov = _cov_formatting(params.cov_latent)
 
     shape = (N,)  # mean.shape[0])
-    assert len(mean) == D
     return jrd.multivariate_normal(prngkey, mean=mean, cov=cov, shape=shape)
 
 
@@ -80,7 +70,7 @@ class AbstractLatentVariablesModel(ABC):
     Defines essential attributes for latent variables, including their names and sizes.
     Subclasses should specify methods for computing likelihoods with and without priors.
 
-    latent variables parameter must be named mean_latent and cov_latent.
+    latent variables parameter must be named  and cov_latent.
 
     Latent variables must be arranged in a precise order:
         those with a zero mean, then those with a non-zero mean.
@@ -134,31 +124,6 @@ class AbstractLatentVariablesModel(ABC):
             raise KeyError(name + " all ready exist as latent variables.")
         self._latent_variables_name += [name]
 
-    def latent_variables_data(self, params, name):
-        """
-        Retrieve data of a specific latent variable.
-
-        Parameters
-        ----------
-        params : object
-            Contains `mean_latent` and `cov_latent`.
-        name : str
-            Name of the latent variable.
-
-        Returns
-        -------
-        dict
-            Dictionary with `size` and `mean` of the latent variable.
-        """
-        i = self._latent_variables_name.index(name)
-        # _, mean = self.mean_and_cov_latent(params)
-        mean = _mean_formatting(params.mean_latent, size=params.cov_latent.shape[0])
-
-        return {
-            "size": self._latent_variables_size,
-            "mean": float(mean[i]),
-        }
-
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
     def only_prior(self, params, **kwargs) -> jnp.ndarray:
@@ -168,7 +133,7 @@ class AbstractLatentVariablesModel(ABC):
         Parameters
         ----------
         params : object
-            Contains attributes `mean_latent` and `cov_latent`.
+            Contains attribute `cov_latent`.
         **kwargs : dict
             additional data to be pass to the log-likelihood
 
@@ -178,8 +143,8 @@ class AbstractLatentVariablesModel(ABC):
             Log-likelihood with only the Gaussian prior.
         """
         data = [kwargs[name] for name in self._latent_variables_name]
-        mean = _mean_formatting(params.mean_latent, len(data))
         cov = _cov_formatting(params.cov_latent)
+        mean = jnp.zeros(shape=(cov.shape[0],))
 
         return multivariate_normal.logpdf(x=jnp.array(data).T, mean=mean, cov=cov)
 

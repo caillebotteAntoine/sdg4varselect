@@ -92,29 +92,22 @@ class AbstractAlgoMCMC:
     def _initialize_algo(
         self,
         model: type[AbstractLatentVariablesModel],
-        theta_reals1d: jnp.ndarray,
     ) -> None:
         """Initialize the algorithm by reseting MCMC chains to a specific starting value.
 
         Parameters
         ----------
-        theta_reals1d : jnp.ndarray
-            Initial values for model parameters.
         model : type[AbstractLatentVariablesModel]
             The model with latent variable definitions.
         """
-        params = model.parametrization.reals1d_to_params(theta_reals1d)
-
-        for name, var in self.latent_variables.items():
-            data = model.latent_variables_data(params, name)
-            var.reset(x0=data["mean"])
+        for _, var in self.latent_variables.items():
+            var.reset(x0=0)
             var.likelihood = model.log_likelihood_array
 
     # ============================================================== #
     def init_mcmc(
         self,
         model: type[AbstractLatentVariablesModel],
-        theta0: jnp.ndarray = None,
         sd: dict[str, float] = None,
         adaptative_sd=True,
     ):
@@ -124,8 +117,6 @@ class AbstractAlgoMCMC:
         ----------
         model : type[AbstractLatentVariablesModel]
             The model with latent variable definitions.
-        theta0 : jnp.ndarray, optional
-            Initial values for model parameters. (default is randomly drown)
         sd : dict[str, float], optional
             Standard deviation values for each MCMC chain (default is None).
         adaptative_sd : bool, optional
@@ -139,19 +130,12 @@ class AbstractAlgoMCMC:
 
         TODO check if mcmc have been init
         """
-        if theta0 is None:
-            self._prngkey, key = jrd.split(self._prngkey)
-            theta0 = jrd.normal(key, shape=(model.parametrization.size,))
-
-        params0 = model.parametrization.reals1d_to_params(theta0)
         for new_mcmc_name in model.latent_variables_name:
-            data = model.latent_variables_data(params0, new_mcmc_name)
-
             self.add_mcmc(
                 likelihood=model.log_likelihood_array,
                 sd=1 if sd is None else sd[new_mcmc_name],
-                x0=data["mean"],
-                size=data["size"],
+                x0=0,
+                size=model.latent_variables_size,
                 name=new_mcmc_name,
             )
 
@@ -255,12 +239,12 @@ class AbstractAlgoMCMC:
             # Gradient
             out.append(jac.mean(axis=0))
 
-        value = jnp.array(out).mean(axis=0)
-        value_old = jnp.array(out[:-2]).mean(axis=0)
+        grad = jnp.array(out).mean(axis=0)
+        grad_old = jnp.array(out[:-2]).mean(axis=0)
 
         n_simu = len(out)
-        while n_simu < size * 2 and (abs(value / value_old - 1.0) >= 1e-2).all():
-            print(abs(value - value_old))
+        while n_simu < size * 2 and (abs(grad / grad_old - 1.0) >= 1e-2).all():
+            print(abs(grad - grad_old))
             for _ in range(100):
                 n_simu += 1
                 # Simulation
@@ -270,7 +254,7 @@ class AbstractAlgoMCMC:
                 # Gradient
                 out.append(jac.mean(axis=0))
 
-                value_old = value
-                value = jnp.array(out).mean(axis=0)
+                grad_old = grad
+                grad = jnp.array(out).mean(axis=0)
 
-        return value
+        return grad
