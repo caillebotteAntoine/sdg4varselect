@@ -138,7 +138,6 @@ class MCMC(Chain):
 
     def __repr__(self) -> str:
         out = super().__repr__()
-        out += " [mean = " + str(self._data.mean())
         out += ", var = " + str(self._data.var()) + "]"
 
         return out
