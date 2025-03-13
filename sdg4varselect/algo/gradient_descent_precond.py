@@ -7,7 +7,6 @@ the Fisher Information Matrix to improve convergence.
 Created by antoine.caillebotte@inrae.fr
 """
 
-from datetime import datetime
 from copy import deepcopy
 
 import jax.numpy as jnp
@@ -109,31 +108,29 @@ class GradientDescentPrecond(AbstractAlgoFit):
         )
 
     # ============================================================== #
-    def results_warper(self, model, data, results, chrono) -> GDResults:
+    def results_warper(self, model, theta0_reals1d, data, results) -> GDResults:
         """Warp results into Sdg4vsResults object.
 
         Parameters
         ----------
         model : type[AbstractModel]
             The model used for the fitting.
+        theta0_reals1d : jnp.ndarray
+            Initial parameters for the model.
         data : dict
            a dict where all additional log_likelihood arguments can be found
         results : list
             The results obtained from the fitting.
-        chrono : timedelta
-            The time taken for the fitting.
 
         Returns
         -------
         Sdg4vsResults
             An instance of Sdg4vsResults containing the results.
         """
-        chrono_start = datetime.now()
-        out = GDResults.new_from_list(results, chrono)
+        out = GDResults.new_from_list(results, theta0_reals1d)
         out.log_likelihood = model.log_likelihood(out.last_theta, data)
         out.reals1d_to_hstack_params(model)
         out.fim = self._preconditioner.preconditioner
-        out.chrono += datetime.now() - chrono_start
         return out
 
     def _initialize_algo(
@@ -187,16 +184,16 @@ class GradientDescentPrecond(AbstractAlgoFit):
         theta_reals1d += grad_precond
 
         if jnp.isnan(theta_reals1d).any():
-            raise Sdg4vsNanError("nan detected in theta !")
+            raise Sdg4vsNanError("nan detected in theta during gradient descent !")
 
         if jnp.isnan(grad_precond).any():
-            raise Sdg4vsNanError("nan detected in gradient !")
+            raise Sdg4vsNanError("nan detected in gradient during gradient descent !")
 
         if jnp.isinf(theta_reals1d).any():
-            raise Sdg4vsInfError("inf detected in theta !")
+            raise Sdg4vsInfError("inf detected in theta during gradient descent !")
 
         if jnp.isinf(grad_precond).any():
-            raise Sdg4vsInfError("inf detected in gradient !")
+            raise Sdg4vsInfError("inf detected in gradient during gradient descent !")
 
         preconditioner = (
             self._preconditioner.value if self._save_preconditioner else None
@@ -252,7 +249,6 @@ class GradientDescentPrecond(AbstractAlgoFit):
         tuple
             A tuple containing updated parameters, preconditioned gradient, and the preconditioner.
         """
-        (theta_reals1d, grad, preconditioner) = self._one_gradient_descent(
+        return self._one_gradient_descent(
             model, log_likelihood_kwargs, theta_reals1d, step
         )
-        return (theta_reals1d, grad, preconditioner)

@@ -53,15 +53,15 @@ class GDResults(FitResults):
     ebic: jnp.ndarray = None
 
     @classmethod
-    def new_from_list(cls, sdg_res, chrono) -> "GDResults":
+    def new_from_list(cls, sdg_res, theta0_reals1d) -> "GDResults":
         """Create a new GDResults object from a list of results.
 
         Parameters
         ----------
         sdg_res : list
             A list containing the gradient descent results.
-        chrono : timedelta
-            The duration of the gradient descent process.
+        theta0_reals1d : jnp.ndarray
+            Initial parameters for the model.
 
         Returns
         -------
@@ -73,13 +73,12 @@ class GDResults(FitResults):
         ]
 
         return cls(
-            theta=jnp.array(res[0]),
+            theta=jnp.vstack([theta0_reals1d, jnp.array(res[0])]),
             theta_reals1d=None,
             fim=res[3],
             grad=jnp.array(res[1]),
             grad_precond=jnp.array(res[2]),
-            chrono=chrono,
-            chrono_iter=res[4],
+            chrono_iter=res[-1],
         )
 
     def update_bic(self, model):
@@ -93,9 +92,10 @@ class GDResults(FitResults):
         """
         P = model.P
         N = model.N
+        J = model.J
 
-        self.bic = BIC(self.last_theta[-P:], self.log_likelihood, N)
-        self.ebic = eBIC(self.last_theta[-P:], self.log_likelihood, N)
+        self.bic = BIC(self.last_theta[-P:], self.log_likelihood, N * J)
+        self.ebic = eBIC(self.last_theta[-P:], self.log_likelihood, N * J)
 
     def shrink(self, row=None, col=None):
         """Reduce the dimensions of theta and grad based on provided indices.
