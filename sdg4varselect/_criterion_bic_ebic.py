@@ -8,6 +8,28 @@ import jax.numpy as jnp
 import scipy.special
 
 
+def log_binom(n, k):
+    """Computes log(n choose k) in a numerically stable way using log-gamma functions.
+
+    Parameters
+    ----------
+    n : int
+        Number of things.
+    k : int
+        Number of elements taken.
+
+    Returns
+    -------
+    float
+        The natural logarithm of the total number of combinations.
+    """
+    return (
+        scipy.special.gammaln(n + 1)
+        - scipy.special.gammaln(k + 1)
+        - scipy.special.gammaln(n - k + 1)
+    )
+
+
 def eBIC(theta_hd, log_likelihood, n) -> jnp.ndarray:  # pylint:disable = C0103
     """Compute the extended Bayesian Information Criterion (eBIC) for a given model.
 
@@ -38,10 +60,10 @@ def eBIC(theta_hd, log_likelihood, n) -> jnp.ndarray:  # pylint:disable = C0103
 
     k = (theta_hd != 0).sum()
     assert k.shape == log_likelihood.shape
-    ebic_pen = scipy.special.binom(theta_hd.shape[0], k)
+    ebic_pen = 2 * log_binom(theta_hd.shape[0], k)
     assert ebic_pen.shape == log_likelihood.shape
 
-    return -2 * log_likelihood + k * jnp.log(n) + 2 * jnp.log(ebic_pen)
+    return -2 * log_likelihood + k * jnp.log(n) + ebic_pen
 
 
 def BIC(theta_hd, log_likelihood, n) -> jnp.ndarray:  # pylint:disable = C0103
