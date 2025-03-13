@@ -34,7 +34,7 @@ def gibbs_sampler(
     standard_deviation,  # 2
     loglikelihood: callable,
     current_score: jnp.ndarray,
-    **kwargs
+    **kwargs,
 ):
     """Parameters
     ----------
@@ -266,7 +266,7 @@ class MCMC(Chain):
             out.append(data)
         return out
 
-    def gibbs_sampler_step(self, key, **kwargs):
+    def sampler_step(self, key, **kwargs):
         """Performs a single Gibbs sampling step, updates the chain, and adapts the acceptance and standard deviation.
 
         Parameters
@@ -303,6 +303,12 @@ class MCMC(Chain):
         key_out, data, nacceptance = gibbs_sampler(
             key, self.name, self.__sd[-1], self._likelihood, current_score, **kwargs
         )
+
+        if jnp.isnan(data).any():
+            raise Sdg4vsNanError(f"Nan detected in {self.name} during simulation step!")
+
+        if jnp.isinf(data).any():
+            raise Sdg4vsInfError(f"Inf detected in {self.name} during simulation step!")
 
         self._data[:] = data
         self.update_chain()  # append the new data to the chain
