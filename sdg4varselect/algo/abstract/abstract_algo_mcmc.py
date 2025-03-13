@@ -133,7 +133,7 @@ class AbstractAlgoMCMC:
         for new_mcmc_name in model.latent_variables_name:
             self.add_mcmc(
                 likelihood=model.log_likelihood_array,
-                sd=1 if sd is None else sd[new_mcmc_name],
+                sd=(1 if sd is None or new_mcmc_name not in sd else sd[new_mcmc_name]),
                 x0=0,
                 size=model.latent_variables_size,
                 name=new_mcmc_name,
@@ -197,7 +197,7 @@ class AbstractAlgoMCMC:
         """
         for _ in range(self.n_simulation):
             for var_lat in self._latent_variables.values():
-                self._prngkey = var_lat.gibbs_sampler_step(
+                self._prngkey = var_lat.sampler_step(
                     self._prngkey, theta_reals1d=theta_reals1d, **likelihood_kwargs
                 )
 

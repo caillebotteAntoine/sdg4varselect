@@ -14,7 +14,12 @@ import jax.numpy as jnp
 
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
-from sdg4varselect.exceptions import Sdg4vsException, Sdg4vsInfError, Sdg4vsNanError
+from sdg4varselect.exceptions import (
+    Sdg4vsException,
+    Sdg4vsInfError,
+    Sdg4vsNanError,
+    _contains_nan_or_inf,
+)
 from sdg4varselect.outputs import Sdg4vsResults
 
 
@@ -100,7 +105,11 @@ class AbstractAlgoFit(ABC):
     # ============================================================== #
     @abstractmethod
     def results_warper(
-        self, model: type[AbstractModel], data: dict, results: list, chrono: int
+        self,
+        model: type[AbstractModel],
+        theta0_reals1d: jnp.ndarray,
+        data: dict,
+        results: list,
     ) -> Sdg4vsResults:
         """Warp results into Sdg4vsResults object.
 
@@ -108,12 +117,12 @@ class AbstractAlgoFit(ABC):
         ----------
         model : type[AbstractModel]
             The model used for the fitting.
+        theta0_reals1d : jnp.ndarray
+            Initial parameters for the model.
         data : dict
            a dict where all additional log_likelihood arguments can be found
         results : list
             The results obtained from the fitting.
-        chrono : timedelta
-            The time taken for the fitting.
 
         Returns
         -------
@@ -255,6 +264,28 @@ class AbstractAlgoFit(ABC):
             if self.breacking_rules(step, one_step_results):
                 break
 
+    def _check_theta(self, theta):
+        """
+        Checks the given theta for NaN or infinite values.
+
+        Parameters:
+        -----------
+        theta : jax.numpy.ndarray
+            The array of theta values to be checked.
+
+        Raises:
+        -------
+        Sdg4vsNanError
+            If any value in theta is NaN.
+        Sdg4vsInfError
+            If any value in theta is infinite.
+        """
+        if jnp.isnan(theta).any():
+            raise Sdg4vsNanError("nan detected in theta0 !")
+
+        if jnp.isinf(theta).any():
+            raise Sdg4vsInfError("inf detected in theta0 !")
+
     def fit(
         self,
         model: type[AbstractModel],
@@ -278,22 +309,21 @@ class AbstractAlgoFit(ABC):
         Raises
         ------
         Sdg4vsNanError
-            If NaN values are detected in starting value `theta0_reals1d`.
+            If NaN values are detected in starting value `theta0_reals1d` or in likelihood_kwargs.
         Sdg4vsInfError
-            If Inf values are detected in starting value `theta0_reals1d`.
+            If Inf values are detected in starting value `theta0_reals1d` or in likelihood_kwargs.
+        Sdg4vsException
+            If NaN or Inf values are detected in likelihood_kwargs.
         """
         chrono_start = datetime.now()
-
-        if jnp.isnan(theta0_reals1d).any():
-            raise Sdg4vsNanError("nan detected in theta0 !")
-
-        if jnp.isinf(theta0_reals1d).any():
-            raise Sdg4vsInfError("inf detected in theta0 !")
+        self._check_theta(theta0_reals1d)
 
         if freezed_components is None:
             freezed_components = jnp.zeros(shape=theta0_reals1d.shape, dtype=jnp.bool)
 
         log_likelihood_kwargs = self.get_log_likelihood_kwargs(data)
+        if _contains_nan_or_inf(log_likelihood_kwargs):
+            raise Sdg4vsException("nan or inf detected in log_likelihood_kwargs !")
 
         self._initialize_algo(model, theta0_reals1d, log_likelihood_kwargs)
         self._ntry = self._ntry_max
@@ -330,6 +360,6 @@ class AbstractAlgoFit(ABC):
             print("the result is empty, no iteration has been performed!")
             return out
 
-        return self.results_warper(
-            model, data, out, chrono=datetime.now() - chrono_start
-        )
+        out = self.results_warper(model, theta0_reals1d, data, out)
+        out.chrono = datetime.now() - chrono_start
+        return out

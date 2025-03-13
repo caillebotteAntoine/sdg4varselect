@@ -53,15 +53,15 @@ class GDResults(FitResults):
     ebic: jnp.ndarray = None
 
     @classmethod
-    def new_from_list(cls, sdg_res, chrono) -> "GDResults":
+    def new_from_list(cls, sdg_res, theta0_reals1d) -> "GDResults":
         """Create a new GDResults object from a list of results.
 
         Parameters
         ----------
         sdg_res : list
             A list containing the gradient descent results.
-        chrono : timedelta
-            The duration of the gradient descent process.
+        theta0_reals1d : jnp.ndarray
+            Initial parameters for the model.
 
         Returns
         -------
@@ -73,13 +73,12 @@ class GDResults(FitResults):
         ]
 
         return cls(
-            theta=jnp.array(res[0]),
+            theta=jnp.vstack([theta0_reals1d, jnp.array(res[0])]),
             theta_reals1d=None,
             fim=res[3],
             grad=jnp.array(res[1]),
             grad_precond=jnp.array(res[2]),
-            chrono=chrono,
-            chrono_iter=res[4],
+            chrono_iter=res[-1],
         )
 
     def update_bic(self, model):
@@ -93,9 +92,10 @@ class GDResults(FitResults):
         """
         P = model.P
         N = model.N
+        J = model.J
 
-        self.bic = BIC(self.last_theta[-P:], self.log_likelihood, N)
-        self.ebic = eBIC(self.last_theta[-P:], self.log_likelihood, N)
+        self.bic = BIC(self.last_theta[-P:], self.log_likelihood, N * J)
+        self.ebic = eBIC(self.last_theta[-P:], self.log_likelihood, N * J)
 
     def shrink(self, row=None, col=None):
         """Reduce the dimensions of theta and grad based on provided indices.
@@ -526,6 +526,29 @@ class RegularizationPath(MultiGDResults):
                 out[i] = self[best_supp_id]
                 out[i].chrono = self[i].chrono
 
+        window_size = 3
+        weights = jnp.ones(window_size) / (window_size - 1)
+        weights = weights.at[window_size // 2].set(0)
+
+        moving_avg = jnp.convolve(out.ebic, weights, mode="same")
+        moving_avg = moving_avg.at[0].set(out.ebic[0])
+        moving_avg = moving_avg.at[-1].set(out.ebic[-1])
+
+        # Define a threshold for detecting large values
+        threshold_within_one_std = moving_avg + jnp.std(moving_avg)
+        large_values_within_one_std = out.ebic > threshold_within_one_std
+
+        ii = jnp.where(large_values_within_one_std)[0].sort()[::-1]
+        if len(ii) != 0:
+            # Print the results
+            print(
+                "erroneous ebic value detected in the regularization path: ",
+                jnp.where(large_values_within_one_std)[0],
+            )
+            out.lbd_set = out.lbd_set[~large_values_within_one_std]
+            for i in ii:
+                out.results.pop(i)
+
         return out
 
     def plot(self, fig, P=None):
@@ -783,3 +806,17 @@ class MultiRegularizationPath(Sdg4vsResults):
         """
         for res in self:
             res.update_bic(model)
+
+    def standardize(self):
+        """Standardize the regularization path for all RegularizationPath instances.
+
+        Returns
+        -------
+        MultiRegularizationPath
+            A standardized version of the `MultiRegularizationPath` object with consistent BIC/eBIC values
+            for models with the same support.
+        """
+        out = deepcopy(self)
+        for i, reg_res in enumerate(self):
+            out[i] = reg_res.standardize()
+        return out

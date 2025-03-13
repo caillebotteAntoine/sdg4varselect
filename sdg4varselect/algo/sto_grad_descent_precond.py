@@ -8,7 +8,6 @@ Created by antoine.caillebotte@inrae.fr
 """
 
 import warnings
-from datetime import datetime
 from copy import deepcopy
 
 import jax.numpy as jnp
@@ -103,28 +102,26 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         """
         return data | self.latent_data
 
-    def results_warper(self, model, data, results, chrono) -> SGDResults:
+    def results_warper(self, model, theta0_reals1d, data, results) -> SGDResults:
         """Warp results into Sdg4vsResults object and calculate marginal likelihood.
 
         Parameters
         ----------
         model : type[AbstractModel]
             The model used for the fitting.
+        theta0_reals1d : jnp.ndarray
+            Initial parameters for the model.
         data : dict
            a dict where all additional log_likelihood arguments can be found
         results : list
             The results obtained from the fitting.
-        chrono : timedelta
-            The time taken for the fitting.
 
         Returns
         -------
         Sdg4vsResults
             An instance of Sdg4vsResults containing the results, including marginal likelihood.
         """
-        chrono_start = datetime.now()
-
-        out = SGDResults.new_from_list(results, chrono)
+        out = SGDResults.new_from_list(results, theta0_reals1d)
         out.latent_variables = {}
         for key, var in self.latent_variables.items():
             out.latent_variables[key] = deepcopy(var.data)
@@ -153,7 +150,6 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
             out.grad_log_likelihood_marginal = exc
             print(exc)
 
-        out.chrono += datetime.now() - chrono_start
         return out
 
     def _initialize_algo(
@@ -176,6 +172,32 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
             self._one_simulation(log_likelihood_kwargs, theta_reals1d)
 
     # ============================================================== #
+    def breacking_rules(self, step, one_step_results):
+        """Determine whether to stop the optimization process.
+
+        This function checks if the stopping criteria are met based on the number of iterations
+        and the norm of the gradient.
+
+        Parameters
+        ----------
+        step : int
+            The current iteration step.
+        one_step_results : tuple
+            The tuple returned by the _algorithm_one_step function
+
+        Returns
+        -------
+        bool
+            True if the stopping conditions are met, otherwise False.
+        """
+
+        first_rules = GD_Precond.breacking_rules(self, step, one_step_results)
+
+        new_rule = False  # jnp.abs(one_step_results[4]).max() < self._threshold
+
+        return first_rules and new_rule
+
+    # ============================================================== #
     def _algorithm_one_step(
         self,
         model: type[AbstractModel],
@@ -187,6 +209,24 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         self._one_simulation(log_likelihood_kwargs, theta_reals1d)
 
         # Gradient descent
-        return self._one_gradient_descent(
+        (
+            theta_reals1d,
+            grad,
+            grad_precond,
+            preconditioner,
+        ) = self._one_gradient_descent(
             model, log_likelihood_kwargs, theta_reals1d, step
+        )
+
+        grad_log_likelihood_marginal = (None,)
+        # self.grad_log_likelihood_marginal(
+        #     model, log_likelihood_kwargs, theta_reals1d
+        # )
+
+        return (
+            theta_reals1d,
+            grad,
+            grad_precond,
+            preconditioner,
+            grad_log_likelihood_marginal,
         )
