@@ -148,15 +148,19 @@ class GDResults(FitResults):
     def make_it_lighter(self) -> None:
         """Reduce memory usage by keeping only first and last theta and grad values."""
         FitResults.make_it_lighter(self)
-        id_not_nan = jnp.logical_not(jnp.isnan(self.grad).any(axis=1))
-        grad = self.grad[id_not_nan]
-        self.grad = jnp.array([grad[0], grad[-1]])
 
-        id_not_nan = jnp.logical_not(jnp.isnan(self.grad_precond).any(axis=1))
-        grad_precond = self.grad_precond[id_not_nan]
-        self.grad_precond = jnp.array([grad_precond[0], grad_precond[-1]])
+        if self.grad is not None:
+            id_not_nan = jnp.logical_not(jnp.isnan(self.grad).any(axis=1))
+            grad = self.grad[id_not_nan]
+            self.grad = jnp.array([grad[0], grad[-1]])
 
-        self.fim = (self.fim[0], self.fim[1])
+        if self.grad_precond is not None:
+            id_not_nan = jnp.logical_not(jnp.isnan(self.grad_precond).any(axis=1))
+            grad_precond = self.grad_precond[id_not_nan]
+            self.grad_precond = jnp.array([grad_precond[0], grad_precond[-1]])
+
+        if self.fim is not None:
+            self.fim = (self.fim[0], self.fim[1])
 
     def make_it_minimal(self) -> None:
         """Reduce memory usage by removing grad and fim values."""
@@ -766,7 +770,7 @@ class MultiRegularizationPath(Sdg4vsResults):
             for i, res in enumerate(reg_res):
                 if i != jnp.argmin(reg_res.ebic):
                     res.make_it_minimal()
-                    
+
     def make_it_lighter(self):
         """Reduce memory usage in all contained instances."""
         for reg_res in self:
