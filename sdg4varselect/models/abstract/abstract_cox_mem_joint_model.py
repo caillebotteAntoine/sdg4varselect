@@ -127,28 +127,31 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
     ) -> jnp.ndarray:  # shape = (N, num)
         """Compute the log of the hazard function.
 
-        Parameters
-        ----------
-        params : dict
-            Model parameters.
-        survival_int_range : jnp.ndarray
-            Array of time points, shape (N, num).
-        cov : jnp.ndarray
-            Covariates matrix, shape (N, p).
-        **kwargs : dict
-            Additional parameters.
+                Parameters
+                ----------
+                params : dict
+                    Model parameters.
+                survival_int_range : jnp.ndarray
+                    Array of time points, shape (N, num).
+                cov : jnp.ndarray
+                    Covariates matrix, shape (N, p).
+                **kwargs : dict
+                    Additional parameters.
 
-        Returns
-        -------
-        jnp.ndarray
-            Log hazard values, shape (N, num).
+                Returns
+                -------
+                jnp.ndarray
+                    Log hazard values, shape (N, num).
 
-        Notes
-        -----
-        hazard(t) = h0(t) * exp(\beta^T U +f(\alpha,params, t)))
-        where h0 is the baseline hazard and f the link function
+                Notes
+                -----
+                hazard(t) = h0(t) * exp(\beta^T U +f(\alpha,params, t)))
+        <<<<<<< HEAD
+                where h0 is the baseline hazard and f the link function
+        =======
+        >>>>>>> 634604c6d19a3ab197f02c036c58b0ac80a7d4c1
 
-        log(h(t)) = log(h0(t))+\beta^T U +f(\alpha,params, t))
+                log(h(t)) = log(h0(t))+\beta^T U +f(\alpha,params, t))
         """
         link_values = self.link_function(
             params.alpha, params, survival_int_range, **kwargs
