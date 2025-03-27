@@ -146,6 +146,7 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
         Notes
         -----
         hazard(t) = h0(t) * exp(\beta^T U +f(\alpha,params, t)))
+        where h0 is the baseline hazard and f the link function
 
         log(h(t)) = log(h0(t))+\beta^T U +f(\alpha,params, t))
         """
