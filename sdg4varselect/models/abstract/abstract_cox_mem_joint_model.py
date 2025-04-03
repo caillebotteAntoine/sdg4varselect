@@ -8,6 +8,8 @@ Created by antoine.caillebotte@inrae.fr
 """
 
 import functools
+from copy import deepcopy
+
 import parametrization_cookbook.jax as pc
 
 import jax.numpy as jnp
@@ -22,9 +24,9 @@ from sdg4varselect.models.abstract.abstract_cox_model import AbstractCoxModel
 from sdg4varselect.models.abstract.abstract_mixed_effects_model import (
     AbstractMixedEffectsModel,
 )
-from copy import deepcopy
 
-# pylint: disable = all
+
+# pylint: disable = protected-access
 
 
 class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
@@ -83,9 +85,44 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
-    def log_baseline_hazard(self, params, survival_int_range, **kwargs):
-        """Define the log of the baseline hazard. Must be implemented by subclasses."""
-        return self._cox.log_baseline_hazard(params, survival_int_range, **kwargs)
+    def proportional_hazards_component(self, params, **kwargs):
+        """Compute the proportional hazards component.
+
+        Parameters
+        ----------
+        params : dict
+            Model parameters.
+        **kwargs : dict
+            Additional parameters.
+
+        Returns
+        -------
+        jnp.ndarray
+            Proportional hazards component.
+        """
+        phc = self._cox.proportional_hazards_component(params, **kwargs)
+        link_values = self.link_function(params.alpha, params, **kwargs)
+        assert phc.shape[0] == link_values.shape[0]
+        assert phc.shape[1] == link_values.shape[1] or phc.shape[1] == 1
+
+        return phc + link_values
+
+    @functools.partial(jit, static_argnums=0)
+    def log_baseline_hazard(self, params, **kwargs):
+        """Compute the log baseline hazard.
+
+        Parameters
+        ----------
+        params : dict
+            Model parameters.
+        **kwargs : dict
+            Additional parameters.
+        Returns
+        -------
+        jnp.ndarray
+            Log baseline hazard.
+        """
+        return self._cox.log_baseline_hazard(params, **kwargs)
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
@@ -115,50 +152,6 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
             Values of the link function.
         """
         raise NotImplementedError
-
-    # ============================================================== #
-    @functools.partial(jit, static_argnums=0)
-    def log_hazard(
-        self,
-        params,
-        survival_int_range: jnp.ndarray,  # shape = (N,num)
-        cov: jnp.ndarray,  # shape = (N,p)
-        **kwargs,
-    ) -> jnp.ndarray:  # shape = (N, num)
-        """Compute the log of the hazard function.
-
-                Parameters
-                ----------
-                params : dict
-                    Model parameters.
-                survival_int_range : jnp.ndarray
-                    Array of time points, shape (N, num).
-                cov : jnp.ndarray
-                    Covariates matrix, shape (N, p).
-                **kwargs : dict
-                    Additional parameters.
-
-                Returns
-                -------
-                jnp.ndarray
-                    Log hazard values, shape (N, num).
-
-                Notes
-                -----
-                hazard(t) = h0(t) * exp(\beta^T U +f(\alpha,params, t)))
-        <<<<<<< HEAD
-                where h0 is the baseline hazard and f the link function
-        =======
-        >>>>>>> 634604c6d19a3ab197f02c036c58b0ac80a7d4c1
-
-                log(h(t)) = log(h0(t))+\beta^T U +f(\alpha,params, t))
-        """
-        link_values = self.link_function(
-            params.alpha, params, survival_int_range, **kwargs
-        )
-        log_h = self._cox.log_hazard(params, survival_int_range, cov, **kwargs)
-        # print(params.alpha)
-        return log_h + link_values
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
@@ -224,9 +217,7 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
         ) + self.log_likelihood_only_prior(theta_reals1d, **kwargs)
 
     # ============================================================== #
-    def sample(
-        self, params_star, prngkey, simulation_intervalle, **kwargs
-    ) -> tuple[dict, dict]:
+    def sample(self, params_star, prngkey, **kwargs) -> tuple[dict, dict]:
         """
         Sample a dataset from the joint model.
 
@@ -236,10 +227,9 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
             Model parameters for sampling.
         prngkey : jnp.ndarray
             Pseudo-random number generator key.
-        simulation_intervalle : tuple
-            Interval within which to simulate times.
         **kwargs : dict
             Additional parameters.
+            containing simulation_intervalle : tuple, Interval within which to simulate times.
 
         Returns
         -------
@@ -256,16 +246,47 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
             self,
             params_star,
             prngkey_cox,
-            simulation_intervalle,
             **kwargs,
             **sim,
         )
+
+        ii_notobserved = obs["mem_obs_time"] <= coxobs["T"][:, None]
+        obs["Y"] = jnp.where(ii_notobserved, obs["Y"], jnp.nan)
+        obs["mem_obs_time"] = jnp.where(ii_notobserved, obs["mem_obs_time"], jnp.nan)
 
         return obs | coxobs, sim | coxsim
 
     # ============================================================== #
     def censoring_simulation(self, prngkey, T, params_star, **kwargs):
+        """Simulate censoring times for the Cox model.
+        Parameters
+        ----------
+        prngkey : jnp.ndarray
+            Pseudo-random number generator key.
+        T : jnp.ndarray
+            Event times.
+        params_star : dict
+            Model parameters for simulation.
+        **kwargs : dict
+            Additional parameters for censoring simulation.
+        Returns
+        -------
+        jnp.ndarray
+            Simulated censoring times.
+        """
         return self._cox.censoring_simulation(prngkey, T, params_star, **kwargs)
 
     def covariates_simulation(self, prngkey, **kwargs) -> jnp.ndarray:
+        """Simulate covariates for the Cox model.
+        Parameters
+        ----------
+        prngkey : jnp.ndarray
+            Pseudo-random number generator key.
+        **kwargs : dict
+            Additional parameters for covariate simulation.
+        Returns
+        -------
+        jnp.ndarray
+            Simulated covariates.
+        """
         return self._cox.covariates_simulation(prngkey, **kwargs)
