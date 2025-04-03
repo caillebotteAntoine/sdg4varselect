@@ -28,6 +28,15 @@ from jax.scipy.special import logsumexp
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 
 
+def _mean_formatting(mean, size):
+    if isinstance(mean, (tuple, list)):
+        mean = jnp.hstack(mean)
+
+    z = jnp.zeros(shape=(size - mean.shape[0],))
+    mean = jnp.concatenate([mean, z])
+    return mean
+
+
 def _cov_formatting(cov):
     if isinstance(cov, (tuple, list)):
         cov = jnp.hstack(cov)
@@ -57,7 +66,7 @@ def _sample_latent(prngkey, params, N):
         Generated samples with shape `(N, D)`.
     """
     D = params.cov_latent.shape[0]
-    mean = jnp.zeros(shape=(D,))
+    mean = _mean_formatting(params.mean_latent, D)
     cov = _cov_formatting(params.cov_latent)
 
     shape = (N,)  # mean.shape[0])
@@ -144,7 +153,7 @@ class AbstractLatentVariablesModel(ABC):
         """
         data = [kwargs[name] for name in self._latent_variables_name]
         cov = _cov_formatting(params.cov_latent)
-        mean = jnp.zeros(shape=(cov.shape[0],))
+        mean = _mean_formatting(params.mean_latent, size=cov.shape[0])
 
         return multivariate_normal.logpdf(x=jnp.array(data).T, mean=mean, cov=cov)
 

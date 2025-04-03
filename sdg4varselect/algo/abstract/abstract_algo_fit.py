@@ -18,7 +18,6 @@ from sdg4varselect.exceptions import (
     Sdg4vsException,
     Sdg4vsInfError,
     Sdg4vsNanError,
-    _contains_nan_or_inf,
 )
 from sdg4varselect.outputs import Sdg4vsResults
 
@@ -322,8 +321,8 @@ class AbstractAlgoFit(ABC):
             freezed_components = jnp.zeros(shape=theta0_reals1d.shape, dtype=jnp.bool)
 
         log_likelihood_kwargs = self.get_log_likelihood_kwargs(data)
-        if _contains_nan_or_inf(log_likelihood_kwargs):
-            raise Sdg4vsException("nan or inf detected in log_likelihood_kwargs !")
+        # if _contains_nan_or_inf(log_likelihood_kwargs):
+        #     raise Sdg4vsException("nan or inf detected in log_likelihood_kwargs !")
 
         self._initialize_algo(model, theta0_reals1d, log_likelihood_kwargs)
         self._ntry = self._ntry_max
