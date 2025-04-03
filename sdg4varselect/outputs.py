@@ -160,7 +160,8 @@ class GDResults(FitResults):
             self.grad_precond = jnp.array([grad_precond[0], grad_precond[-1]])
 
         if self.fim is not None:
-            self.fim = (self.fim[0], self.fim[1])
+            if len(self.fim) >= 2:
+                self.fim = (self.fim[0], self.fim[1])
 
     def make_it_minimal(self) -> None:
         """Reduce memory usage by removing grad and fim values."""
