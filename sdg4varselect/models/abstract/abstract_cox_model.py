@@ -6,8 +6,6 @@ This module defines an abstract Cox model class.
 Created by antoine.caillebotte@inrae.fr
 """
 
-# pylint: disable = all
-
 from abc import abstractmethod
 import functools
 
@@ -21,93 +19,6 @@ from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.models.abstract.abstract_high_dim_model import AbstractHDModel
 
 
-@functools.partial(jit, static_argnums=0)
-def _bisection_method_step(fun, a, b):
-    """
-    Perform a single step of the bisection method.
-
-    Tant que (b - a) > ε
-        m ← (a + b) / 2
-        Si (f(a)*f(m) ≤ 0) alors
-        b ← m
-        sinon
-        a ← m
-        Fin Si
-    Fin Tant que
-
-    Parameters
-    ----------
-    fun : function
-        Function for which the root is being searched.
-    a : array-like
-        Start of the interval.
-    b : array-like
-        End of the interval.
-
-    Returns
-    -------
-    tuple
-        Updated interval (a, b) after one bisection step.
-    """
-    m = (a + b) / 2
-
-    neg_id = fun(a) * fun(m) <= 0
-
-    b = jnp.where(neg_id, m, b)
-    a = jnp.where(1 - neg_id, m, a)
-    return a, b
-
-
-def _bisection_method(fun, a, b, eps=1e-3):
-    """Find a root of the function `fun` using the bisection method.
-
-    Parameters
-    ----------
-    fun : function
-        Function for which the root is being searched.
-    a : array-like
-        Start of the interval.
-    b : array-like
-        End of the interval.
-    eps : float, optional
-        Desired precision of the result, by default 1e-3.
-
-    Returns
-    -------
-    array-like
-        Approximate root of the function.
-
-    Raises
-    ------
-    Sdg4vsNanError
-        If Nan is detected in the fun computation.
-    """
-    if not (fun(a) * fun(b) <= 0).any():
-        print(fun(a), fun(b))
-    assert (fun(a) * fun(b) <= 0).any()
-
-    eps0 = jnp.abs(b - a)
-    maxiter = int(jnp.log2(eps0 / eps).max())
-
-    for _ in range(maxiter):
-        # print(f"fun(a)={fun(a)}\n, fun(b)={fun(b)},\n a={a},\n b={b}")
-        a, b = _bisection_method_step(fun, a, b)
-
-    if (
-        jnp.isinf(fun(a)).any
-        or jnp.isinf(fun(b)).any
-        or jnp.isnan(fun(a)).any
-        or jnp.isnan(fun(b)).any
-    ):
-        print(Warning("Nan or inf is detected in fun during bisection method!"))
-
-    precision = [jnp.abs(a - b).sum(), jnp.abs(fun(a)).mean(), jnp.abs(fun(b)).mean()]
-    print(
-        f"bisection_method precision  =  {precision[0]}, mean(|f(a)|) = {precision[1]}, mean(|f(b)|) = {precision[1]}"
-    )
-    return (a + b) / 2
-
-
 class AbstractCoxModel(AbstractModel, AbstractHDModel):
     """Abstract class defining a Cox model with an abstract baseline hazard.
 
@@ -119,7 +30,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         Number of high-dimensional parameters in the model.
     """
 
-    def __init__(self, N, P, **kwargs):
+    def __init__(self, N, P=0, **kwargs):
         AbstractHDModel.__init__(self, P=P)
         AbstractModel.__init__(self, N=N, **kwargs)
 
@@ -131,17 +42,16 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
     # ============================================================== #
     @abstractmethod
     @functools.partial(jit, static_argnums=0)
-    def log_baseline_hazard(self, params, survival_int_range, **kwargs):
+    def log_baseline_hazard(self, params, **kwargs):
         """Calculate the log of the baseline hazard.
 
         Parameters
         ----------
         params : dict
             Parameters of the model.
-        survival_int_range : jnp.ndarray
-            Array of survival observation, shape (N, num).
         **kwargs : dict
-            Additional keyword arguments.
+            Additional parameters, containing survival_int_range the array of time points.
+
 
         Returns
         -------
@@ -151,43 +61,55 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         raise NotImplementedError
 
     # ============================================================== #
+    @abstractmethod
     @functools.partial(jit, static_argnums=0)
-    def log_hazard(
-        self,
-        params,
-        survival_int_range: jnp.ndarray,  # shape = (N,num)
-        cov: jnp.ndarray,  # shape = (N,p)
-        **kwargs,
-    ) -> jnp.ndarray:  # shape = (N, num)
-        """Compute the log of the hazard function.
-
-        hazard(t) = h0(t) * exp(beta^T U )
-        with : h0(t) = b a^-b t^{b-1} = b /a * (t/a)^{b-1}
-        return : log(b/a) + (b-1)*log(t/a) + beta^T U
+    def proportional_hazards_component(self, params, **kwargs):
+        """Compute the proportional hazards component.
 
         Parameters
         ----------
         params : dict
             Model parameters.
-        survival_int_range : jnp.ndarray
-            Array of time points, shape (N, num).
-        cov : jnp.ndarray
-            Covariates matrix, shape (N, p).
         **kwargs : dict
             Additional parameters.
 
         Returns
         -------
         jnp.ndarray
+            Proportional hazards component.
+        """
+        raise NotImplementedError
+
+    @functools.partial(jit, static_argnums=0)
+    def log_hazard(self, params, **kwargs) -> jnp.ndarray:
+        """Compute the log of the hazard function.
+
+        hazard(t) = h0(t) * exp(phc)
+        with : h0(t) = b a^-b t^{b-1} = b /a * (t/a)^{b-1}
+        return : log(b/a) + (b-1)*log(t/a) + phc
+        e.g. in the cox model : phc = beta^T U or in the joint model : phc = beta^T U + alpha*m(t)
+
+        Parameters
+        ----------
+        params : dict
+            Model parameters.
+        **kwargs : dict
+            Additional parameters, containing survival_int_range the array of time points.
+
+        Returns
+        -------
+        jnp.ndarray
             Log hazard values, shape (N, num).
         """
-        h0_values = self.log_baseline_hazard(params, survival_int_range, **kwargs)
+        survival_int_range = kwargs["survival_int_range"]
+        h0_values = self.log_baseline_hazard(params, **kwargs)
         assert h0_values.shape == survival_int_range.shape
 
-        beta_prod_cov = (cov @ params.beta)[:, None]
-        assert beta_prod_cov.shape[0] == survival_int_range.shape[0]
+        phc = self.proportional_hazards_component(params, **kwargs)
+        assert phc.shape[0] == survival_int_range.shape[0]
+        assert phc.shape[1] == survival_int_range.shape[1] or phc.shape[1] == 1
 
-        return beta_prod_cov + h0_values
+        return phc + h0_values
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
@@ -198,14 +120,11 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         ----------
         theta_reals1d : jnp.ndarray
             Parameters used to the log-likelihood computation.
-        T : jnp.ndarray
-            Observed survival times, shape (N,).
-        delta : jnp.ndarray
-            Censoring indicator, shape (N,).
-        cov : jnp.ndarray
-            Covariates matrix, shape (N, p).
         **kwargs : dict
             Additional parameters.
+            containing T : Observed survival times,
+            delta : Censoring indicator,
+            survival_int_range.
 
         Returns
         -------
@@ -215,15 +134,12 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         params = self._parametrization.reals1d_to_params(theta_reals1d)
 
         T = kwargs["T"]
-        cov = kwargs["cov"]
         delta = kwargs["delta"]
         survival_int_range = kwargs["survival_int_range"]
 
         (N,) = T.shape
-        (p,) = params.beta.shape
         assert T.shape == (N,)
         assert delta.shape == (N,)
-        assert cov.shape == (N, p)
         # ===================== #
         # === survival_likelihood === #
         # ===================== #
@@ -254,8 +170,24 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         return jnp.where(delta, log_hazard_fct, 0) + log_survival_fct
 
     # ============================================================== #
-    def auto_def_survival_int_range(self, T, **kwargs):
-        """jnp.linspace(0, T, num=100)[1:].T"""
+    def auto_def_survival_int_range(
+        self,
+        T,
+        **kwargs,  # pylint: disable=unused-argument
+    ):
+        """Automatically define the survival interval range.
+
+        Parameters
+        ----------
+        T : jnp.ndarray
+            Uncensored event times.
+        **kwargs : dict
+            Additional parameters.
+        Returns
+        -------
+        jnp.ndarray
+            Survival interval range.
+        """
         return {"survival_int_range": jnp.linspace(0, T, num=100)[1:].T}, {}
 
     @abstractmethod
@@ -308,28 +240,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         """
         raise NotImplementedError
 
-    def test_simulation_intervalle(self, params_star, start, stop, num=1000):
-        t = jnp.linspace(start, stop, num=num)
-        values = self.log_baseline_hazard(params=params_star, times=t, **self._cst)
-
-        if values[0] != -jnp.inf or values[-1] != jnp.inf:
-            raise ValueError(
-                f"0 or jnp.inf not found between start = {start} and stop = {stop}"
-            )
-
-        id_max = jnp.min(jnp.where(values == jnp.inf)[0])
-        if id_max == len(t) - 1:
-            Warning("not found max")
-
-        id_min = jnp.max(jnp.where(values == -jnp.inf)[0])
-        if id_max == 0:
-            Warning("not found min")
-
-        return jnp.array([t[id_min], t[id_max]])
-
-    def sample(
-        self, params_star, prngkey, simulation_intervalle, **kwargs
-    ) -> tuple[dict, dict]:
+    def sample(self, params_star, prngkey, **kwargs) -> tuple[dict, dict]:
         """Sample a dataset from the Cox model.
 
         Parameters
@@ -338,10 +249,9 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
             Model parameters for sampling.
         prngkey : jnp.ndarray
             Pseudo-random number generator key.
-        simulation_intervalle : tuple
-            Interval within which to simulate times.
         **kwargs : dict
             Additional parameters.
+            containing simulation_intervalle : tuple, Interval within which to simulate times.
 
         Returns
         -------
@@ -368,49 +278,45 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
             prngkey_censoring,
         ) = jrd.split(prngkey, num=3)
 
-        cov = self.covariates_simulation(prngkey_uni_cov, **kwargs)
-        assert cov.shape == (self.N, self.P), "cov matrix must have the good shape !"
+        obs, sim = {}, {}
 
-        obs, sim = {"cov": cov}, {}
+        obs["cov"] = self.covariates_simulation(prngkey_uni_cov, **kwargs)
+        assert obs["cov"].shape == (
+            self.N,
+            self.P,
+        ), "cov matrix must have the good shape !"
+
         # === cox_weibull_simulation === #
+        t_linspace = jnp.tile(
+            jnp.linspace(*kwargs["simulation_intervalle"], num=10000)[1:], (self.N, 1)
+        )
+        pas = t_linspace[0, 1] - t_linspace[0, 0]
 
-        uni = jrd.uniform(prngkey_uni, shape=(self.N,))
-
-        tmp = [0 for i in range(self.N)]
-
-        @jit
-        def f(T):
-            # T = jnp.array([t for i in range(self.N)])
-
-            t_linspace = jnp.linspace(0, T, num=1000)[1:].T
-
-            y = self.log_hazard(params_star, t_linspace, cov, **kwargs, **self._cst)
-            rho = integrate.trapezoid(y=jnp.exp(y), x=t_linspace)
-
-            return jnp.exp(-rho) - (1 - uni)
-
-        a = simulation_intervalle[0] + jnp.zeros(shape=(self.N,))
-        b = simulation_intervalle[1] + jnp.zeros(shape=(self.N,))
-        # print(f"bisection try :\nfun(a) = {f(a)},\nfun(b) = {f(b)}")
-
-        tmp = _bisection_method(f, a, b, eps=1e-8)
-
-        sim["T uncensored"] = jnp.array(tmp)
+        # if x~exp(1) => exists u | F^{-1}(u) = x
+        # ie u = 1 - exp(-x) => -log(1-u) = x
+        rexp = jrd.exponential(prngkey_uni, shape=(self.N,))
+        log_h = self.log_hazard(
+            params_star, survival_int_range=t_linspace, **obs, **kwargs, **self._cst
+        )
+        cumsum_h = jnp.cumsum(jnp.exp(log_h), axis=1) * pas
+        # cumsum_h is increasing
+        # argmax  return the index of the first maximum vaues.
+        T = jnp.argmax(cumsum_h >= rexp[:, None], axis=1) * pas
+        T = jnp.where(T == 0, jnp.nan, T)
+        sim["T uncensored"] = jnp.where(
+            jnp.isnan(T), kwargs["simulation_intervalle"][1], T
+        )
 
         # ============================================================== #
-        censoring = self.censoring_simulation(
+        sim["C"] = self.censoring_simulation(
             prngkey_censoring, sim["T uncensored"], params_star, **kwargs
         )
 
-        T = jnp.minimum(sim["T uncensored"], censoring)
-        delta = sim["T uncensored"] < censoring
+        obs["T"] = jnp.minimum(sim["T uncensored"], sim["C"])
+        obs["delta"] = sim["T uncensored"] < sim["C"]
 
-        obs.update({"T": T, "delta": delta})
-        sim["C"] = censoring
-        sim["T_searching_uni"] = uni
-        sim["f_min_searching"] = f(tmp)
+        sim["T_searching_exp"] = rexp
 
-        survival_int_range, _ = self.auto_def_survival_int_range()
-        obs.update(survival_int_range)
+        obs["survival_int_range"] = self.auto_def_survival_int_range(**obs)
 
         return obs, sim
