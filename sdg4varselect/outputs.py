@@ -169,6 +169,32 @@ class GDResults(FitResults):
         self.grad = None
         self.grad_precond = None
 
+    def __add__(self, x):
+        """Add two GDResults instances together.
+
+        Parameters
+        ----------
+        x : GDResults
+            Another GDResults instance to add.
+
+        Returns
+        -------
+        GDResults
+            A new GDResults instance with combined attributes.
+        """
+        return GDResults(
+            theta=jnp.vstack([self.theta, x.theta]),
+            theta_reals1d=jnp.vstack([self.theta_reals1d, x.theta_reals1d]),
+            _theta_star=self.theta_star,
+            fim=self.fim + x.fim,
+            grad=jnp.vstack([self.grad, x.grad]),
+            grad_precond=jnp.vstack([self.grad_precond, x.grad_precond]),
+            log_likelihood=jnp.hstack([self.log_likelihood, x.log_likelihood]),
+            bic=x.bic,
+            ebic=x.ebic,
+            chrono=self.chrono + x.chrono,
+        )
+
 
 ###########################################################################################################
 
@@ -186,6 +212,26 @@ class SGDResults(GDResults):
 
     latent_variables: dict[str, jnp.ndarray] = None
     grad_log_likelihood_marginal: jnp.ndarray = None
+
+    def __add__(self, x):
+        """Add two SGDResults instances together.
+
+        Parameters
+        ----------
+        x : SGDResults
+            Another SGDResults instance to add.
+
+        Returns
+        -------
+        SGDResults
+            A new SGDResults instance with combined attributes.
+        """
+        out = super().__add__(x)
+        out.latent_variables = self.latent_variables
+        out.grad_log_likelihood_marginal = jnp.vstack(
+            [self.grad_log_likelihood_marginal, x.grad_log_likelihood_marginal]
+        )
+        return out
 
 
 ###########################################################################################################
@@ -544,7 +590,7 @@ class RegularizationPath(MultiGDResults):
         large_values_within_one_std = out.ebic > threshold_within_one_std
 
         ii = jnp.where(large_values_within_one_std)[0].sort()[::-1]
-        if len(ii) != 0:
+        if len(ii) > 1:
             # Print the results
             print(
                 "erroneous ebic value detected in the regularization path: ",

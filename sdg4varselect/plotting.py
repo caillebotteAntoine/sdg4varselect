@@ -130,6 +130,9 @@ def plot_theta(
 
     assert isinstance(x, MultiGDResults)
 
+    if len(x) == 0:
+        return fig
+
     if params_names is not None:
         params_names = np.array(params_names)
 

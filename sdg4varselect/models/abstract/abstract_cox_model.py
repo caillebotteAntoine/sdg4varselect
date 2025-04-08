@@ -188,7 +188,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         jnp.ndarray
             Survival interval range.
         """
-        return {"survival_int_range": jnp.linspace(0, T, num=100)[1:].T}, {}
+        return jnp.linspace(0, T, num=100)[1:].T
 
     @abstractmethod
     def censoring_simulation(self, prngkey, T, params_star, **kwargs):
