@@ -280,7 +280,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
 
         obs, sim = {}, {}
 
-        obs["cov"] = self.covariates_simulation(prngkey_uni_cov, **kwargs)
+        obs["cov"] = self.covariates_simulation(prngkey_uni_cov, **kwargs, **self._cst)
         assert obs["cov"].shape == (
             self.N,
             self.P,
@@ -288,7 +288,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
 
         # === cox_weibull_simulation === #
         t_linspace = jnp.tile(
-            jnp.linspace(*kwargs["simulation_intervalle"], num=10000)[1:], (self.N, 1)
+            jnp.linspace(*kwargs["simulation_intervalle"], num=100000)[1:], (self.N, 1)
         )
         pas = t_linspace[0, 1] - t_linspace[0, 0]
 
@@ -309,7 +309,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
 
         # ============================================================== #
         sim["C"] = self.censoring_simulation(
-            prngkey_censoring, sim["T uncensored"], params_star, **kwargs
+            prngkey_censoring, sim["T uncensored"], params_star, **kwargs, **self._cst
         )
 
         obs["T"] = jnp.minimum(sim["T uncensored"], sim["C"])
