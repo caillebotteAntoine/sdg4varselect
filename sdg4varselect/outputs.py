@@ -161,7 +161,7 @@ class GDResults(FitResults):
 
         if self.fim is not None:
             if len(self.fim) >= 2:
-                self.fim = (self.fim[0], self.fim[1])
+                self.fim = (self.fim[0], self.fim[-1])
 
     def make_it_minimal(self) -> None:
         """Reduce memory usage by removing grad and fim values."""
