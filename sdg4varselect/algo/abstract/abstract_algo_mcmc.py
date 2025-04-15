@@ -15,6 +15,7 @@ import jax.random as jrd
 from sdg4varselect._mcmc import MCMC
 from sdg4varselect.models.abstract.abstract_latent_variables_model import (
     AbstractLatentVariablesModel,
+    _mean_formatting,
 )
 
 
@@ -101,7 +102,7 @@ class AbstractAlgoMCMC:
             The model with latent variable definitions.
         """
         for _, var in self.latent_variables.items():
-            var.reset(x0=0)
+            var.reset(x0=None)
             var.likelihood = model.log_likelihood_array
 
     # ============================================================== #
@@ -130,11 +131,16 @@ class AbstractAlgoMCMC:
 
         TODO check if mcmc have been init
         """
-        for new_mcmc_name in model.latent_variables_name:
+        self._prngkey, key = jrd.split(self._prngkey)
+        theta0 = jrd.normal(key, shape=(model.parametrization.size,))
+        params0 = model.parametrization.reals1d_to_params(theta0)
+        mean = _mean_formatting(params0.mean_latent, params0.cov_latent.shape[0])
+
+        for i, new_mcmc_name in enumerate(model.latent_variables_name):
             self.add_mcmc(
                 likelihood=model.log_likelihood_array,
                 sd=(1 if sd is None or new_mcmc_name not in sd else sd[new_mcmc_name]),
-                x0=0,
+                x0=float(mean[i]),
                 size=model.latent_variables_size,
                 name=new_mcmc_name,
             )
