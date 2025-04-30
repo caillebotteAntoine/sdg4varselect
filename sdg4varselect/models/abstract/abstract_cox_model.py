@@ -240,7 +240,9 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         """
         raise NotImplementedError
 
-    def sample(self, params_star, prngkey, **kwargs) -> tuple[dict, dict]:
+    def sample(
+        self, params_star, prngkey, linspace_num=100000, **kwargs
+    ) -> tuple[dict, dict]:
         """Sample a dataset from the Cox model.
 
         Parameters
@@ -249,6 +251,8 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
             Model parameters for sampling.
         prngkey : jnp.ndarray
             Pseudo-random number generator key.
+        linspace_num : int, optional
+            Number of points in the linspace for survival interval range, by default 100000.
         **kwargs : dict
             Additional parameters.
             containing simulation_intervalle : tuple, Interval within which to simulate times.
@@ -288,20 +292,21 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
 
         # === cox_weibull_simulation === #
         t_linspace = jnp.tile(
-            jnp.linspace(*kwargs["simulation_intervalle"], num=100000)[1:], (self.N, 1)
+            jnp.linspace(*kwargs["simulation_intervalle"], num=linspace_num)[1:],
+            (self.N, 1),
         )
         pas = t_linspace[0, 1] - t_linspace[0, 0]
 
         # if x~exp(1) => exists u | F^{-1}(u) = x
         # ie u = 1 - exp(-x) => -log(1-u) = x
-        rexp = jrd.exponential(prngkey_uni, shape=(self.N,))
+        sim["rexp"] = jrd.exponential(prngkey_uni, shape=(self.N,))
         log_h = self.log_hazard(
             params_star, survival_int_range=t_linspace, **obs, **kwargs, **self._cst
         )
         cumsum_h = jnp.cumsum(jnp.exp(log_h), axis=1) * pas
         # cumsum_h is increasing
         # argmax  return the index of the first maximum vaues.
-        T = jnp.argmax(cumsum_h >= rexp[:, None], axis=1) * pas
+        T = jnp.argmax(cumsum_h >= sim["rexp"][:, None], axis=1) * pas
         T = jnp.where(T == 0, jnp.nan, T)
         sim["T uncensored"] = jnp.where(
             jnp.isnan(T), kwargs["simulation_intervalle"][1], T
@@ -314,8 +319,6 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
 
         obs["T"] = jnp.minimum(sim["T uncensored"], sim["C"])
         obs["delta"] = sim["T uncensored"] < sim["C"]
-
-        sim["T_searching_exp"] = rexp
 
         obs["survival_int_range"] = self.auto_def_survival_int_range(**obs)
 
