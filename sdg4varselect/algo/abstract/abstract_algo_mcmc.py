@@ -101,14 +101,36 @@ class AbstractAlgoMCMC:
         model : type[AbstractLatentVariablesModel]
             The model with latent variable definitions.
         """
-        for _, var in self.latent_variables.items():
-            var.reset(x0=None)
-            var.likelihood = model.log_likelihood_array
+        self.reset_mcmc(model)
 
     # ============================================================== #
+
+    def reset_mcmc(
+        self,
+        model: type[AbstractLatentVariablesModel],
+        theta0: jnp.ndarray = None,
+    ) -> None:
+        """Reset MCMC chains to a specific starting value.
+        Parameters
+        ----------
+        model : type[AbstractLatentVariablesModel]
+            The model with latent variable definitions.
+        theta0 : jnp.ndarray, optional
+            Initial values for model parameters. (default is randomly drown)
+        """
+        mean = jnp.zeros(model.parametrization.size)
+        if theta0 is not None:
+            params0 = model.parametrization.reals1d_to_params(theta0)
+            mean = _mean_formatting(params0.mean_latent, params0.cov_latent.shape[0])
+
+        for i, var in enumerate(self.latent_variables.values()):
+            var.reset(x0=None if theta0 is None else float(mean[i]))
+            var.likelihood = model.log_likelihood_array
+
     def init_mcmc(
         self,
         model: type[AbstractLatentVariablesModel],
+        theta0: jnp.ndarray = None,
         sd: dict[str, float] = None,
         adaptative_sd=True,
     ):
@@ -118,6 +140,8 @@ class AbstractAlgoMCMC:
         ----------
         model : type[AbstractLatentVariablesModel]
             The model with latent variable definitions.
+        theta0 : jnp.ndarray, optional
+            Initial values for model parameters. (default is randomly drown)
         sd : dict[str, float], optional
             Standard deviation values for each MCMC chain (default is None).
         adaptative_sd : bool, optional
@@ -131,8 +155,10 @@ class AbstractAlgoMCMC:
 
         TODO check if mcmc have been init
         """
-        self._prngkey, key = jrd.split(self._prngkey)
-        theta0 = jrd.normal(key, shape=(model.parametrization.size,))
+        if theta0 is None:
+            self._prngkey, key = jrd.split(self._prngkey)
+            theta0 = jrd.normal(key, shape=(model.parametrization.size,))
+
         params0 = model.parametrization.reals1d_to_params(theta0)
         mean = _mean_formatting(params0.mean_latent, params0.cov_latent.shape[0])
 
