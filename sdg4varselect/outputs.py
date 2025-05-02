@@ -17,7 +17,7 @@ import jax.numpy as jnp
 
 
 from sdg4varselect._criterion_bic_ebic import BIC, eBIC
-from sdg4varselect.exceptions import Sdg4vsNanError
+from sdg4varselect.exceptions import Sdg4vsNanError, Sdg4vsException
 from sdg4varselect._fit_results import Sdg4vsResults, FitResults, _get_filename
 
 ###########################################################################################################
@@ -228,7 +228,8 @@ class SGDResults(GDResults):
         """
         out = super().__add__(x)
         out.latent_variables = self.latent_variables
-        out.grad_log_likelihood_marginal = x.grad_log_likelihood_marginal
+        if not isinstance(x.grad_log_likelihood_marginal, Sdg4vsException):
+            out.grad_log_likelihood_marginal = x.grad_log_likelihood_marginal
         return out
 
 
