@@ -228,9 +228,7 @@ class SGDResults(GDResults):
         """
         out = super().__add__(x)
         out.latent_variables = self.latent_variables
-        out.grad_log_likelihood_marginal = jnp.vstack(
-            [self.grad_log_likelihood_marginal, x.grad_log_likelihood_marginal]
-        )
+        out.grad_log_likelihood_marginal = x.grad_log_likelihood_marginal
         return out
 
 
