@@ -32,10 +32,13 @@ class AbstractPreconditioner(ABC):
         Keyword arguments for initialization.
     preconditioner : jnp.ndarray
         Last value computed of the preconditionner
+    freezed_components : jnp.ndarray
+        Components of the frozen parameters.
     """
 
     def __init__(self) -> None:
         self._preconditioner = None
+        self._freezed_components = None
 
     @property
     def value(self) -> jnp.ndarray:
@@ -73,13 +76,15 @@ class AbstractPreconditioner(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def initialize(self, jac_shape):
-        """Initialize the preconditioner.
+    def initialize(self, jac_shape, freezed_components):
+        """Initialize the Fisher preconditioner.
 
         Parameters
         ----------
         jac_shape : tuple
             The shape of the Jacobian matrix to initialize.
+        freezed_components : jnp.ndarray
+            The components of the frozen parameters.
 
         Raises
         ------
@@ -90,7 +95,15 @@ class AbstractPreconditioner(ABC):
 
 
 @jit
-def compute_fisher(gradient, jac, jac_current, step_size_approx_sto, step_size_fisher):
+def compute_fisher(
+    gradient,
+    jac,
+    jac_current,
+    freezed_components,
+    *,
+    step_size_approx_sto,
+    step_size_fisher,
+):  # pylint: disable= too-many-arguments, too-many-locals
     """Compute the preconditioned gradient using Fisher information.
 
     Parameters
@@ -101,6 +114,8 @@ def compute_fisher(gradient, jac, jac_current, step_size_approx_sto, step_size_f
         The last approximated jacobian.
     jac_current : jnp.ndarray
         The current jacobian.
+    freezed_components : jnp.ndarray
+        The components of the frozen parameters.
     step_size_approx_sto : callable
         Function to compute the approximate step size.
     step_size_fisher : callable
@@ -121,7 +136,7 @@ def compute_fisher(gradient, jac, jac_current, step_size_approx_sto, step_size_f
     # gradient = self._jac.mean(axis=0)
 
     # Fisher computation
-    fim = jac.T @ jac / jac.shape[0]
+    fim = jac.T @ jac / jac.shape[0] + jnp.diag(freezed_components)
 
     preconditioner = step_size_fisher * fim + (1 - step_size_fisher) * jnp.eye(
         fim.shape[0]
@@ -156,16 +171,19 @@ class Fisher(AbstractPreconditioner):
         self._step_size_fisher = deepcopy(self._step_size_approx_sto)
         self._step_size_fisher.max = 0.9
 
-    def initialize(self, jac_shape):
+    def initialize(self, jac_shape, freezed_components):
         """Initialize the Fisher preconditioner.
 
         Parameters
         ----------
         jac_shape : tuple
             The shape of the Jacobian matrix to initialize.
+        freezed_components : jnp.ndarray
+            The components of the frozen parameters.
         """
         self._jac = jnp.zeros(shape=jac_shape)  # approximated jac
         self._preconditioner = self._jac.T @ self._jac
+        self._freezed_components = freezed_components
 
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
         """Compute the preconditioned gradient using Fisher information.
@@ -189,7 +207,12 @@ class Fisher(AbstractPreconditioner):
         step_size_approx_sto = self._step_size_approx_sto(step)
         step_size_fisher = self._step_size_fisher(step)
         self._preconditioner, grad_precond, self._jac = compute_fisher(
-            gradient, self._jac, jacobian, step_size_approx_sto, step_size_fisher
+            gradient,
+            self._jac,
+            jacobian,
+            self._freezed_components,
+            step_size_approx_sto=step_size_approx_sto,
+            step_size_fisher=step_size_fisher,
         )
 
         return grad_precond
@@ -243,13 +266,15 @@ class AdaGrad(AbstractPreconditioner):
         self._regularization = regularization
         self._scale = scale
 
-    def initialize(self, jac_shape):
-        """Initialize the AdaGrad preconditioner.
+    def initialize(self, jac_shape, freezed_components):
+        """Initialize the Fisher preconditioner.
 
         Parameters
         ----------
         jac_shape : tuple
             The shape of the Jacobian matrix to initialize.
+        freezed_components : jnp.ndarray
+            The components of the frozen parameters.
         """
         if self._scale is not None:
             assert self._scale.shape == (jac_shape[1],)
@@ -295,13 +320,15 @@ class Identity(AbstractPreconditioner):
         AbstractPreconditioner.__init__(self)
         self._scale = scale
 
-    def initialize(self, jac_shape):
+    def initialize(self, jac_shape, freezed_components):
         """Initialize the Fisher preconditioner.
 
         Parameters
         ----------
         jac_shape : tuple
             The shape of the Jacobian matrix to initialize.
+        freezed_components : jnp.ndarray
+            The components of the frozen parameters.
         """
         if self._scale is not None:
             assert self._scale.shape == (jac_shape[1],)
@@ -403,13 +430,15 @@ class RMSP(AbstractPreconditioner):
         self._gamma = gamma
         self._scale = scale
 
-    def initialize(self, jac_shape):
-        """Initialize the AdaGrad preconditioner.
+    def initialize(self, jac_shape, freezed_components):
+        """Initialize the Fisher preconditioner.
 
         Parameters
         ----------
         jac_shape : tuple
             The shape of the Jacobian matrix to initialize.
+        freezed_components : jnp.ndarray
+            The components of the frozen parameters.
         """
         if self._scale is not None:
             assert self._scale.shape == (jac_shape[1],)
@@ -468,13 +497,15 @@ class ADAM(RMSP):
         self._eg = jnp.zeros(shape=(1, 1))
         self._eta = eta
 
-    def initialize(self, jac_shape):
-        """Initialize the AdaGrad preconditioner.
+    def initialize(self, jac_shape, freezed_components):
+        """Initialize the Fisher preconditioner.
 
         Parameters
         ----------
         jac_shape : tuple
             The shape of the Jacobian matrix to initialize.
+        freezed_components : jnp.ndarray
+            The components of the frozen parameters.
         """
         if self._scale is not None:
             assert self._scale.shape == (jac_shape[1],)

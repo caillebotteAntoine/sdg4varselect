@@ -137,12 +137,13 @@ class GradientDescentPrecond(AbstractAlgoFit):
         self,
         model: type[AbstractModel],
         theta_reals1d: jnp.ndarray,
+        freezed_components: jnp.ndarray,
         log_likelihood_kwargs: dict,
     ) -> None:
         jac_shape = model.jac_log_likelihood(
             theta_reals1d, **log_likelihood_kwargs
         ).shape
-        self._preconditioner.initialize(jac_shape)
+        self._preconditioner.initialize(jac_shape, freezed_components)
 
     # ============================================================== #
     def _one_gradient_descent(

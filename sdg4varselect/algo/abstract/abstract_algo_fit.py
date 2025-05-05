@@ -135,6 +135,7 @@ class AbstractAlgoFit(ABC):
         self,
         model: type[AbstractModel],
         theta_reals1d: jnp.ndarray,
+        freezed_components: jnp.ndarray,
         log_likelihood_kwargs: dict,
     ) -> None:
         """Initialize the algorithm parameters.
@@ -145,6 +146,8 @@ class AbstractAlgoFit(ABC):
             The model used for fitting.
         theta_reals1d : jnp.ndarray
             Initial parameters for the model.
+        freezed_components : jnp.ndarray
+            boolean array indicating which parameter should not be updated
         log_likelihood_kwargs : dict
             The arguments for computing the log likelihood.
         Raises
@@ -324,7 +327,9 @@ class AbstractAlgoFit(ABC):
         # if _contains_nan_or_inf(log_likelihood_kwargs):
         #     raise Sdg4vsException("nan or inf detected in log_likelihood_kwargs !")
 
-        self._initialize_algo(model, theta0_reals1d, log_likelihood_kwargs)
+        self._initialize_algo(
+            model, theta0_reals1d, freezed_components, log_likelihood_kwargs
+        )
         self._ntry = self._ntry_max
 
         iter_algo = itertools.islice(

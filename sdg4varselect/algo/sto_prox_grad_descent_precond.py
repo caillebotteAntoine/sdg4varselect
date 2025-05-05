@@ -208,6 +208,7 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         self,
         model: type[AbstractModel] = None,
         theta_reals1d: jnp.ndarray = None,
+        freezed_components: jnp.ndarray = None,
         log_likelihood_kwargs: dict = None,
     ) -> None:
         if isinstance(model, AbstractHDModel):
@@ -222,7 +223,9 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         #     jnp.arange(theta_reals1d.shape[0]) >= model.P
         # )  # jnp.ar#model.hd_mask
         # self._fisher_mask = jnp.invert(self._hd_mask)
-        SGD_Prec._initialize_algo(self, model, theta_reals1d, log_likelihood_kwargs)
+        SGD_Prec._initialize_algo(
+            self, model, theta_reals1d, freezed_components, log_likelihood_kwargs
+        )
 
     # ============================================================== #
 
