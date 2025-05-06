@@ -318,7 +318,10 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         )
 
         obs["T"] = jnp.minimum(sim["T uncensored"], sim["C"])
-        obs["delta"] = sim["T uncensored"] < sim["C"]
+        obs["delta"] = jnp.logical_and(
+            sim["T uncensored"] < sim["C"],
+            sim["T uncensored"] != kwargs["simulation_intervalle"][1],
+        )
 
         obs["survival_int_range"] = self.auto_def_survival_int_range(**obs)
 
