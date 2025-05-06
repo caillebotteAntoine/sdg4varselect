@@ -170,9 +170,13 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         GD_Precond._initialize_algo(
             self, model, theta_reals1d, freezed_components, log_likelihood_kwargs
         )
+        try:
+            for _ in range(self._pre_heating):
+                self._one_simulation(log_likelihood_kwargs, theta_reals1d)
 
-        for _ in range(self._pre_heating):
-            self._one_simulation(log_likelihood_kwargs, theta_reals1d)
+        except Sdg4vsException as exc:
+            exc.args = (exc.args[0] + " during initialization !",) + exc.args[1:]
+            raise exc
 
     # ============================================================== #
     def breacking_rules(self, step, one_step_results):

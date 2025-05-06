@@ -276,7 +276,7 @@ class AbstractAlgoMCMC:
 
         n_simu = len(out)
         while n_simu < size * 2 and (abs(grad / grad_old - 1.0) >= 1e-2).all():
-            print(abs(grad - grad_old))
+            # print(abs(grad - grad_old))
             for _ in range(100):
                 n_simu += 1
                 # Simulation
