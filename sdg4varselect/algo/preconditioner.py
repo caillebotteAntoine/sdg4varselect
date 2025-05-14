@@ -535,10 +535,17 @@ class ADAM(RMSP):
             The preconditioned gradient.
         """
         self._eg2 = _ema(self._eg2, gradient**2, self._gamma)
+        # print(self._eg2[0], gradient[0], gradient[0] ** 2)
+        # print(1 / (1 - self._gamma ** (step + 1)))
+        # self._eg2 = self._eg2 /
+        # print(self._eg2[0])
+
         self._eg = _ema(self._eg, gradient, self._eta)
 
         self._preconditioner, grad_precond = compute_rmsprop(
-            self._eg2, gradient=self._eg, regularization=self._regularization
+            self._eg2 / (1 - self._gamma ** (step + 1)),
+            gradient=self._eg / (1 - self._eta ** (step + 1)),
+            regularization=self._regularization,
         )
         self._past.append(self._eg2)
         self._preconditioner *= self._scale
