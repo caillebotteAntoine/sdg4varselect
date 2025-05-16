@@ -1,3 +1,4 @@
+# pylint: disable = duplicate-code, similar-code
 """
 Module for Stochastic Proximal Gradient Descent algorithm preconditioned by the Fisher information matrix or another.
 
@@ -144,7 +145,6 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
     ):
         SGD_Prec.__init__(self, preconditioner, **kwargs)
 
-        self._preconditioned_lbd = False
         self._lbd = lbd
         self._alpha = alpha
 
@@ -247,11 +247,7 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         if self._lbd is None:
             return theta_reals1d
 
-        regularization = (
-            self._lbd * jnp.diag(self._preconditioner.value)
-            if self._preconditioned_lbd
-            else self._lbd
-        )
+        regularization = self._lbd * jnp.diag(self._preconditioner.value)
 
         return proximal_operator(
             theta_reals1d,
@@ -288,11 +284,12 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         # grad_log_likelihood_marginal = self.grad_log_likelihood_marginal(
         #     model, log_likelihood_kwargs, theta_reals1d, size=30
         # )
+        grad_log_likelihood_marginal = None
 
         return (
-            theta_reals1d,
-            grad,
-            grad_precond,
-            preconditioner,
-            # grad_log_likelihood_marginal,
+            theta_reals1d,  # 0
+            grad,  # 1
+            grad_precond,  # 2
+            preconditioner,  # 3
+            grad_log_likelihood_marginal,  # 4
         )

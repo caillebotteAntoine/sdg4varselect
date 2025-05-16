@@ -543,7 +543,7 @@ class ADAM(RMSP):
         self._eg = _ema(self._eg, gradient, self._eta)
 
         self._preconditioner, grad_precond = compute_rmsprop(
-            self._eg2 / (1 - self._gamma ** (step + 1)),
+            eg2=self._eg2 / (1 - self._gamma ** (step + 1)),
             gradient=self._eg / (1 - self._eta ** (step + 1)),
             regularization=self._regularization,
         )

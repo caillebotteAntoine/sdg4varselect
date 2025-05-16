@@ -62,7 +62,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
     """
 
     def __init__(
-        self, preconditioner: AbstractPreconditioner, threshold=1e-4, **kwargs
+        self, preconditioner: AbstractPreconditioner, threshold=1e-1, **kwargs
     ):
         AbstractAlgoFit.__init__(self, **kwargs)
 
@@ -213,7 +213,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
         step : int
             The current iteration step.
         one_step_results : tuple
-            The tuple returned by the _algorithm_one_step function
+            The tuple returned by the _algorithm_one_step function with the time duration added at the end.
 
         Returns
         -------
