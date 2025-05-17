@@ -381,13 +381,13 @@ def _ema(x_past, x_new, gamma) -> jnp.ndarray:
 
 
 @jit
-def compute_rmsprop(eg2, gradient, regularization) -> jnp.ndarray:
+def compute_rmsprop(average_squared_gradients, gradient, regularization) -> jnp.ndarray:
     """Compute the preconditioned gradient using rmsprop method.
 
     Parameters
     ----------
-    eg2 : jnp.ndarray
-        sum of square of past gradients.
+    average_squared_gradients : jnp.ndarray
+        exponentially weighted average of squared gradients
     gradient : jnp.ndarray
         The gradient to be preconditioned.
     regularization : float
@@ -401,7 +401,7 @@ def compute_rmsprop(eg2, gradient, regularization) -> jnp.ndarray:
             - jnp.ndarray: The preconditioned gradient.
             - jnp.ndarray: sum of square of past gradients.
     """
-    preconditioner = jnp.sqrt(eg2) + regularization
+    preconditioner = jnp.sqrt(average_squared_gradients) + regularization
     # assert preconditioner.shape == gradient.shape
 
     grad_precond = gradient / preconditioner
@@ -418,17 +418,18 @@ class RMSP(AbstractPreconditioner):
     ----------
     regularization : float, optional
         Regularization term to avoid division by zero (default is 1).
-    gamma : float
-        decay rates of average of square gradients.
+    beta_1 : float
+        decay rates of average of squared gradients.
     """
 
-    def __init__(self, scale=None, regularization=1e-3, gamma=0.9) -> None:
+    def __init__(self, scale=None, regularization=1e-3, beta_1=0.9) -> None:
         AbstractPreconditioner.__init__(self)
-        self._eg2 = jnp.zeros(shape=(1, 1))
-        self._past = []
+        self._average_gradients2 = jnp.zeros(shape=(1, 1))
         self._regularization = regularization
-        self._gamma = gamma
+        self._beta_1 = beta_1
+
         self._scale = scale
+        self._past = []
 
     def initialize(self, jac_shape, freezed_components):
         """Initialize the Fisher preconditioner.
@@ -445,8 +446,8 @@ class RMSP(AbstractPreconditioner):
         else:
             self._scale = jnp.ones(shape=(jac_shape[1],))
 
-        self._eg2 = jnp.zeros(shape=(jac_shape[1],))
-        self._past = [self._eg2]
+        self._average_gradients2 = jnp.zeros(shape=(jac_shape[1],))
+        self._past = [self._average_gradients2]
         self._preconditioner = self._regularization * jnp.ones(shape=(jac_shape[1],))
 
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
@@ -466,12 +467,16 @@ class RMSP(AbstractPreconditioner):
         jnp.ndarray
             The preconditioned gradient.
         """
-        self._eg2 = _ema(self._eg2, gradient**2, self._gamma)
+        self._average_gradients2 = _ema(
+            self._average_gradients2, gradient**2, self._beta_1
+        )
 
         self._preconditioner, grad_precond = compute_rmsprop(
-            self._eg2, gradient, self._regularization
+            average_squared_gradients=self._average_gradients2,
+            gradient=gradient,
+            regularization=self._regularization,
         )
-        self._past.append(self._eg2)
+        self._past.append(self._average_gradients2)
         self._preconditioner *= self._scale
         return self._scale * grad_precond
 
@@ -486,16 +491,18 @@ class ADAM(RMSP):
     ----------
     regularization : float, optional
         Regularization term to avoid division by zero (default is 1).
-    gamma : float
-        decay rates of average of square gradients.
-    eta : float
+    beta_2 : float
+        decay rates of average of squared gradients.
+    beta_1 : float
         decay rates of average of gradients.
     """
 
-    def __init__(self, scale=None, regularization=1e-3, gamma=0.9, eta=0.9) -> None:
-        RMSP.__init__(self, scale=scale, regularization=regularization, gamma=gamma)
-        self._eg = jnp.zeros(shape=(1, 1))
-        self._eta = eta
+    def __init__(
+        self, scale=None, regularization=1e-8, beta_1=0.9, beta_2=0.999
+    ) -> None:
+        RMSP.__init__(self, scale=scale, regularization=regularization, beta_1=beta_1)
+        self._average_gradients = jnp.zeros(shape=(1, 1))
+        self._beta_2 = beta_2
 
     def initialize(self, jac_shape, freezed_components):
         """Initialize the Fisher preconditioner.
@@ -512,10 +519,8 @@ class ADAM(RMSP):
         else:
             self._scale = jnp.ones(shape=(jac_shape[1],))
 
-        self._eg2 = jnp.zeros(shape=(jac_shape[1],))
-        self._eg = jnp.zeros(shape=(jac_shape[1],))
-        self._past = [self._eg2]
-        self._preconditioner = self._regularization * jnp.ones(shape=(jac_shape[1],))
+        RMSP.initialize(self, jac_shape, freezed_components)
+        self._average_gradients = jnp.zeros(shape=(jac_shape[1],))
 
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
         """Compute the preconditioned gradient using AdaGrad.
@@ -534,19 +539,21 @@ class ADAM(RMSP):
         jnp.ndarray
             The preconditioned gradient.
         """
-        self._eg2 = _ema(self._eg2, gradient**2, self._gamma)
-        # print(self._eg2[0], gradient[0], gradient[0] ** 2)
-        # print(1 / (1 - self._gamma ** (step + 1)))
-        # self._eg2 = self._eg2 /
-        # print(self._eg2[0])
+        self._average_gradients2 = _ema(
+            self._average_gradients2, gradient**2, self._beta_2
+        )
+        self._average_gradients = _ema(self._average_gradients, gradient, self._beta_1)
 
-        self._eg = _ema(self._eg, gradient, self._eta)
+        m_hat = self._average_gradients / (1 - self._beta_1 ** (step + 1))
+        v_hat = self._average_gradients2 / (1 - self._beta_2 ** (step + 1))
 
         self._preconditioner, grad_precond = compute_rmsprop(
-            eg2=self._eg2 / (1 - self._gamma ** (step + 1)),
-            gradient=self._eg / (1 - self._eta ** (step + 1)),
+            average_squared_gradients=v_hat,
+            gradient=m_hat,
             regularization=self._regularization,
         )
-        self._past.append(self._eg2)
+
         self._preconditioner *= self._scale
+
+        self._past.append(jnp.diag(self._preconditioner))
         return self._scale * grad_precond
