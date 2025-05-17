@@ -247,7 +247,7 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         if self._lbd is None:
             return theta_reals1d
 
-        regularization = self._lbd * jnp.diag(self._preconditioner.value)
+        regularization = self._lbd / jnp.diag(self._preconditioner.value)
 
         return proximal_operator(
             theta_reals1d,
