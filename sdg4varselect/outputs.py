@@ -184,7 +184,7 @@ class GDResults(FitResults):
         """
         return GDResults(
             theta=jnp.vstack([self.theta, x.theta]),
-            theta_reals1d=jnp.vstack([self.theta_reals1d, x.theta_reals1d]),
+            theta_reals1d=[self.theta_reals1d, x.theta_reals1d],
             _theta_star=self.theta_star,
             fim=x.fim,
             grad=x.grad,
