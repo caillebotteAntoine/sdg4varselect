@@ -280,7 +280,7 @@ class FitResults(Sdg4vsResults):
         theta = self.theta[id_not_nan]
         self.theta = jnp.array([theta[0], theta[-1]])
 
-        if self.theta_reals1d is not None:
-            id_not_nan = jnp.logical_not(jnp.isnan(self.theta_reals1d).any(axis=1))
-            theta_reals1d = self.theta_reals1d[id_not_nan]
-            self.theta_reals1d = jnp.array([theta_reals1d[0], theta_reals1d[-1]])
+        # if self.theta_reals1d is not None:
+        #     id_not_nan = jnp.logical_not(jnp.isnan(self.theta_reals1d).any(axis=1))
+        #     theta_reals1d = self.theta_reals1d[id_not_nan]
+        #     self.theta_reals1d = jnp.array([theta_reals1d[0], theta_reals1d[-1]])
