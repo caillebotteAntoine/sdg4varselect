@@ -36,9 +36,12 @@ class AbstractPreconditioner(ABC):
         Components of the frozen parameters.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, length_history=1) -> None:
         self._preconditioner = None
         self._freezed_components = None
+
+        self._length_history = length_history
+        self._values = []
 
     @property
     def value(self) -> jnp.ndarray:
@@ -49,6 +52,23 @@ class AbstractPreconditioner(ABC):
         jnp.ndarray
             last preconditionner"""
         return self._preconditioner
+
+    @property
+    def history(self) -> list:
+        """Return the history of preconditioner values.
+
+        Returns
+        -------
+        list
+            A list containing the history of preconditioner values.
+        """
+        return self._values
+
+    def append_value_to_history(self):
+        """Append a new value to the history of preconditioner values."""
+        self._values.append(deepcopy(self._preconditioner))
+        if len(self._values) > self._length_history:
+            self._values.pop(0)
 
     @abstractmethod
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
@@ -160,8 +180,8 @@ class Fisher(AbstractPreconditioner):
         Function to compute the Fisher step size.
     """
 
-    def __init__(self) -> None:
-        AbstractPreconditioner.__init__(self)
+    def __init__(self, length_history) -> None:
+        AbstractPreconditioner.__init__(self, length_history=length_history)
 
         self._jac = jnp.zeros(shape=(1, 1))
 
@@ -214,6 +234,7 @@ class Fisher(AbstractPreconditioner):
             step_size_approx_sto=step_size_approx_sto,
             step_size_fisher=step_size_fisher,
         )
+        self.append_value_to_history()
 
         return grad_precond
 
