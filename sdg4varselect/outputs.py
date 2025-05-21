@@ -313,6 +313,9 @@ class MultiGDResults(Sdg4vsResults):
         jnp.ndarray
             Array of last non-NaN theta row.
         """
+
+        if isinstance(self[0].last_theta, list):
+            return jnp.array([x.last_theta[-1] for x in self])
         return jnp.array([x.last_theta for x in self])
 
     @property
@@ -335,6 +338,8 @@ class MultiGDResults(Sdg4vsResults):
         jnp.ndarray
             Array of theta_reals1d values.
         """
+        if isinstance(self[0].theta_reals1d, list):
+            return jnp.array([x.last_theta_reals1d[-1] for x in self])
         return jnp.array([x.theta_reals1d for x in self])
 
     @property

@@ -175,8 +175,13 @@ class FitResults(Sdg4vsResults):
         jnp.ndarray
             The last non-NaN theta_reals1d row.
         """
-        id_not_all_nan = jnp.logical_not(jnp.isnan(self.theta_reals1d).all(axis=1))
-        out = self.theta_reals1d[id_not_all_nan][-1]
+        if isinstance(self.theta_reals1d, list):
+            theta_reals1d = jnp.array(self.theta_reals1d[-1])
+        else:
+            theta_reals1d = self.theta_reals1d
+
+        id_not_all_nan = jnp.logical_not(jnp.isnan(theta_reals1d).all(axis=1))
+        out = theta_reals1d[id_not_all_nan][-1]
         return out
 
     def _shrink(self, row=None, col=None):
