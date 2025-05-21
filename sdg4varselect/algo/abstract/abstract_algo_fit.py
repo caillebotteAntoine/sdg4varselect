@@ -52,7 +52,9 @@ class AbstractAlgoFit(ABC):
         partial_fit: bool = False,
         save_all: bool = True,
     ):
-        self._max_iter = max_iter
+        self._estimate_average_length = 100
+
+        self._max_iter = max_iter - self._estimate_average_length
         self._ntry = ntry
         self._ntry_max = ntry
         self._partial_fit = partial_fit
@@ -75,17 +77,30 @@ class AbstractAlgoFit(ABC):
 
     # ============================================================== #
     @property
+    def estimate_average_length(self) -> int:
+        """returns the length of the average estimation
+
+        Returns
+        -------
+            an int equal to the length of the average estimation"""
+        return self._estimate_average_length
+
+    @estimate_average_length.setter
+    def estimate_average_length(self, estimate_average_length: int):
+        self._estimate_average_length = estimate_average_length
+
+    @property
     def max_iter(self) -> int:
         """returns the maximum iteration allowed for this algorithm
 
         Returns
         -------
             an int equal to the maximum iteration allowed"""
-        return self._max_iter
+        return self._max_iter + self._estimate_average_length
 
     @max_iter.setter
     def max_iter(self, max_iter: int):
-        self._max_iter = max_iter
+        self._max_iter = max_iter - self._estimate_average_length
 
     @property
     def save_all(self) -> bool:
@@ -288,6 +303,26 @@ class AbstractAlgoFit(ABC):
         if jnp.isinf(theta).any():
             raise Sdg4vsInfError("inf detected in theta0 !")
 
+    def _compute_average_estimation(self, out, out_average):
+        """Compute the average estimation from the results.
+        Parameters
+        ----------
+        out : list
+            The results obtained from the fitting.
+        out_average : list
+            The results obtained from the average estimation.
+        Returns
+        -------
+        list
+            The updated results with the average estimation.
+        """
+        while len(out_average) != 0 and isinstance(out_average[-1], Sdg4vsException):
+            out_average.pop()  # remove error
+        if len(out_average) > 0:
+            estim = jnp.array([x[0] for x in out_average]).mean(axis=0)
+            out[-1] = (estim,) + out[-1][1:]
+        return out
+
     def fit(
         self,
         model: type[AbstractModel],
@@ -336,15 +371,21 @@ class AbstractAlgoFit(ABC):
             self.algorithm(
                 model, log_likelihood_kwargs, theta0_reals1d, freezed_components
             ),
-            self._max_iter,
+            self._max_iter + self._estimate_average_length,
         )  #  creating iterators for efficient looping
 
         if self._save_all:
-            out = list(iter_algo)
+            out = []
+            for _ in range(self._max_iter):
+                out.append(next(iter_algo))
         else:
             out = [next(iter_algo), None]
-            for last in iter_algo:
-                out[1] = last
+            for _ in range(self._max_iter):
+                out[1] = next(iter_algo)
+
+        out_average = list(iter_algo)  # remaining iterations
+        if self._save_all:
+            out = out + out_average
 
         flag = out[-1]
         if isinstance(flag, Sdg4vsException):
@@ -359,10 +400,13 @@ class AbstractAlgoFit(ABC):
                     out.pop()  # remove error
             else:
                 raise flag
+
         # every things is good
         if len(out) == 0:
             print("the result is empty, no iteration has been performed!")
             return out
+
+        out = self._compute_average_estimation(out, out_average)
 
         out = self.results_warper(model, theta0_reals1d, data, out)
         out.chrono = datetime.now() - chrono_start

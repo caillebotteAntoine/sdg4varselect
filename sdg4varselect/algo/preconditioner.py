@@ -204,6 +204,7 @@ class Fisher(AbstractPreconditioner):
         self._jac = jnp.zeros(shape=jac_shape)  # approximated jac
         self._preconditioner = self._jac.T @ self._jac
         self._freezed_components = freezed_components
+        self._values = []
 
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
         """Compute the preconditioned gradient using Fisher information.
