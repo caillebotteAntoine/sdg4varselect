@@ -48,15 +48,14 @@ class AbstractAlgoFit(ABC):
     def __init__(
         self,
         max_iter: int = 5000,
-        ntry: int = 1,
         partial_fit: bool = False,
         save_all: bool = True,
     ):
         self._estimate_average_length = 100
+        self._skip_initialization = False
+        self._starting_step = 0
 
         self._max_iter = max_iter - self._estimate_average_length
-        self._ntry = ntry
-        self._ntry_max = ntry
         self._partial_fit = partial_fit
         self._save_all = save_all
 
@@ -76,6 +75,20 @@ class AbstractAlgoFit(ABC):
         return data
 
     # ============================================================== #
+    @property
+    def skip_initialization(self) -> bool:
+        """returns the Flag to control whether the initialization step should be skipped
+
+        Returns
+        -------
+            boolean Flag to control whether the initialization step should be skipped
+        """
+        return self._skip_initialization
+
+    @skip_initialization.setter
+    def skip_initialization(self, skip_initialization: bool):
+        self._skip_initialization = skip_initialization
+
     @property
     def estimate_average_length(self) -> int:
         """returns the length of the average estimation
@@ -262,7 +275,7 @@ class AbstractAlgoFit(ABC):
             If the method is not implemented in a subclass.
         """
 
-        for step in itertools.count():
+        for step in itertools.count(self._starting_step):
             chrono = datetime.now()
             try:
                 out = self._algorithm_one_step(
@@ -323,6 +336,51 @@ class AbstractAlgoFit(ABC):
             out[-1] = (estim,) + out[-1][1:]
         return out
 
+    def _iter_in_algorithm(
+        self, model, log_likelihood_kwargs, theta0_reals1d, freezed_components
+    ):
+        """return the iteration of the algorithm
+        Parameters
+        ----------
+        model : type[AbstractModel]
+            the model to be fitted
+        log_likelihood_kwargs : dict
+            a dict where all additional log_likelihood arguments can be found
+        theta0_reals1d : jnp.ndarray
+            Initial parameters for the model.
+        freezed_components : jnp.ndarray
+            boolean array indicating which parameter components should not be updated (default is None).
+        Returns
+        -------
+        iter_algo : iterator
+            An iterator for the algorithm.
+        """
+
+        iter_algo = itertools.islice(
+            self.algorithm(
+                model, log_likelihood_kwargs, theta0_reals1d, freezed_components
+            ),
+            self._max_iter + self._estimate_average_length,
+        )  #  creating iterators for efficient looping
+
+        if self._save_all:
+            out = []
+            for _ in range(self._max_iter):
+                out.append(next(iter_algo))
+                self._starting_step += 1
+        else:
+            out = [next(iter_algo), None]
+            for _ in range(self._max_iter):
+                out[1] = next(iter_algo)
+                self._starting_step += 1
+
+        out_average = list(iter_algo)  # remaining iterations
+        if self._save_all:
+            out = out + out_average
+
+        self._starting_step += len(out_average)
+        return out, out_average
+
     def fit(
         self,
         model: type[AbstractModel],
@@ -362,35 +420,22 @@ class AbstractAlgoFit(ABC):
         # if _contains_nan_or_inf(log_likelihood_kwargs):
         #     raise Sdg4vsException("nan or inf detected in log_likelihood_kwargs !")
 
-        self._initialize_algo(
-            model, theta0_reals1d, freezed_components, log_likelihood_kwargs
+        if not self._skip_initialization:
+            self._initialize_algo(
+                model, theta0_reals1d, freezed_components, log_likelihood_kwargs
+            )
+            self._starting_step = 0
+
+        _ntry = 1
+
+        out, out_average = self._iter_in_algorithm(
+            model, log_likelihood_kwargs, theta0_reals1d, freezed_components
         )
-        self._ntry = self._ntry_max
-
-        iter_algo = itertools.islice(
-            self.algorithm(
-                model, log_likelihood_kwargs, theta0_reals1d, freezed_components
-            ),
-            self._max_iter + self._estimate_average_length,
-        )  #  creating iterators for efficient looping
-
-        if self._save_all:
-            out = []
-            for _ in range(self._max_iter):
-                out.append(next(iter_algo))
-        else:
-            out = [next(iter_algo), None]
-            for _ in range(self._max_iter):
-                out[1] = next(iter_algo)
-
-        out_average = list(iter_algo)  # remaining iterations
-        if self._save_all:
-            out = out + out_average
 
         flag = out[-1]
         if isinstance(flag, Sdg4vsException):
-            self._ntry -= 1
-            if self._ntry > 1:
+            _ntry -= 1
+            if _ntry > 1:
                 print(f"try again because of : {flag}")
                 return self.fit(model, data, theta0_reals1d, freezed_components)
             # ie all attempts have failed
