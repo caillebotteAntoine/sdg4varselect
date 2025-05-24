@@ -44,6 +44,28 @@ class AbstractPreconditioner(ABC):
         self._values = []
 
     @property
+    def freezed_components(self) -> jnp.ndarray:
+        """Return the components of the frozen parameters.
+
+        Returns
+        -------
+        jnp.ndarray
+            Components of the frozen parameters.
+        """
+        return self._freezed_components
+
+    @freezed_components.setter
+    def freezed_components(self, value: jnp.ndarray):
+        """Set the components of the frozen parameters.
+
+        Parameters
+        ----------
+        value : jnp.ndarray
+            Components of the frozen parameters.
+        """
+        self._freezed_components = value
+
+    @property
     def value(self) -> jnp.ndarray:
         """Return the last value computed of the preconditionner
 
@@ -106,12 +128,8 @@ class AbstractPreconditioner(ABC):
         freezed_components : jnp.ndarray
             The components of the frozen parameters.
 
-        Raises
-        ------
-        NotImplementedError
-            If the method is not implemented in a subclass.
         """
-        raise NotImplementedError
+        self._freezed_components = freezed_components
 
 
 @jit
@@ -201,9 +219,10 @@ class Fisher(AbstractPreconditioner):
         freezed_components : jnp.ndarray
             The components of the frozen parameters.
         """
+        AbstractPreconditioner.initialize(self, jac_shape, freezed_components)
+
         self._jac = jnp.zeros(shape=jac_shape)  # approximated jac
         self._preconditioner = self._jac.T @ self._jac
-        self._freezed_components = freezed_components
         self._values = []
 
     def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
@@ -241,7 +260,9 @@ class Fisher(AbstractPreconditioner):
 
 
 @jit
-def compute_adagrad(adagrad, gradient, regularization) -> jnp.ndarray:
+def compute_adagrad(
+    adagrad, gradient, regularization, freezed_components
+) -> jnp.ndarray:
     """Compute the preconditioned gradient using AdaGrad method.
 
     Parameters
@@ -252,6 +273,8 @@ def compute_adagrad(adagrad, gradient, regularization) -> jnp.ndarray:
         The gradient to be preconditioned.
     regularization : float, optional
         Regularization term to avoid division by zero (default is 1).
+    freezed_components : jnp.ndarray
+        The components of the frozen parameters.
 
     Returns
     -------
@@ -261,7 +284,7 @@ def compute_adagrad(adagrad, gradient, regularization) -> jnp.ndarray:
             - jnp.ndarray: The preconditioned gradient.
             - jnp.ndarray: The approximated jacobian.
     """
-    adagrad += gradient**2
+    adagrad += jnp.where(freezed_components, 0, gradient**2)
     preconditioner = jnp.sqrt(adagrad) + regularization
     # assert preconditioner.shape == gradient.shape
 
@@ -298,6 +321,8 @@ class AdaGrad(AbstractPreconditioner):
         freezed_components : jnp.ndarray
             The components of the frozen parameters.
         """
+        AbstractPreconditioner.initialize(self, jac_shape, freezed_components)
+
         if self._scale is not None:
             assert self._scale.shape == (jac_shape[1],)
         else:
@@ -325,7 +350,7 @@ class AdaGrad(AbstractPreconditioner):
             The preconditioned gradient.
         """
         self._preconditioner, grad_precond, self._adagrad = compute_adagrad(
-            self._adagrad, gradient, self._regularization
+            self._adagrad, gradient, self._regularization, self._freezed_components
         )
         self._past.append(self._adagrad)
         self._preconditioner *= self._scale
