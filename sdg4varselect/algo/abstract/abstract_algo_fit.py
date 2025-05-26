@@ -54,8 +54,6 @@ class AbstractAlgoFit(ABC):
         self._estimate_average_length = 100
         self._skip_initialization = False
         self._starting_step = 0
-        self._skip_initialization = False
-        self._starting_step = 0
 
         self._max_iter = max_iter - self._estimate_average_length
         self._partial_fit = partial_fit
@@ -383,51 +381,6 @@ class AbstractAlgoFit(ABC):
         self._starting_step += len(out_average)
         return out, out_average
 
-    def _iter_in_algorithm(
-        self, model, log_likelihood_kwargs, theta0_reals1d, freezed_components
-    ):
-        """return the iteration of the algorithm
-        Parameters
-        ----------
-        model : type[AbstractModel]
-            the model to be fitted
-        log_likelihood_kwargs : dict
-            a dict where all additional log_likelihood arguments can be found
-        theta0_reals1d : jnp.ndarray
-            Initial parameters for the model.
-        freezed_components : jnp.ndarray
-            boolean array indicating which parameter components should not be updated (default is None).
-        Returns
-        -------
-        iter_algo : iterator
-            An iterator for the algorithm.
-        """
-
-        iter_algo = itertools.islice(
-            self.algorithm(
-                model, log_likelihood_kwargs, theta0_reals1d, freezed_components
-            ),
-            self._max_iter + self._estimate_average_length,
-        )  #  creating iterators for efficient looping
-
-        if self._save_all:
-            out = []
-            for _ in range(self._max_iter):
-                out.append(next(iter_algo))
-                self._starting_step += 1
-        else:
-            out = [next(iter_algo), None]
-            for _ in range(self._max_iter):
-                out[1] = next(iter_algo)
-                self._starting_step += 1
-
-        out_average = list(iter_algo)  # remaining iterations
-        if self._save_all:
-            out = out + out_average
-
-        self._starting_step += len(out_average)
-        return out, out_average
-
     def fit(
         self,
         model: type[AbstractModel],
@@ -475,9 +428,6 @@ class AbstractAlgoFit(ABC):
 
         _ntry = 1
 
-        out, out_average = self._iter_in_algorithm(
-            model, log_likelihood_kwargs, theta0_reals1d, freezed_components
-        )
         out, out_average = self._iter_in_algorithm(
             model, log_likelihood_kwargs, theta0_reals1d, freezed_components
         )
