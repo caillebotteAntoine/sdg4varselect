@@ -128,9 +128,8 @@ class GradientDescentPrecond(AbstractAlgoFit):
             An instance of Sdg4vsResults containing the results.
         """
         out = GDResults.new_from_list(results, theta0_reals1d)
-        out.log_likelihood = model.log_likelihood(out.last_theta, data)
+        out.log_likelihood = model.log_likelihood(out.last_theta, **data)
         out.reals1d_to_hstack_params(model)
-        out.fim = self._preconditioner.preconditioner
         return out
 
     def _initialize_algo(

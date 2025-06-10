@@ -275,7 +275,7 @@ class AbstractAlgoFit(ABC):
             If the method is not implemented in a subclass.
         """
 
-        for step in itertools.count(self._starting_step):
+        for step in itertools.count(start=self._starting_step):
             chrono = datetime.now()
             try:
                 out = self._algorithm_one_step(
@@ -355,7 +355,6 @@ class AbstractAlgoFit(ABC):
         iter_algo : iterator
             An iterator for the algorithm.
         """
-
         iter_algo = itertools.islice(
             self.algorithm(
                 model, log_likelihood_kwargs, theta0_reals1d, freezed_components
@@ -363,16 +362,19 @@ class AbstractAlgoFit(ABC):
             self._max_iter + self._estimate_average_length,
         )  #  creating iterators for efficient looping
 
-        if self._save_all:
-            out = []
-            for _ in range(self._max_iter):
-                out.append(next(iter_algo))
-                self._starting_step += 1
-        else:
-            out = [next(iter_algo), None]
-            for _ in range(self._max_iter):
-                out[1] = next(iter_algo)
-                self._starting_step += 1
+        try:
+            if self._save_all:
+                out = []
+                for _ in range(self._max_iter):
+                    out.append(next(iter_algo))
+                    self._starting_step += 1
+            else:
+                out = [next(iter_algo), None]
+                for _ in range(self._max_iter):
+                    out[1] = next(iter_algo)
+                    self._starting_step += 1
+        except StopIteration:
+            pass
 
         out_average = list(iter_algo)  # remaining iterations
         if self._save_all:
