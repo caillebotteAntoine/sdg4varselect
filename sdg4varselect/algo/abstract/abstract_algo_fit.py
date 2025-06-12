@@ -100,7 +100,9 @@ class AbstractAlgoFit(ABC):
 
     @estimate_average_length.setter
     def estimate_average_length(self, estimate_average_length: int):
+        self._max_iter = self.max_iter
         self._estimate_average_length = estimate_average_length
+        self.max_iter = self._max_iter
 
     @property
     def max_iter(self) -> int:
