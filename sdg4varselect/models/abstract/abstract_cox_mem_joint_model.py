@@ -65,6 +65,9 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
             self.add_latent_variables(name)
 
     def init_parametrization(self):
+        self._mem.init_parametrization()
+        self._cox.init_parametrization()
+
         params = (
             self._mem.parametrization._params
             | {"alpha": pc.Real(scale=self._alpha_scale)}
@@ -82,6 +85,22 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
     def J(self):
         """int: Number of observation times."""
         return self._mem.J
+
+    @property
+    def P(self) -> int:
+        """Get the number of high-dimensional parameters.
+
+        Returns
+        -------
+        int
+            Number of high-dimensional parameters in the model.
+        """
+        return self._p
+
+    @P.setter
+    def P(self, P):
+        self._p = int(P)
+        self._cox.P = self._p
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
@@ -217,7 +236,9 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
         ) + self.log_likelihood_only_prior(theta_reals1d, **kwargs)
 
     # ============================================================== #
-    def sample(self, params_star, prngkey, **kwargs) -> tuple[dict, dict]:
+    def sample(
+        self, params_star, prngkey, linspace_num=100000, **kwargs
+    ) -> tuple[dict, dict]:
         """
         Sample a dataset from the joint model.
 
@@ -227,6 +248,8 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
             Model parameters for sampling.
         prngkey : jnp.ndarray
             Pseudo-random number generator key.
+        linspace_num : int, optional
+            Number of points in the linspace for survival interval range, by default 100000.
         **kwargs : dict
             Additional parameters.
             containing simulation_intervalle : tuple, Interval within which to simulate times.
@@ -246,6 +269,7 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
             self,
             params_star,
             prngkey_cox,
+            linspace_num=linspace_num,
             **kwargs,
             **sim,
         )
