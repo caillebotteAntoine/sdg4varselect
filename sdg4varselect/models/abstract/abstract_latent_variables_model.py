@@ -22,7 +22,6 @@ from abc import ABC, abstractmethod
 from jax import jit
 import jax.numpy as jnp
 import jax.random as jrd
-from jax.scipy.stats import multivariate_normal
 from jax.scipy.special import logsumexp
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
@@ -66,11 +65,49 @@ def _sample_latent(prngkey, params, N):
         Generated samples with shape `(N, D)`.
     """
     D = params.cov_latent.shape[0]
-    mean = _mean_formatting(params.mean_latent, D)
+    mean = jnp.zeros(shape=(D,))  # Default mean is zero
     cov = _cov_formatting(params.cov_latent)
 
     shape = (N,)  # mean.shape[0])
     return jrd.multivariate_normal(prngkey, mean=mean, cov=cov, shape=shape)
+
+
+@jit
+def multivariate_normal_log_pdf(
+    x: jnp.ndarray, mean: jnp.ndarray, cov: jnp.ndarray
+) -> jnp.ndarray:
+    """Compute the log probability of a Gaussian prior with covariance matrix.
+
+        sqrt((2pi)^D det(cov)) * exp[-1/2(x-m)^T cov^-1 (x-m)]
+
+    Parameters
+    ----------
+    x : jnp.ndarray
+        Observed data of shape `(N, D)`.
+    mean : jnp.ndarray
+        Mean of the latent variables with shape `(D,)`.
+    cov : jnp.ndarray
+        Covariance matrix of the latent variables with shape `(D, D)`.
+
+    Returns
+    -------
+    jnp.ndarray
+        Log probability values of shape `(N,)`.
+    """
+    N, D = x.shape
+    assert mean.shape in ((N, D), (D,))
+    assert cov.shape == (D, D)
+
+    x_sub_mean = x - mean
+
+    out = (
+        jnp.linalg.slogdet(cov)[1]  # log du det
+        + D * jnp.log(2 * jnp.pi)
+        + ((x_sub_mean @ jnp.linalg.inv(cov)) * x_sub_mean).sum(axis=1)
+    )
+
+    assert out.shape == (N,)
+    return -out / 2
 
 
 class AbstractLatentVariablesModel(ABC):
@@ -133,6 +170,29 @@ class AbstractLatentVariablesModel(ABC):
             raise KeyError(name + " all ready exist as latent variables.")
         self._latent_variables_name += [name]
 
+    @functools.partial(jit, static_argnums=0)
+    def get_mean_latent(
+        self,
+        params,
+        **kwargs,  # pylint: disable=unused-argument
+    ) -> jnp.ndarray:
+        """
+        Compute the mean of the latent variables.
+        This method formats the mean_latent parameter to ensure it matches the expected size
+        Parameters
+        ----------
+        params : object
+            Contains `mean_latent` and `cov_latent`.
+        **kwargs : dict
+            Additional data to be passed to the mean computation.
+
+        Returns
+        -------
+        jnp.ndarray
+            Mean of the latent variables.
+        """
+        return _mean_formatting(params.mean_latent, size=params.cov_latent.shape[0])
+
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
     def only_prior(self, params, **kwargs) -> jnp.ndarray:
@@ -144,7 +204,7 @@ class AbstractLatentVariablesModel(ABC):
         params : object
             Contains attribute `cov_latent`.
         **kwargs : dict
-            additional data to be pass to the log-likelihood
+            additional data containing the latent variables and needed variables for mean computation.
 
         Returns
         -------
@@ -153,9 +213,9 @@ class AbstractLatentVariablesModel(ABC):
         """
         data = [kwargs[name] for name in self._latent_variables_name]
         cov = _cov_formatting(params.cov_latent)
-        mean = _mean_formatting(params.mean_latent, size=cov.shape[0])
+        mean = self.get_mean_latent(params, **kwargs)
 
-        return multivariate_normal.logpdf(x=jnp.array(data).T, mean=mean, cov=cov)
+        return multivariate_normal_log_pdf(x=jnp.array(data).T, mean=mean, cov=cov)
 
     @abstractmethod
     def log_likelihood_only_prior(self, theta_reals1d, **kwargs) -> jnp.ndarray:
@@ -204,7 +264,7 @@ class AbstractLatentVariablesModel(ABC):
         raise NotImplementedError
 
     # ============================================================== #
-    def sample(self, params_star, prngkey) -> tuple[dict, dict]:
+    def sample_latent_variables(self, params_star, prngkey, **kwargs):
         """Sample latent variables for the model sampling
 
         Parameters
@@ -213,6 +273,8 @@ class AbstractLatentVariablesModel(ABC):
             parameter used to sample the latent variables
         prngkey : jax.random.PRNGKey
             A PRNG key, consumable by random functions used to sample randomly the latent variables
+        **kwargs : dict
+            Additional data needed for mean computation.
 
         Returns
         -------
@@ -221,13 +283,9 @@ class AbstractLatentVariablesModel(ABC):
                 - dict: empty by default.
                 - dict: Simulated latent variables.
         """
-        key, prngkey = jrd.split(prngkey, num=2)
-
         D = len(self.latent_variables_name)
-
-        sim_latent = _sample_latent(
-            key, params_star, N=self.latent_variables_size
-        )  # jnp.array shape ?= (N,D)
+        sim_latent = _sample_latent(prngkey, params_star, N=self.latent_variables_size)
+        sim_latent += self.get_mean_latent(params_star, **kwargs)
 
         assert sim_latent.shape == (self.latent_variables_size, D)
 
@@ -237,8 +295,31 @@ class AbstractLatentVariablesModel(ABC):
                 [sim_latent[:, i] for i in range(D)],
             )
         )
+        return sim
 
-        return {}, sim
+    def sample(self, params_star, prngkey, **kwargs) -> tuple[dict, dict]:
+        """Sample latent variables for the model sampling
+
+        Parameters
+        ----------
+        params_star : object
+            parameter used to sample the latent variables
+        prngkey : jax.random.PRNGKey
+            A PRNG key, consumable by random functions used to sample randomly the latent variables
+        **kwargs : dict
+            Additional data needed for mean computation.
+
+        Returns
+        -------
+        tuple[dict, dict]
+            A tuple containing:
+                - dict: empty by default.
+                - dict: Simulated latent variables.
+        """
+        sample_key, prngkey = jrd.split(prngkey, num=2)
+        sim_latent = self.sample_latent_variables(params_star, sample_key, **kwargs)
+
+        return {}, sim_latent
 
 
 @functools.partial(jit, static_argnums=0)
@@ -268,14 +349,9 @@ def _new_log_likelihood(
     """
 
     params = model.parametrization.reals1d_to_params(theta_reals1d)
-    sim_latent = _sample_latent(sample_key, params=params, N=model.N)
-
-    var_lat_sample = dict(
-        zip(
-            model.latent_variables_name,
-            [sim_latent[:, i] for i in range(sim_latent.shape[1])],
-        )
-    )
+    var_lat_sample = model.sample_latent_variables(
+        params, sample_key, **data
+    )  # dict with simulated latent variables
 
     return model.log_likelihood_without_prior(
         theta_reals1d, **data, **var_lat_sample

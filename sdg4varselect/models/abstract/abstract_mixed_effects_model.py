@@ -199,7 +199,9 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
                 - dict: Generated observations.
                 - dict: Simulated latent variables.
         """
-        obs, sim = AbstractLatentVariablesModel.sample(self, params_star, prngkey)
+        obs, sim = AbstractLatentVariablesModel.sample(
+            self, params_star, prngkey, **kwargs
+        )
 
         y_without_noise = self.mixed_effect_function(
             params_star, times=kwargs["mem_obs_time"], **sim, **kwargs, **self._cst
