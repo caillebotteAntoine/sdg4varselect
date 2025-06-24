@@ -53,10 +53,12 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
         mem: type[AbstractMixedEffectsModel],
         cox: type[AbstractCoxModel],
         alpha_scale,
+        alpha_loc=0.0,
         **kwargs,
     ):
         # assert mem.N == cox.N
         self._alpha_scale = alpha_scale
+        self._alpha_loc = alpha_loc
         self._mem = deepcopy(mem)
         self._cox = deepcopy(cox)
         AbstractCoxModel.__init__(self, N=mem.N, P=cox.P, **kwargs)
@@ -70,7 +72,7 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
 
         params = (
             self._mem.parametrization._params
-            | {"alpha": pc.Real(scale=self._alpha_scale)}
+            | {"alpha": pc.Real(scale=self._alpha_scale, loc=self._alpha_loc)}
             | self._cox._parametrization._params
         )
         self._parametrization = pc.NamedTuple(**params)
