@@ -132,6 +132,52 @@ class AbstractPreconditioner(ABC):
         self._freezed_components = freezed_components
 
 
+def compute_estimated_fisher(
+    jac,
+    jac_current,
+    freezed_components,
+    *,
+    step_size_approx_sto,
+    step_size_identity_mixture=0.0,
+):
+    """Compute the estimated Fisher information matrix.
+    This function computes the Fisher information matrix using the Jacobian
+    approximation and the current Jacobian. It combines the two using a step size
+    for the approximation and a step size for the identity mixture.
+
+    Parameters
+    ----------
+    jac : jnp.ndarray
+        The last approximated Jacobian.
+    jac_current : jnp.ndarray
+        The current Jacobian.
+    freezed_components : jnp.ndarray
+        The components of the frozen parameters.
+    step_size_approx_sto : float
+        The step size for the Jacobian approximation.
+    step_size_identity_mixture : float, optional
+        The step size for the identity mixture (default is 0.0).
+
+    Returns
+    -------
+    jnp.ndarray
+        The estimated Fisher information matrix.
+    """
+    # Jacobian approximate
+    jac = (1 - step_size_approx_sto) * jac + step_size_approx_sto * jac_current
+
+    # Fisher computation
+    fim = jac.T @ jac / jac.shape[0] + jnp.diag(freezed_components)
+
+    # Identity mixture
+    fim = (
+        step_size_identity_mixture * jnp.eye(fim.shape[0])
+        + (1 - step_size_identity_mixture) * fim
+    )
+
+    return fim
+
+
 @jit
 def compute_fisher(
     gradient,
@@ -139,8 +185,7 @@ def compute_fisher(
     jac_current,
     freezed_components,
     *,
-    step_size_approx_sto,
-    step_size_fisher,
+    step_sizes,
 ):  # pylint: disable= too-many-arguments, too-many-locals
     """Compute the preconditioned gradient using Fisher information.
 
@@ -154,10 +199,8 @@ def compute_fisher(
         The current jacobian.
     freezed_components : jnp.ndarray
         The components of the frozen parameters.
-    step_size_approx_sto : callable
-        Function to compute the approximate step size.
-    step_size_fisher : callable
-        Function to compute the Fisher step size.
+    step_sizes : tuple
+        A tuple containing the step sizes for the jac approximation and identity mixture.
 
     Returns
     -------
@@ -168,16 +211,12 @@ def compute_fisher(
             - jnp.ndarray: The approximated jacobian.
     """
 
-    # Jacobian approximate
-    jac = (1 - step_size_approx_sto) * jac + step_size_approx_sto * jac_current
-
-    # gradient = self._jac.mean(axis=0)
-
-    # Fisher computation
-    fim = jac.T @ jac / jac.shape[0] + jnp.diag(freezed_components)
-
-    preconditioner = step_size_fisher * fim + (1 - step_size_fisher) * jnp.eye(
-        fim.shape[0]
+    preconditioner = compute_estimated_fisher(
+        jac,
+        jac_current,
+        freezed_components,
+        step_size_approx_sto=step_sizes[0],
+        step_size_identity_mixture=1 - step_sizes[1],
     )
     grad_precond = jnp.linalg.solve(preconditioner, gradient)
 
@@ -251,8 +290,7 @@ class Fisher(AbstractPreconditioner):
             self._jac,
             jacobian,
             self._freezed_components,
-            step_size_approx_sto=step_size_approx_sto,
-            step_size_fisher=step_size_fisher,
+            step_sizes=[step_size_approx_sto, step_size_fisher],
         )
         self.append_value_to_history()
 
@@ -604,3 +642,85 @@ class ADAM(RMSP):
 
         self._past.append(jnp.diag(self._preconditioner))
         return self._scale * grad_precond
+
+
+class AdagradFisher(AdaGrad):
+    """AdagradFisher preconditioner for stochastic gradient descent.
+
+    This preconditioner use Adagrad to adapt the
+    learning rate based on the accumulated squared gradients and also estimate the Fisher
+    information matrix.
+
+    Parameters
+    ----------
+    regularization : float, optional
+        Regularization term to avoid division by zero (default is 1).
+    """
+
+    def __init__(self, length_history, scale=None, regularization=1e-3) -> None:
+        AdaGrad.__init__(self, scale=scale, regularization=regularization)
+        self._length_history = length_history
+
+    def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
+        """Compute the preconditioned gradient using AdagradFisher.
+
+        Parameters
+        ----------
+        gradient : jnp.ndarray
+            The gradient to be preconditioned.
+        jacobian : jnp.ndarray
+            The Jacobian matrix used for preconditioning.
+        step : float
+            The current step size.
+
+        Returns
+        -------
+        jnp.ndarray
+            The preconditioned gradient.
+        """
+
+        self._preconditioner = compute_estimated_fisher(
+            jacobian,
+            jacobian,
+            self._freezed_components,
+            step_size_approx_sto=1,
+            step_size_identity_mixture=0,
+        )
+        self.append_value_to_history()
+
+        return AdaGrad.get_preconditioned_gradient(self, gradient, jacobian, step)
+
+
+def preconditioner_factory(name, **kwargs):
+    """
+    Create a preconditioner instance by name.
+
+    Parameters
+    ----------
+    name : str
+        The name of the preconditioner ('fisher', 'adagrad', 'identity', 'rmsprop', 'adam', 'adagradfisher').
+    **kwargs : dict
+        Arguments passed to the preconditioner constructor.
+
+    Returns
+    -------
+    AbstractPreconditioner
+        An instance of the requested preconditioner.
+
+    Raises
+    ------
+    ValueError
+        If the preconditioner name is not recognized.
+    """
+    _preconditioners = {
+        "fisher": Fisher,
+        "adagrad": AdaGrad,
+        "identity": Identity,
+        "rmsprop": RMSP,
+        "adam": ADAM,
+        "adagradfisher": AdagradFisher,
+    }
+    key = name.lower()
+    if key not in _preconditioners:
+        raise ValueError(f"Unknown preconditioner: {name}")
+    return _preconditioners[key](**kwargs)
