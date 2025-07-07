@@ -27,7 +27,7 @@ from sdg4varselect.algo.sto_grad_descent_precond import (
 
 @jit
 def _prox(
-    theta: jnp.ndarray, stepsize: float, lbd: float, alpha: float = 1
+    theta: jnp.ndarray, stepsize: jnp.ndarray, lbd: jnp.ndarray, alpha: float = 1
 ) -> jnp.ndarray:
     """Apply the proximal operator with elastic net penalty to a parameter array.
 
@@ -37,11 +37,11 @@ def _prox(
     ----------
     theta : jnp.ndarray
         Parameter array to which the proximal operator is applied.
-    stepsize : float
+    stepsize : jnp.ndarray
         Step size for the gradient update.
-    lbd : float
+    lbd : jnp.ndarray
         Elastic net regularization parameter.
-    alpha : float, optional
+    alpha : jnp.ndarray, optional
         Elastic net mixing parameter between L1 (lasso) and L2 (ridge) regularization.
         Default is 1, corresponding to lasso regularization.
 
@@ -61,10 +61,11 @@ def _prox(
     )
 
 
+@jit
 def proximal_operator(
     theta_reals1d: jnp.ndarray,
-    stepsize: float,
-    lbd: float,
+    stepsize: jnp.ndarray,
+    lbd: jnp.ndarray,
     alpha: float = 1,
     hd_mask=None,
 ) -> jnp.ndarray:
@@ -247,12 +248,10 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         if self._lbd is None:
             return theta_reals1d
 
-        regularization = self._lbd / jnp.diag(self._preconditioner.value)
-
         return proximal_operator(
             theta_reals1d,
-            stepsize=self._step_size(step),
-            lbd=regularization,
+            stepsize=self._step_size(step) / jnp.diag(self._preconditioner.value),
+            lbd=self._lbd,
             alpha=self._alpha,
             hd_mask=self._hd_mask,
         )
