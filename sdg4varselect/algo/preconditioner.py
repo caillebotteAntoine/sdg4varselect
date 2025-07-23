@@ -391,7 +391,7 @@ class AdaGrad(AbstractPreconditioner):
             self._adagrad, gradient, self._regularization, self._freezed_components
         )
         self._past.append(self._adagrad)
-        self._preconditioner *= self._scale
+        self._preconditioner /= self._scale
         return self._scale * grad_precond
 
 
