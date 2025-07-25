@@ -173,7 +173,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
         # Jacobian
         jac_current = model.jac_log_likelihood(theta_reals1d, **log_likelihood_kwargs)
         # Gradient
-        grad = jac_current.mean(axis=0)
+        grad = jac_current.sum(axis=0)
 
         # Preconditionner
         grad_precond = self._preconditioner.get_preconditioned_gradient(

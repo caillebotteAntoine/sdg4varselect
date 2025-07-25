@@ -299,7 +299,7 @@ class Fisher(AbstractPreconditioner):
 
 @jit
 def compute_adagrad(
-    adagrad, gradient, regularization, freezed_components
+    adagrad, scale, gradient, regularization, freezed_components
 ) -> jnp.ndarray:
     """Compute the preconditioned gradient using AdaGrad method.
 
@@ -309,6 +309,8 @@ def compute_adagrad(
         The value of the Adagrad all ready calculated.
     gradient : jnp.ndarray
         The gradient to be preconditioned.
+    scale : jnp.ndarray
+        The scale factor for the preconditioner.
     regularization : float, optional
         Regularization term to avoid division by zero (default is 1).
     freezed_components : jnp.ndarray
@@ -322,8 +324,13 @@ def compute_adagrad(
             - jnp.ndarray: The preconditioned gradient.
             - jnp.ndarray: The approximated jacobian.
     """
+    # clipped_gradient = gradient
+    # clipped_gradient = jnp.where(
+    #     jnp.abs(gradient) > 10, 10 * jnp.sign(gradient), gradient
+    # )
     adagrad += jnp.where(freezed_components, 0, gradient**2)
-    preconditioner = jnp.sqrt(adagrad) + regularization
+
+    preconditioner = (jnp.sqrt(adagrad) + regularization) / scale
     # assert preconditioner.shape == gradient.shape
 
     grad_precond = gradient / preconditioner
@@ -388,11 +395,14 @@ class AdaGrad(AbstractPreconditioner):
             The preconditioned gradient.
         """
         self._preconditioner, grad_precond, self._adagrad = compute_adagrad(
-            self._adagrad, gradient, self._regularization, self._freezed_components
+            self._adagrad,
+            self._scale,
+            gradient,
+            self._regularization,
+            self._freezed_components,
         )
         self._past.append(self._adagrad)
-        self._preconditioner /= self._scale
-        return self._scale * grad_precond
+        return grad_precond
 
 
 class Identity(AbstractPreconditioner):

@@ -88,6 +88,31 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         AbstractAlgoMCMC.__init__(self)
         self._pre_heating = 1000
 
+    @property
+    def pre_heating(self) -> int:
+        """Get the number of pre-heating steps for MCMC sampling.
+        Returns
+        -------
+        int
+            The number of pre-heating steps."""
+        return self._pre_heating
+
+    @pre_heating.setter
+    def pre_heating(self, value: int):
+        """Set the number of pre-heating steps for MCMC sampling.
+        Parameters
+        ----------
+        value : int
+            The number of pre-heating steps to set. Must be a non-negative integer.
+        Raises
+        ------
+        ValueError
+            If the value is negative.
+        """
+        if value < 0:
+            raise ValueError("pre_heating must be a non-negative integer.")
+        self._pre_heating = value
+
     def get_log_likelihood_kwargs(self, data):
         """Return all the needed data, like latent variables for the log likelihood computation
 

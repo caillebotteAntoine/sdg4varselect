@@ -50,6 +50,7 @@ def _prox(
     jnp.ndarray
         Updated parameter array after applying the proximal operator.
     """
+    # stepsize = 1/adagrad
     id_shrink_too_big = theta >= stepsize * lbd * alpha
     id_shrink_too_litte = theta <= -stepsize * lbd * alpha
 
@@ -247,7 +248,8 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         """
         if self._lbd is None:
             return theta_reals1d
-
+        # prox_{A, \lambda ||.||} ( \theta - A^{-1} grad)
+        # adagrad : A = diag((sqrt(grad^2)+eps)/gamma_0)
         return proximal_operator(
             theta_reals1d,
             stepsize=self._step_size(step) / jnp.diag(self._preconditioner.value),
