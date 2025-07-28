@@ -187,8 +187,8 @@ class GDResults(FitResults):
             theta_reals1d=[self.theta_reals1d, x.theta_reals1d],
             _theta_star=self.theta_star,
             fim=x.fim,
-            grad=x.grad,
-            grad_precond=x.grad_precond,
+            grad=jnp.vstack([self.grad, x.grad]),
+            grad_precond=jnp.vstack([self.grad_precond, x.grad_precond]),
             log_likelihood=x.log_likelihood,
             bic=x.bic,
             ebic=x.ebic,
@@ -273,6 +273,23 @@ class MultiGDResults(Sdg4vsResults):
 
     def __iter__(self) -> Generator[None, Type[GDResults], None]:
         yield from self.results
+
+    def __add__(self, x):
+        """Add two MultiGDResults instances together.
+
+        Parameters
+        ----------
+        x : MultiGDResults
+            Another MultiGDResults instance to add.
+
+        Returns
+        -------
+        MultiGDResults
+            A new MultiGDResults instance with combined results.
+        """
+        return MultiGDResults(
+            chrono=self.chrono + x.chrono, results=x.results + self.results
+        )
 
     # === property === #
     @property
@@ -545,6 +562,23 @@ class RegularizationPath(MultiGDResults):
             self.results
         ), f"lbd_set must have the same size of the results list: {len(self.lbd_set)} != {len(self.results)}"
 
+    def __add__(self, x):
+        """Add two RegularizationPath instances together.
+
+        Parameters
+        ----------
+        x : RegularizationPath
+            Another RegularizationPath instance to add.
+
+        Returns
+        -------
+        RegularizationPath
+            A new RegularizationPath instance with combined results and lbd_set.
+        """
+        out = super().__add__(x)
+        out.lbd_set = jnp.concatenate([self.lbd_set, x.lbd_set])
+        return out
+
     def standardize(self):
         """Standardizes the regularization path by selecting models with the lowest BIC/eBIC.
 
@@ -738,6 +772,8 @@ class MultiRegularizationPath(Sdg4vsResults):
         def load_next(i):  # pylint: disable=missing-return-doc, missing-return-type-doc
             try:
                 out = RegularizationPath.load(filename, root, f"{filename_add_on}{i}")
+                if i in all_loaded_id:
+                    return load_next(i + 1)
                 all_loaded_id.append(i)
             except FileNotFoundError as exc:  # if file not found :
                 return [exc]
