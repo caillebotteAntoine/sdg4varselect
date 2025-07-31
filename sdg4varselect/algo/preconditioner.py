@@ -218,8 +218,7 @@ def compute_fisher(
         step_size_approx_sto=step_sizes[0],
         step_size_identity_mixture=1 - step_sizes[1],
     )
-    grad_precond = jnp.linalg.solve(preconditioner, gradient)
-
+    grad_precond = jnp.linalg.solve(preconditioner, gradient) / jac.shape[0]
     return preconditioner, grad_precond, jac
 
 
