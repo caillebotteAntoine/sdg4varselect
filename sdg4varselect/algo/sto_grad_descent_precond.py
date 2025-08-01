@@ -81,10 +81,8 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
         Executes a single iteration of SGD, combining MCMC sampling and gradient descent.
     """
 
-    def __init__(
-        self, preconditioner: AbstractPreconditioner, threshold=1e-1, **kwargs
-    ):
-        GD_Precond.__init__(self, preconditioner, threshold, **kwargs)
+    def __init__(self, preconditioner: AbstractPreconditioner, **kwargs):
+        GD_Precond.__init__(self, preconditioner, **kwargs)
         AbstractAlgoMCMC.__init__(self)
         self._pre_heating = 1000
 
@@ -205,7 +203,7 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
             raise exc
 
     # ============================================================== #
-    def breacking_rules(self, step, one_step_results):
+    def breaking_rules(self, step, one_step_results):
         """Determine whether to stop the optimization process.
 
         This function checks if the stopping criteria are met based on the number of iterations
@@ -224,9 +222,9 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
             True if the stopping conditions are met, otherwise False.
         """
 
-        first_rules = GD_Precond.breacking_rules(self, step, one_step_results)
+        first_rules = GD_Precond.breaking_rules(self, step, one_step_results)
 
-        new_rule = False  # jnp.abs(one_step_results[4]).max() < self._threshold
+        new_rule = True  # jnp.abs(one_step_results[4]).max() < self._threshold
 
         return first_rules and new_rule
 

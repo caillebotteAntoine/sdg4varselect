@@ -192,7 +192,7 @@ class AbstractAlgoFit(ABC):
     # ====== to define any type of algorithm ====== #
     # ============================================= #
     @abstractmethod
-    def breacking_rules(self, step, one_step_results):
+    def breaking_rules(self, step, one_step_results):
         """Abstract method to determine whether to stop the optimization process.
 
         This method should be implemented in subclasses to define custom stopping criteria
@@ -293,7 +293,8 @@ class AbstractAlgoFit(ABC):
             one_step_results = out + (datetime.now() - chrono,)
             yield one_step_results
 
-            if self.breacking_rules(step, one_step_results):
+            if self.breaking_rules(step, one_step_results):
+                print(f"Stopping at step {step} because of breaking rules")
                 break
 
     def _check_theta(self, theta):

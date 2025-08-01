@@ -62,12 +62,13 @@ class GradientDescentPrecond(AbstractAlgoFit):
     """
 
     def __init__(
-        self, preconditioner: AbstractPreconditioner, threshold=1e-1, **kwargs
+        self, preconditioner: AbstractPreconditioner, threshold=1e-4, **kwargs
     ):
         AbstractAlgoFit.__init__(self, **kwargs)
 
         self.step_size = deepcopy(cst_step_size)
 
+        self._theta_past_mean = jnp.array([1.0])
         self._threshold = threshold
         self._preconditioner = preconditioner
         self._save_preconditioner = False
@@ -201,7 +202,7 @@ class GradientDescentPrecond(AbstractAlgoFit):
         return (theta_reals1d, grad, grad_precond, preconditioner)
 
     # ============================================================== #
-    def breacking_rules(self, step, one_step_results):
+    def breaking_rules(self, step, one_step_results):
         """Determine whether to stop the optimization process.
 
         This function checks if the stopping criteria are met based on the number of iterations
@@ -219,10 +220,22 @@ class GradientDescentPrecond(AbstractAlgoFit):
         bool
             True if the stopping conditions are met, otherwise False.
         """
-        return (
-            step > self._heating
-            and jnp.sqrt((one_step_results[1] ** 2).sum()) < self._threshold
+        old_theta_past_mean = self._theta_past_mean[:]
+        self._theta_past_mean = (old_theta_past_mean * step + one_step_results[0]) / (
+            step + 1
         )
+        # print(self._theta_past_mean, old_theta_past_mean)
+        return (
+            step > self._max_iter
+            and (
+                jnp.abs(self._theta_past_mean - old_theta_past_mean) < self._threshold
+            ).all()
+        )
+
+        # return (
+        #     step > self._heating
+        #     and jnp.sqrt((one_step_results[1] ** 2).sum()) < self._threshold
+        # )
 
     def _algorithm_one_step(
         self,
