@@ -52,7 +52,7 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
         self,
         mem: type[AbstractMixedEffectsModel],
         cox: type[AbstractCoxModel],
-        alpha_scale,
+        alpha_scale=1.0,
         alpha_loc=0.0,
         **kwargs,
     ):
@@ -316,3 +316,82 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
             Simulated covariates.
         """
         return self._cox.covariates_simulation(prngkey, **kwargs)
+
+
+class AbstractJMvalueLink(AbstractCoxMemJointModel):
+    """Abstract class for joint models with a value link function."""
+
+    def __init__(
+        self,
+        MixedEffectsModel: type[AbstractMixedEffectsModel],
+        CoxModel: type[AbstractCoxModel],
+        N,
+        **kwargs,
+    ):
+        mem = MixedEffectsModel(N=N, **kwargs)
+        cox = CoxModel(N=N, **kwargs)
+        AbstractCoxMemJointModel.__init__(self, mem, cox, **kwargs)
+
+    # ============================================================== #
+    @functools.partial(jit, static_argnums=0)
+    def link_function(self, alpha, params, survival_int_range, **kwargs):
+        """return the link function for the model.
+
+        Parameters
+        ----------
+        alpha : float
+            Alpha parameter for the link function.
+        params : dict
+            Model parameters.
+        survival_int_range : jnp.ndarray
+            Array of surival observations, shape (N, num).
+        **kwargs : dict
+            Additional parameters.
+        Returns
+        -------
+        jnp.ndarray
+            Values of the link function.
+        """
+        return alpha * self._mem.mixed_effect_function(
+            params, survival_int_range, **kwargs
+        )
+
+
+class AbstractJMslopeLink(AbstractCoxMemJointModel):
+    """Abstract class for joint models with a slope link function."""
+
+    def __init__(
+        self,
+        MixedEffectsModel: type[AbstractMixedEffectsModel],
+        CoxModel: type[AbstractCoxModel],
+        N,
+        dmixed_effect_function: callable,
+        **kwargs,
+    ):
+        mem = MixedEffectsModel(N=N, **kwargs)
+        cox = CoxModel(N=N, **kwargs)
+        AbstractCoxMemJointModel.__init__(self, mem, cox, **kwargs)
+        self._link_fct = dmixed_effect_function
+
+    # ============================================================== #
+    @functools.partial(jit, static_argnums=0)
+    def link_function(self, alpha, params, survival_int_range, **kwargs):
+        """return the link function for the model.
+
+        Parameters
+        ----------
+        alpha : float
+            Alpha parameter for the link function.
+        params : dict
+            Model parameters.
+        survival_int_range : jnp.ndarray
+            Array of surival observations, shape (N, num).
+        **kwargs : dict
+            Additional parameters.
+
+        Returns
+        -------
+        jnp.ndarray
+            Values of the link function.
+        """
+        return alpha * self._link_fct(params, survival_int_range, **kwargs)
