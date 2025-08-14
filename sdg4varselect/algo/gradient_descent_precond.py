@@ -143,6 +143,8 @@ class GradientDescentPrecond(AbstractAlgoFit):
         jac_shape = model.jac_log_likelihood(
             theta_reals1d, **log_likelihood_kwargs
         ).shape
+
+        self._theta_past_mean = jnp.array([1.0])
         self._preconditioner.initialize(jac_shape, freezed_components)
 
     # ============================================================== #
