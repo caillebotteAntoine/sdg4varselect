@@ -67,6 +67,8 @@ class AbstractCoxMemJointModel(AbstractCoxModel, AbstractLatentVariablesModel):
             self.add_latent_variables(name)
 
     def init_parametrization(self):
+        """here you define the parametrization of the model"""
+
         self._mem.init_parametrization()
         self._cox.init_parametrization()
 
@@ -328,8 +330,10 @@ class AbstractJMvalueLink(AbstractCoxMemJointModel):
         N,
         **kwargs,
     ):
+        P = kwargs.pop("P", 0)
+
         mem = MixedEffectsModel(N=N, **kwargs)
-        cox = CoxModel(N=N, **kwargs)
+        cox = CoxModel(N=N, P=P, **kwargs)
         AbstractCoxMemJointModel.__init__(self, mem, cox, **kwargs)
 
     # ============================================================== #
@@ -368,8 +372,9 @@ class AbstractJMslopeLink(AbstractCoxMemJointModel):
         dmixed_effect_function: callable,
         **kwargs,
     ):
+        P = kwargs.pop("P", 0)
         mem = MixedEffectsModel(N=N, **kwargs)
-        cox = CoxModel(N=N, **kwargs)
+        cox = CoxModel(N=N, P=P, **kwargs)
         AbstractCoxMemJointModel.__init__(self, mem, cox, **kwargs)
         self._link_fct = dmixed_effect_function
 

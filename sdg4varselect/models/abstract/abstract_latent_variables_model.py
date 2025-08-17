@@ -400,7 +400,7 @@ def log_likelihood_marginal(
 
     n_simu = len(out)
     while n_simu < size * 2 and (abs(value / value_old - 1.0) >= 1e-2).all():
-        print(abs(value - value_old))
+
         for _ in range(100):
             n_simu += 1
             prngkey, sample_key = jrd.split(prngkey, 2)
