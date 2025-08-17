@@ -498,11 +498,13 @@ class MultiGDResults(Sdg4vsResults):
 
             ax.plot(t)
             if param_star is not None:
-                ax.axhline(param_star, linestyle="--", label=param_name, color=color)
+                ax.axhline(param_star, linestyle="--", color=color)  # label=param_name)
                 if param_name is not None:
                     ax.legend(loc="center left")
             else:
                 ax.set_title(param_name)
+
+            ax.set_title(param_name)
 
             if log_scale and (t[jnp.logical_not(jnp.isnan(t))] > 0).all():
                 ax.set_yscale("log")
