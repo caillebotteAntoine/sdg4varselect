@@ -301,7 +301,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         # ie u = 1 - exp(-x) => -log(1-u) = x
         sim["rexp"] = jrd.exponential(prngkey_uni, shape=(self.N,))
         log_h = self.log_hazard(
-            params_star, survival_int_range=t_linspace, **obs, **kwargs, **self._cst
+            params_star, survival_int_range=t_linspace, **obs, **self._cst
         )
         cumsum_h = jnp.cumsum(jnp.exp(log_h), axis=1) * pas
         # cumsum_h is increasing
