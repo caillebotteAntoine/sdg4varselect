@@ -123,13 +123,30 @@ class AbstractLatentVariablesModel(ABC):
     All latent variables are defined with a variance and covariance defined in
     cov_latent as follows:
 
-    -   cov_latent must have a Matrix parametrization type.
+    *   cov_latent must have a Matrix parametrization type.
         cov_latent will have a shape (D,D).
 
-    -   mean_latent can be Scalar parametrization of Shape (1,),
+    *   mean_latent can be Scalar parametrization of Shape (1,),
         Tuple or Namedtuple of Scalar parametrization.
 
         mean_latent shape can't exceed (D,)
+
+    Methods
+    -------
+    add_latent_variables(name)
+        Add a new latent variable to the model.
+    get_mean_latent(params, **kwargs) -> jnp.ndarray
+        Compute the mean of the latent variables.
+    only_prior(params, **kwargs) -> jnp.ndarray
+        Compute log-likelihood with only the Gaussian prior.
+    log_likelihood_only_prior(theta_reals1d, **kwargs) -> jnp.ndarray
+        Abstract method to compute log-likelihood with only the Gaussian prior.
+    log_likelihood_without_prior(theta_reals1d, **kwargs) -> jnp.ndarray
+        Abstract method to compute the log-likelihood without Gaussian prior.
+    sample_latent_variables(params_star, prngkey, **kwargs) -> tuple[dict, dict]
+        Sample latent variables for the model sampling.
+    sample(params_star, prngkey, **kwargs) -> tuple[dict, dict]
+        Sample latent variables for the model sampling.
 
     Attributes
     ----------

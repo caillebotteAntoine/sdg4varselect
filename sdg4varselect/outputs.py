@@ -25,8 +25,7 @@ from sdg4varselect._fit_results import Sdg4vsResults, FitResults, _get_filename
 
 @dataclasses.dataclass(kw_only=True)
 class GDResults(FitResults):
-    """Class to handle results from gradient descent optimization.
-
+    """Class to hand
     Attributes
     ----------
     theta : jnp.ndarray

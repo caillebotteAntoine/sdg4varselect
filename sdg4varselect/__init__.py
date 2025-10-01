@@ -1,9 +1,8 @@
 """
-Create by antoine.caillebotte@inrae.fr
+List of the main modules of the package.
 """
 
 from jax import config
-
 
 # Algorithm
 from .algo import *
@@ -11,10 +10,14 @@ from .algo import *
 # Models
 from .models import *
 
+
 # MCMC
 from ._mcmc import MCMC
+from ._chain import Chain
 
 # Outputs
+from . import outputs
+
 from .outputs import (
     Sdg4vsResults,
     GDResults,

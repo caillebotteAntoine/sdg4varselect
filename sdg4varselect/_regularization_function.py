@@ -100,5 +100,5 @@ def regularization_path(
             yield res_estim
 
     out = RegularizationPath(results=list(iter_estim()), lbd_set=lbd_set)
-    # out.update_bic(model)
+    out.update_bic(model)
     return out

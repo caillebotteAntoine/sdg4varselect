@@ -11,15 +11,15 @@ class Chain:
     """
     Represents a chain of values with history.
 
-    Attributes:
+    Attributes
     ----------
         _name (str): Name of the chain.
         _data (numpy.ndarray): Current value of the chain.
         _size (int): Size of the chain.
         _chain (list[numpy.ndarray]): List to store the history of the chain.
 
-    Methods:
-    ----------
+    Methods
+    -------
         __init__(self, x0: float, size: int = 1, name: str = "NA"):
             Initializes a new Chain object with the given parameters.
 
@@ -38,7 +38,7 @@ class Chain:
         update_chain(self):
             Appends a copy of the current value of the chain to the history.
 
-    Properties:
+    Properties
     ----------
         data(self) -> numpy.ndarray:
             Returns the current value of the chain.
@@ -53,7 +53,7 @@ class Chain:
     def __init__(self, x0: float, size: int = 1, name="NA"):
         """Initializes a new Chain object with the given parameters.
 
-        Parameters:
+        Parameters
         ----------
             x0 (float): Initial value for the chain.
             size (int, optional): Size of the chain. Default is 1.

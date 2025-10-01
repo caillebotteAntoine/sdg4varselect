@@ -217,7 +217,7 @@ class MCMC(Chain):
             The acceptance rate(s) as a numpy array.
 
         Raises
-        -------
+        ------
         ValueError
             If `i` is neither None nor an integer.
         """
