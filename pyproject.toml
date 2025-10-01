@@ -23,6 +23,15 @@ pytest-cov = "^4.0.0"
 pylint = "^3.3.1"
 pandas = "^2.2.3"
 
+
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+numpydoc = "^1.9.0"
+sphinx-rtd-theme = "^3.0.2"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
