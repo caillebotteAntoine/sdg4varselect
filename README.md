@@ -1,25 +1,19 @@
 # SDG4varselect: Stochastic Proximal Descent Gradient for variable selection
 
+`sdg4varselect` is a Python package designed for **estimation and variable selection** in mixed-effect and joint causal models in high-dimensional settings using **stochastic gradient descent**.
+It provides efficient tools for model selection when the number of parameters exceeds the number of observations, with a focus on interpretability and scalability.
 
+## Installation
 
-## How to install the package
+### How to install the package from the latest release
+
+Use `pip` to install directly from the GitHub repository:
+
 ```bash
-# 1. Install the last version
 pip install git+https://github.com/caillebotteAntoine/sdg4varselect.git@v0.1.0
-
-
-
 ```
 
-## How to install the source code
+This will install the package along with its dependencies.
 
-```bash
-# 1. Clone the repository
-git clone https://github.com/caillebotteAntoine/sdg4varselect
 
-# 2. Go inside the project
-cd sdg4varselect
-
-# 3. Install dependencies
-poetry install --no-root
-```
+## Documentation
