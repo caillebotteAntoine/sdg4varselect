@@ -19,7 +19,7 @@ It provides efficient tools for model selection when the number of parameters ex
    :caption: Getting Started
 
    ./install_sdg.rst
-   .. ./quick_example.rst
+   ./quick_example.rst
 
 .. toctree::
    :maxdepth: 3

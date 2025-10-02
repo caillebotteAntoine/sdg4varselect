@@ -14,7 +14,7 @@ You can install the package in two different ways:
 
 Use ``pip`` to install directly from the GitHub repository::
 
-   pip install git+https://github.com/caillebotteAntoine/sdg4varselect.git@v0.1.0
+   pip install git+https://github.com/caillebotteAntoine/sdg4varselect.git@v0.3.0
 
 This will install the package along with its dependencies.
 
