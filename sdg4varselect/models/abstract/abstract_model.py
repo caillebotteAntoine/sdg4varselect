@@ -70,7 +70,14 @@ class AbstractModel(ABC):
 
     @abstractmethod
     def init_parametrization(self):
-        """here you define the parametrization of the model"""
+        """Initialize the model's parametrization.
+        This method must set the _parametrization attribute.
+
+        Raises
+        ------
+        NotImplementedError
+            the method must be implemented in a subclass.
+        """
         raise NotImplementedError("You must define parametrization in this function !")
 
     def init(self):

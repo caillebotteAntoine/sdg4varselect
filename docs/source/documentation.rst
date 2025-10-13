@@ -25,6 +25,17 @@ Available models in `Sdg4varselect`.
    AbstractCoxModel
    AbstractCoxMemJointModel
 
+   LogisticMixedEffectsModel
+   PKMixedEffectsModel
+
+   WeibullCoxModel
+   CstCoxModel
+   GompertzCoxModel
+
+   WeibullHazardJM
+   CstHazardJM
+
+
 :mod:`\\.algo`: **Algorithms**
 =======================================
 Available algorithms in `Sdg4varselect`.
