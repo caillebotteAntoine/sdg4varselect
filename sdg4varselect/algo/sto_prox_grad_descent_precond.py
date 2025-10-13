@@ -6,8 +6,6 @@ This module implements a Stochastic Proximal Gradient Descent (SPGD) algorithm,
 where optimization is preconditioned using the Fisher information matrix.
 The algorithm includes a proximal operator with elastic net regularization for model parameter
 estimation and selection.
-
-Created by antoine.caillebotte@inrae.fr
 """
 
 from typing import Optional
@@ -19,10 +17,12 @@ import jax.numpy as jnp
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.models.abstract.abstract_high_dim_model import AbstractHDModel
 from sdg4varselect.algo.preconditioner import AbstractPreconditioner
-
+from sdg4varselect.outputs import Sdg4vsResults
 from sdg4varselect.algo.sto_grad_descent_precond import (
     StochasticGradientDescentPrecond as SGD_Prec,
+    BASE_PARAMETERS_GD,
 )
+from sdg4varselect._doc_tools import inherit_docstring
 
 
 @jit
@@ -102,35 +102,22 @@ def proximal_operator(
     )
 
 
+@inherit_docstring
 class StochasticProximalGradientDescentPrecond(SGD_Prec):
-    """Stochastic Proximal Gradient Descent algorithm with Fisher matrix preconditioning.
+    __doc__ = f"""Stochastic Proximal Gradient Descent algorithm with Fisher matrix preconditioning.
 
     This class implements a preconditioned SPGD algorithm using the Fisher information matrix
     and supports elastic net regularization through a proximal operator.
 
     Parameters
     ----------
-    prngkey : jax.random.PRNGKey
-        A PRNG key, consumable by random functions.
-    preconditioner : AbstractPreconditioner
-        An instance of a preconditioner that can computes precondtionned gradient
+    {BASE_PARAMETERS_GD}
+
     lbd : float
         Elastic net regularization parameter.
     alpha : float, optional
         Elastic net mixing parameter between L1 (lasso) and L2 (ridge) regularization.
         Default is 1, corresponding to lasso regularization.
-    threshold : float, optional
-        A threshold for the gradient magnitude to determine convergence. The default value is 1e-4.
-    max_iter : int
-        Maximum number of iterations allowed for the algorithm.
-    ntry : int
-        Number of attempts to retry the algorithm if an error is encountered.
-    ntry_max : int
-        Maximum number of retry attempts to reset `_ntry` after each algorithm run.
-    partial_fit : bool
-        Flag to indicate if partial results should be returned if an error occurs.
-    save_all : bool
-        Flag to control whether intermediate iterations should be retained.
 
     Attributes
     ----------
@@ -143,7 +130,7 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
         preconditioner: AbstractPreconditioner,
         lbd: Optional[float] = None,
         alpha: Optional[float] = 1.0,
-        **kwargs
+        **kwargs,
     ):
         SGD_Prec.__init__(self, preconditioner, **kwargs)
 
@@ -183,25 +170,9 @@ class StochasticProximalGradientDescentPrecond(SGD_Prec):
     def hd_mask(self, mask: jnp.ndarray):
         self._hd_mask = mask
 
-    def results_warper(self, model, theta0_reals1d, data, results):
-        """Warp results into Sdg4vsResults object and calculate marginal likelihood, bic and ebic.
-
-        Parameters
-        ----------
-        model : type[AbstractModel]
-            The model used for the fitting.
-        theta0_reals1d : jnp.ndarray
-            Initial parameters for the model.
-        data : dict
-           a dict where all additional log_likelihood arguments can be found
-        results : list
-            The results obtained from the fitting.
-
-        Returns
-        -------
-        Sdg4vsResults
-            An instance of Sdg4vsResults containing the results, including marginal likelihood, bic and ebic.
-        """
+    def results_warper(  # pylint: disable = missing-return-doc
+        self, model, theta0_reals1d, data, results
+    ) -> Sdg4vsResults:
         out = SGD_Prec.results_warper(self, model, theta0_reals1d, data, results)
         out.update_bic(model)
         return out

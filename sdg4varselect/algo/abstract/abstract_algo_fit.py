@@ -22,12 +22,7 @@ from sdg4varselect.exceptions import (
 from sdg4varselect.outputs import Sdg4vsResults
 
 
-class AbstractAlgoFit(ABC):
-    """Base class for implementing algorithms with common methods such as parameter initialization,
-    iteration management, and results handling.
-
-    Parameters
-    ----------
+BASE_PARAMETERS_ALGO = """
     max_iter : int
         Maximum number of iterations allowed for the algorithm.
 
@@ -43,6 +38,16 @@ class AbstractAlgoFit(ABC):
     save_all : bool
         Flag to control whether intermediate iterations should be retained.
 
+    """
+
+
+class AbstractAlgoFit(ABC):
+    r"""Base class for implementing algorithms with common methods such as parameter initialization,
+    iteration management, and results handling.
+
+    Parameters
+    ----------
+    {BASE_PARAMETERS_ALGO}
     """
 
     def __init__(
@@ -192,7 +197,7 @@ class AbstractAlgoFit(ABC):
     # ====== to define any type of algorithm ====== #
     # ============================================= #
     @abstractmethod
-    def breaking_rules(self, step, one_step_results):
+    def breaking_rules(self, step, one_step_results) -> bool:
         """Abstract method to determine whether to stop the optimization process.
 
         This method should be implemented in subclasses to define custom stopping criteria
@@ -366,6 +371,7 @@ class AbstractAlgoFit(ABC):
         )  #  creating iterators for efficient looping
 
         try:
+            out_average = []
             if self._save_all:
                 out = []
                 for _ in range(self._max_iter):
@@ -376,14 +382,15 @@ class AbstractAlgoFit(ABC):
                 for _ in range(self._max_iter):
                     out[1] = next(iter_algo)
                     self._starting_step += 1
+
+            out_average = list(iter_algo)  # remaining iterations
+            if self._save_all:
+                out += out_average
+
+            self._starting_step += len(out_average)
         except StopIteration:
             pass
 
-        out_average = list(iter_algo)  # remaining iterations
-        if self._save_all:
-            out = out + out_average
-
-        self._starting_step += len(out_average)
         return out, out_average
 
     def fit(

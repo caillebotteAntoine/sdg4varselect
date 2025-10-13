@@ -3,8 +3,6 @@ Module for the Gradient Descent algorithm preconditioned by the Fisher Informati
 
 This module implements a gradient descent algorithm that uses a preconditioner based on
 the Fisher Information Matrix to improve convergence.
-
-Created by antoine.caillebotte@inrae.fr
 """
 
 from copy import deepcopy
@@ -12,40 +10,42 @@ from copy import deepcopy
 import jax.numpy as jnp
 
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
-from sdg4varselect.algo.abstract.abstract_algo_fit import AbstractAlgoFit
+from sdg4varselect.algo.abstract.abstract_algo_fit import (
+    AbstractAlgoFit,
+    BASE_PARAMETERS_ALGO,
+)
 from sdg4varselect.algo.preconditioner import AbstractPreconditioner
 
 from sdg4varselect.exceptions import Sdg4vsNanError, Sdg4vsInfError
 from sdg4varselect.outputs import GDResults
 from sdg4varselect.learning_rate import LearningRate, cst_step_size
 
+from sdg4varselect._doc_tools import inherit_docstring
 
+BASE_PARAMETERS_GD = f"""
+    preconditioner : AbstractPreconditioner
+        An instance of a preconditioner that can computes precondtionned gradient
+
+    threshold : float, optional
+        A threshold for the gradient magnitude to determine convergence. The default value is 1e-4.
+
+    {BASE_PARAMETERS_ALGO}
+
+    save_preconditionner : bool
+        Flag to control whether preconditioner values are to be retained
+        (warning: risk of using a large amount of memory)."""
+
+
+@inherit_docstring
 class GradientDescentPrecond(AbstractAlgoFit):
-    """Gradient descent algorithm preconditioned by the Fisher Information Matrix or another.
+    __doc__ = f"""Gradient descent algorithm preconditioned by the Fisher Information Matrix or another.
 
     This class implements a gradient descent algorithm that leverages the Fisher Information Matrix (FIM)
     as a preconditioner to enhance the convergence speed of the optimization process.
 
     Parameters
     ----------
-    preconditioner : AbstractPreconditioner
-        An instance of a preconditioner that can computes precondtionned gradient
-    threshold : float, optional
-        A threshold for the gradient magnitude to determine convergence. The default value is 1e-4.
-    max_iter : int
-        Maximum number of iterations allowed for the algorithm.
-    ntry : int
-        Number of attempts to retry the algorithm if an error is encountered.
-    ntry_max : int
-        Maximum number of retry attempts to reset `_ntry` after each algorithm run.
-    partial_fit : bool
-        Flag to indicate if partial results should be returned if an error occurs.
-    save_all : bool
-        Flag to control whether intermediate iterations should be retained.
-    save_preconditionner : bool
-        Flag to control whether preconditioner values are to be retained
-        (warning: risk of using a large amount of memory).
-
+    {BASE_PARAMETERS_GD}
 
     Attributes
     ----------
@@ -109,25 +109,9 @@ class GradientDescentPrecond(AbstractAlgoFit):
         )
 
     # ============================================================== #
-    def results_warper(self, model, theta0_reals1d, data, results) -> GDResults:
-        """Warp results into Sdg4vsResults object.
-
-        Parameters
-        ----------
-        model : type[AbstractModel]
-            The model used for the fitting.
-        theta0_reals1d : jnp.ndarray
-            Initial parameters for the model.
-        data : dict
-           a dict where all additional log_likelihood arguments can be found
-        results : list
-            The results obtained from the fitting.
-
-        Returns
-        -------
-        Sdg4vsResults
-            An instance of Sdg4vsResults containing the results.
-        """
+    def results_warper(  # pylint: disable=missing-return-doc
+        self, model, theta0_reals1d, data, results
+    ) -> GDResults:
         out = GDResults.new_from_list(results, theta0_reals1d)
         out.log_likelihood = model.log_likelihood(out.last_theta, **data)
         out.reals1d_to_hstack_params(model)
@@ -204,24 +188,9 @@ class GradientDescentPrecond(AbstractAlgoFit):
         return (theta_reals1d, grad, grad_precond, preconditioner)
 
     # ============================================================== #
-    def breaking_rules(self, step, one_step_results):
-        """Determine whether to stop the optimization process.
-
-        This function checks if the stopping criteria are met based on the number of iterations
-        and the norm of the gradient.
-
-        Parameters
-        ----------
-        step : int
-            The current iteration step.
-        one_step_results : tuple
-            The tuple returned by the _algorithm_one_step function with the time duration added at the end.
-
-        Returns
-        -------
-        bool
-            True if the stopping conditions are met, otherwise False.
-        """
+    def breaking_rules(  # pylint: disable=missing-return-doc
+        self, step, one_step_results
+    ) -> bool:
         old_theta_past_mean = self._theta_past_mean[:]
         self._theta_past_mean = (old_theta_past_mean * step + one_step_results[0]) / (
             step + 1
@@ -234,11 +203,6 @@ class GradientDescentPrecond(AbstractAlgoFit):
             ).all()
         )
 
-        # return (
-        #     step > self._heating
-        #     and jnp.sqrt((one_step_results[1] ** 2).sum()) < self._threshold
-        # )
-
     def _algorithm_one_step(
         self,
         model: type[AbstractModel],
@@ -246,24 +210,6 @@ class GradientDescentPrecond(AbstractAlgoFit):
         theta_reals1d: jnp.ndarray,
         step: int,
     ):
-        """Perform one step of the algorithm.
-
-        Parameters
-        ----------
-        model : type[AbstractModel]
-            the model to be fitted
-        log_likelihood_kwargs : dict
-            a dict where all additional log_likelihood arguments can be found
-        theta_reals1d : jnp.ndarray
-            Initial parameters for the model.
-        step : int
-            The current iteration step.
-
-        Returns
-        -------
-        tuple
-            A tuple containing updated parameters, preconditioned gradient, and the preconditioner.
-        """
         return self._one_gradient_descent(
             model, log_likelihood_kwargs, theta_reals1d, step
         )

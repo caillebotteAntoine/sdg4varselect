@@ -4,8 +4,6 @@ Module for the Stochastic Gradient Descent algorithm preconditioned by the Fishe
 
 This module implements a stochasticgradient descent algorithm that uses a preconditioner based on
 the Fisher Information Matrix to improve convergence.
-
-Created by antoine.caillebotte@inrae.fr
 """
 
 import warnings
@@ -21,6 +19,7 @@ from sdg4varselect.models.abstract.abstract_latent_variables_model import (
 
 from sdg4varselect.algo.gradient_descent_precond import (
     GradientDescentPrecond as GD_Precond,
+    BASE_PARAMETERS_GD,
 )
 from sdg4varselect.algo.abstract.abstract_algo_mcmc import AbstractAlgoMCMC
 from sdg4varselect.outputs import SGDResults
@@ -31,35 +30,22 @@ from sdg4varselect.models.abstract.abstract_latent_variables_model import (
 )
 
 from sdg4varselect.algo.preconditioner import AbstractPreconditioner
+from sdg4varselect._doc_tools import inherit_docstring
 
 
+@inherit_docstring
 class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
-    """Stochastic Gradient Descent algorithm preconditioned
+    __doc__ = f"""Stochastic Gradient Descent algorithm preconditioned
     by the Fisher Information Matrix.
 
     This class implements a Stochastic Gradient Descent (SGD) algorithm, which utilizes
     a preconditioner based on the Fisher Information Matrix (FIM) to improve optimization.
     It integrates elements of the Monte Carlo Markov Chain (MCMC) approach for models with
-    latent variables..
+    latent variables.
 
     Parameters
     ----------
-    prngkey : jax.random.PRNGKey
-        A PRNG key, consumable by random functions.
-    preconditioner : AbstractPreconditioner
-        An instance of a preconditioner that can computes precondtionned gradient
-    threshold : float, optional
-        A threshold for the gradient magnitude to determine convergence. The default value is 1e-4.
-    max_iter : int
-        Maximum number of iterations allowed for the algorithm.
-    ntry : int
-        Number of attempts to retry the algorithm if an error is encountered.
-    ntry_max : int
-        Maximum number of retry attempts to reset `_ntry` after each algorithm run.
-    partial_fit : bool
-        Flag to indicate if partial results should be returned if an error occurs.
-    save_all : bool
-        Flag to control whether intermediate iterations should be retained.
+    {BASE_PARAMETERS_GD}
 
     Attributes
     ----------
@@ -111,40 +97,14 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
             raise ValueError("pre_heating must be a non-negative integer.")
         self._pre_heating = value
 
-    def get_log_likelihood_kwargs(self, data):
-        """Return all the needed data, like latent variables for the log likelihood computation
-
-        Parameters
-        ----------
-        data : any
-            The data required for log likelihood computation.
-
-        Returns
-        -------
-        dict
-            A dictionary containing the necessary data, like latent variables for log likelihood computation.
-        """
+    def get_log_likelihood_kwargs(  # pylint: disable= missing-return-doc
+        self, data
+    ) -> dict:
         return data | self.latent_data
 
-    def results_warper(self, model, theta0_reals1d, data, results) -> SGDResults:
-        """Warp results into Sdg4vsResults object and calculate marginal likelihood.
-
-        Parameters
-        ----------
-        model : type[AbstractModel]
-            The model used for the fitting.
-        theta0_reals1d : jnp.ndarray
-            Initial parameters for the model.
-        data : dict
-           a dict where all additional log_likelihood arguments can be found
-        results : list
-            The results obtained from the fitting.
-
-        Returns
-        -------
-        Sdg4vsResults
-            An instance of Sdg4vsResults containing the results, including marginal likelihood.
-        """
+    def results_warper(  # pylint: disable= missing-return-doc
+        self, model, theta0_reals1d, data, results
+    ) -> SGDResults:
         out = SGDResults.new_from_list(results, theta0_reals1d)
         out.latent_variables = {}
         for key, var in self.latent_variables.items():
@@ -203,25 +163,9 @@ class StochasticGradientDescentPrecond(AbstractAlgoMCMC, GD_Precond):
             raise exc
 
     # ============================================================== #
-    def breaking_rules(self, step, one_step_results):
-        """Determine whether to stop the optimization process.
-
-        This function checks if the stopping criteria are met based on the number of iterations
-        and the norm of the gradient.
-
-        Parameters
-        ----------
-        step : int
-            The current iteration step.
-        one_step_results : tuple
-            The tuple returned by the _algorithm_one_step function, with the time duration added at the end.
-
-        Returns
-        -------
-        bool
-            True if the stopping conditions are met, otherwise False.
-        """
-
+    def breaking_rules(  # pylint: disable= missing-return-doc
+        self, step, one_step_results
+    ) -> bool:
         first_rules = GD_Precond.breaking_rules(self, step, one_step_results)
 
         new_rule = True  # jnp.abs(one_step_results[4]).max() < self._threshold

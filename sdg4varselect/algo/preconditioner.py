@@ -15,6 +15,7 @@ from jax import jit
 import jax.numpy as jnp
 
 from sdg4varselect.learning_rate import default_step_size
+from sdg4varselect._doc_tools import inherit_docstring
 
 
 class AbstractPreconditioner(ABC):
@@ -222,6 +223,7 @@ def compute_fisher(
     return preconditioner, grad_precond, jac
 
 
+@inherit_docstring
 class Fisher(AbstractPreconditioner):
     """Fisher preconditioner for stochastic gradient descent.
 
@@ -248,40 +250,15 @@ class Fisher(AbstractPreconditioner):
         self._step_size_fisher.max = 0.9
 
     def initialize(self, jac_shape, freezed_components):
-        """Initialize the Fisher preconditioner.
-
-        Parameters
-        ----------
-        jac_shape : tuple
-            The shape of the Jacobian matrix to initialize.
-        freezed_components : jnp.ndarray
-            The components of the frozen parameters.
-        """
         AbstractPreconditioner.initialize(self, jac_shape, freezed_components)
 
         self._jac = jnp.zeros(shape=jac_shape)  # approximated jac
         self._preconditioner = self._jac.T @ self._jac
         self._values = []
 
-    def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
-        """Compute the preconditioned gradient using Fisher information.
-
-        Parameters
-        ----------
-        gradient : jnp.ndarray
-            The gradient to be preconditioned.
-        jacobian : jnp.ndarray
-            The Jacobian matrix used for preconditioning.
-        step : float
-            The current step size.
-
-        Returns
-        -------
-        tuple
-            A tuple containing:
-                - jnp.ndarray: The precondition matrix.
-                - jnp.ndarray: The preconditioned gradient.
-        """
+    def get_preconditioned_gradient(  # pylint: disable= missing-return-doc
+        self, gradient, jacobian, step
+    ) -> jnp.ndarray:
         step_size_approx_sto = self._step_size_approx_sto(step)
         step_size_fisher = self._step_size_fisher(step)
         self._preconditioner, grad_precond, self._jac = compute_fisher(
@@ -336,6 +313,7 @@ def compute_adagrad(
     return jnp.diag(preconditioner), grad_precond, adagrad
 
 
+@inherit_docstring
 class AdaGrad(AbstractPreconditioner):
     """AdaGrad preconditioner for stochastic gradient descent.
 
@@ -356,15 +334,6 @@ class AdaGrad(AbstractPreconditioner):
         self._scale = scale
 
     def initialize(self, jac_shape, freezed_components):
-        """Initialize the Fisher preconditioner.
-
-        Parameters
-        ----------
-        jac_shape : tuple
-            The shape of the Jacobian matrix to initialize.
-        freezed_components : jnp.ndarray
-            The components of the frozen parameters.
-        """
         AbstractPreconditioner.initialize(self, jac_shape, freezed_components)
 
         if self._scale is not None:
@@ -376,23 +345,9 @@ class AdaGrad(AbstractPreconditioner):
         self._past = [self._adagrad]
         self._preconditioner = self._regularization * jnp.ones(shape=(jac_shape[1],))
 
-    def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
-        """Compute the preconditioned gradient using AdaGrad.
-
-        Parameters
-        ----------
-        gradient : jnp.ndarray
-            The gradient to be preconditioned.
-        jacobian : jnp.ndarray
-            The Jacobian matrix used for preconditioning.
-        step : float
-            The current step size.
-
-        Returns
-        -------
-        jnp.ndarray
-            The preconditioned gradient.
-        """
+    def get_preconditioned_gradient(  # pylint: disable= missing-return-doc
+        self, gradient, jacobian, step
+    ) -> jnp.ndarray:
         self._preconditioner, grad_precond, self._adagrad = compute_adagrad(
             self._adagrad,
             self._scale,
@@ -404,6 +359,7 @@ class AdaGrad(AbstractPreconditioner):
         return grad_precond
 
 
+@inherit_docstring
 class Identity(AbstractPreconditioner):
     """Default preconditioner for stochastic gradient descent.
 
@@ -415,15 +371,6 @@ class Identity(AbstractPreconditioner):
         self._scale = scale
 
     def initialize(self, jac_shape, freezed_components):
-        """Initialize the Fisher preconditioner.
-
-        Parameters
-        ----------
-        jac_shape : tuple
-            The shape of the Jacobian matrix to initialize.
-        freezed_components : jnp.ndarray
-            The components of the frozen parameters.
-        """
         if self._scale is not None:
             assert self._scale.shape == (jac_shape[1],)
         else:
@@ -431,24 +378,9 @@ class Identity(AbstractPreconditioner):
 
         self._preconditioner = jnp.diag(self._scale)
 
-    def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
-        """Compute the preconditioned gradient using Identity information.
-
-        Parameters
-        ----------
-        gradient : jnp.ndarray
-            The gradient to be preconditioned.
-        jacobian : jnp.ndarray
-            The Jacobian matrix used for preconditioning.
-        step : float
-            The current step size.
-
-        Returns
-        -------
-        jnp.ndarray
-            The preconditioned gradient.
-        """
-
+    def get_preconditioned_gradient(  # pylint: disable= missing-return-doc
+        self, gradient, jacobian, step
+    ) -> jnp.ndarray:
         return self._scale * gradient
 
 
@@ -502,6 +434,7 @@ def compute_rmsprop(average_squared_gradients, gradient, regularization) -> jnp.
     return jnp.diag(preconditioner), grad_precond
 
 
+@inherit_docstring
 class RMSP(AbstractPreconditioner):
     """RMSP preconditioner for stochastic gradient descent.
 
@@ -526,15 +459,6 @@ class RMSP(AbstractPreconditioner):
         self._past = []
 
     def initialize(self, jac_shape, freezed_components):
-        """Initialize the Fisher preconditioner.
-
-        Parameters
-        ----------
-        jac_shape : tuple
-            The shape of the Jacobian matrix to initialize.
-        freezed_components : jnp.ndarray
-            The components of the frozen parameters.
-        """
         if self._scale is not None:
             assert self._scale.shape == (jac_shape[1],)
         else:
@@ -544,23 +468,9 @@ class RMSP(AbstractPreconditioner):
         self._past = [self._average_gradients2]
         self._preconditioner = self._regularization * jnp.ones(shape=(jac_shape[1],))
 
-    def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
-        """Compute the preconditioned gradient using AdaGrad.
-
-        Parameters
-        ----------
-        gradient : jnp.ndarray
-            The gradient to be preconditioned.
-        jacobian : jnp.ndarray
-            The Jacobian matrix used for preconditioning.
-        step : float
-            The current step size.
-
-        Returns
-        -------
-        jnp.ndarray
-            The preconditioned gradient.
-        """
+    def get_preconditioned_gradient(  # pylint: disable= missing-return-doc
+        self, gradient, jacobian, step
+    ) -> jnp.ndarray:
         self._average_gradients2 = _ema(
             self._average_gradients2, gradient**2, self._beta_1
         )
@@ -575,6 +485,7 @@ class RMSP(AbstractPreconditioner):
         return self._scale * grad_precond
 
 
+@inherit_docstring
 class ADAM(RMSP):
     """ADAM preconditioner for stochastic gradient descent.
 
@@ -599,15 +510,6 @@ class ADAM(RMSP):
         self._beta_2 = beta_2
 
     def initialize(self, jac_shape, freezed_components):
-        """Initialize the Fisher preconditioner.
-
-        Parameters
-        ----------
-        jac_shape : tuple
-            The shape of the Jacobian matrix to initialize.
-        freezed_components : jnp.ndarray
-            The components of the frozen parameters.
-        """
         if self._scale is not None:
             assert self._scale.shape == (jac_shape[1],)
         else:
@@ -616,23 +518,9 @@ class ADAM(RMSP):
         RMSP.initialize(self, jac_shape, freezed_components)
         self._average_gradients = jnp.zeros(shape=(jac_shape[1],))
 
-    def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
-        """Compute the preconditioned gradient using AdaGrad.
-
-        Parameters
-        ----------
-        gradient : jnp.ndarray
-            The gradient to be preconditioned.
-        jacobian : jnp.ndarray
-            The Jacobian matrix used for preconditioning.
-        step : float
-            The current step size.
-
-        Returns
-        -------
-        jnp.ndarray
-            The preconditioned gradient.
-        """
+    def get_preconditioned_gradient(  # pylint: disable= missing-return-doc
+        self, gradient, jacobian, step
+    ) -> jnp.ndarray:
         self._average_gradients2 = _ema(
             self._average_gradients2, gradient**2, self._beta_2
         )
@@ -653,6 +541,7 @@ class ADAM(RMSP):
         return self._scale * grad_precond
 
 
+@inherit_docstring
 class AdagradFisher(AdaGrad):
     """AdagradFisher preconditioner for stochastic gradient descent.
 
@@ -670,24 +559,9 @@ class AdagradFisher(AdaGrad):
         AdaGrad.__init__(self, scale=scale, regularization=regularization)
         self._length_history = length_history
 
-    def get_preconditioned_gradient(self, gradient, jacobian, step) -> jnp.ndarray:
-        """Compute the preconditioned gradient using AdagradFisher.
-
-        Parameters
-        ----------
-        gradient : jnp.ndarray
-            The gradient to be preconditioned.
-        jacobian : jnp.ndarray
-            The Jacobian matrix used for preconditioning.
-        step : float
-            The current step size.
-
-        Returns
-        -------
-        jnp.ndarray
-            The preconditioned gradient.
-        """
-
+    def get_preconditioned_gradient(  # pylint: disable= missing-return-doc
+        self, gradient, jacobian, step
+    ) -> jnp.ndarray:
         self._preconditioner = compute_estimated_fisher(
             jacobian,
             jacobian,
