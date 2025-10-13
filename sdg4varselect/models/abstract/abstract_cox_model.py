@@ -18,7 +18,30 @@ from jax.scipy import integrate
 from sdg4varselect.models.abstract.abstract_model import AbstractModel
 from sdg4varselect.models.abstract.abstract_high_dim_model import AbstractHDModel
 
+from sdg4varselect._doc_tools import inherit_docstring
 
+
+def _censoring_simulation(prngkey, T, c_percentage) -> jnp.ndarray:
+    """Censoring simulation function.
+    Parameters
+    ----------
+    prngkey : jax.random.PRNGKey
+        random seed.
+    T : jnp.ndarray
+        Survival times.
+    c_percentage : float
+        Percentage of censoring.
+    Returns
+    -------
+    jnp.ndarray
+        Censored survival times."""
+    prngkey_d, prngkey_c = jrd.split(prngkey)
+    delta = jrd.bernoulli(prngkey_d, p=c_percentage, shape=T.shape)
+    C = jrd.uniform(prngkey_c, minval=0, maxval=1, shape=T.shape) * T
+    return jnp.where(delta, C, T + 1)
+
+
+@inherit_docstring
 class AbstractCoxModel(AbstractModel, AbstractHDModel):
     """Abstract class defining a Cox model with an abstract baseline hazard.
 
@@ -42,7 +65,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
     # ============================================================== #
     @abstractmethod
     @functools.partial(jit, static_argnums=0)
-    def log_baseline_hazard(self, params, **kwargs):
+    def log_baseline_hazard(self, params, **kwargs) -> jnp.ndarray:
         """Calculate the log of the baseline hazard.
 
         Parameters
@@ -63,7 +86,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
     # ============================================================== #
     @abstractmethod
     @functools.partial(jit, static_argnums=0)
-    def proportional_hazards_component(self, params, **kwargs):
+    def proportional_hazards_component(self, params, **kwargs) -> jnp.ndarray:
         """Compute the proportional hazards component.
 
         Parameters
@@ -113,24 +136,9 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
-    def log_likelihood_array(self, theta_reals1d, **kwargs):
-        """Compute the log likelihood for each individual.
-
-        Parameters
-        ----------
-        theta_reals1d : jnp.ndarray
-            Parameters used to the log-likelihood computation.
-        **kwargs : dict
-            Additional parameters.
-            containing T : Observed survival times,
-            delta : Censoring indicator,
-            survival_int_range.
-
-        Returns
-        -------
-        jnp.ndarray
-            Log likelihood values per individual.
-        """
+    def log_likelihood_array(  # pylint: disable=missing-return-doc
+        self, theta_reals1d, **kwargs
+    ) -> jnp.ndarray:
         params = self._parametrization.reals1d_to_params(theta_reals1d)
 
         T = kwargs["T"]
@@ -174,7 +182,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         self,
         T,
         **kwargs,  # pylint: disable=unused-argument
-    ):
+    ) -> jnp.ndarray:
         """Automatically define the survival interval range.
 
         Parameters
@@ -191,7 +199,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         return jnp.linspace(0, T, num=100)[1:].T
 
     @abstractmethod
-    def censoring_simulation(self, prngkey, T, params_star, **kwargs):
+    def censoring_simulation(self, prngkey, T, params_star, **kwargs) -> jnp.ndarray:
         """Simulate censoring times.
 
         Parameters
@@ -301,7 +309,7 @@ class AbstractCoxModel(AbstractModel, AbstractHDModel):
         # ie u = 1 - exp(-x) => -log(1-u) = x
         sim["rexp"] = jrd.exponential(prngkey_uni, shape=(self.N,))
         log_h = self.log_hazard(
-            params_star, survival_int_range=t_linspace, **obs, **self._cst
+            params_star, survival_int_range=t_linspace, **obs, **self._cst, **kwargs
         )
         cumsum_h = jnp.cumsum(jnp.exp(log_h), axis=1) * pas
         # cumsum_h is increasing

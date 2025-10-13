@@ -1,7 +1,5 @@
 """
-This module defines the `AbstractModel` class, which serves as a template for creating models
-
-Create by antoine.caillebotte@inrae.fr
+This module defines the `AbstractModel` class, which serves as a template for creating models.
 """
 
 from abc import ABC, abstractmethod
@@ -44,7 +42,6 @@ def _check_initialization(fun):
 class AbstractModel(ABC):
     """AbstractModel: The base class for creating models.
 
-    This module defines the `AbstractModel` class, which serves as a template for creating models.
     Subclasses must implement model-specific parametrization, likelihood, and sampling methods.
 
     Properties
@@ -107,7 +104,12 @@ class AbstractModel(ABC):
     @abstractmethod
     @_check_initialization
     def name(self):
-        """return a str called name, based on the parameter of the model"""
+        """return a str called name, based on the parameter of the model
+        Returns
+        -------
+        str
+            the name of the model
+        """
         raise NotImplementedError
 
     @property

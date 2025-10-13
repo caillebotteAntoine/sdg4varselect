@@ -4,6 +4,8 @@ Module for abstract class AbstractMixedEffectsModel.
 Create by antoine.caillebotte@inrae.fr
 """
 
+# pylint: disable=missing-return-doc
+
 from abc import abstractmethod
 import functools
 
@@ -17,8 +19,10 @@ from sdg4varselect.models.abstract.abstract_latent_variables_model import (
 )
 
 from sdg4varselect.exceptions import Sdg4vsWrongParametrization
+from sdg4varselect._doc_tools import inherit_docstring
 
 
+@inherit_docstring
 class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
     """
     The most abstract mixed effects model that can be defined.
@@ -102,20 +106,6 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
     def log_likelihood_without_prior(self, theta_reals1d, **kwargs) -> jnp.ndarray:
-        """Compute the log-likelihood without Gaussian prior.
-
-        Parameters
-        ----------
-        theta_reals1d : jnp.ndarray
-            Parameters used to the log-likelihood computation.
-        **kwargs : dict
-            Additional keyword arguments used in the mixed_effect_function
-
-        Returns
-        -------
-        jnp.ndarray
-            Log-likelihood values for each individual without Gaussian prior.
-        """
         params = self.parametrization.reals1d_to_params(theta_reals1d)
 
         Y = kwargs["Y"]
@@ -140,40 +130,12 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
 
     @functools.partial(jit, static_argnums=0)
     def log_likelihood_only_prior(self, theta_reals1d, **kwargs) -> jnp.ndarray:
-        """Compute log-likelihood with only the Gaussian prior.
-
-        Parameters
-        ----------
-        theta_reals1d : jnp.ndarray
-            Parameters used to the log-likelihood computation.
-        **kwargs : dict
-            a dict where all additional log_likelihood arguments can be found.
-
-        Returns
-        -------
-        jnp.ndarray
-            Log-likelihood values with only the Gaussian prior.
-        """
         params = self._parametrization.reals1d_to_params(theta_reals1d)
         return self.only_prior(params, **kwargs)
 
     # ============================================================== #
     @functools.partial(jit, static_argnums=0)
-    def log_likelihood_array(self, theta_reals1d: jnp.ndarray, **kwargs):
-        """Compute likelihood array with individual components.
-
-        Parameters
-        ----------
-        theta_reals1d : jnp.ndarray
-            Parameters used to the log-likelihood computation.
-        **kwargs : dict
-            a dict where all additional log_likelihood arguments can be found.
-
-        Returns
-        -------
-        jnp.ndarray
-            Array of log-likelihood components for each individual.
-        """
+    def log_likelihood_array(self, theta_reals1d: jnp.ndarray, **kwargs) -> jnp.ndarray:
         return self.log_likelihood_without_prior(
             theta_reals1d, **kwargs
         ) + self.log_likelihood_only_prior(theta_reals1d, **kwargs)
@@ -181,24 +143,6 @@ class AbstractMixedEffectsModel(AbstractModel, AbstractLatentVariablesModel):
     # ============================================================== #
     @abstractmethod
     def sample(self, params_star, prngkey, **kwargs) -> tuple[dict, dict]:
-        """Sample one data set for the model
-
-        Parameters
-        ----------
-        params_star : object
-            parameter used to sample the model
-        prngkey : jax.random.PRNGKey
-            A PRNG key, consumable by random functions used to sample randomly the model
-        **kwargs:
-            additional data to be pass to any function used in sample
-
-        Returns
-        -------
-        tuple[dict, dict]
-            A tuple containing:
-                - dict: Generated observations.
-                - dict: Simulated latent variables.
-        """
         obs, sim = AbstractLatentVariablesModel.sample(
             self, params_star, prngkey, **kwargs
         )
