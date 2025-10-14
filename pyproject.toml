@@ -7,7 +7,7 @@ license = "GPL 3"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 matplotlib = "^3.6.3"
 jax = "^0.4.1"
 jaxlib = "^0.4.1"
