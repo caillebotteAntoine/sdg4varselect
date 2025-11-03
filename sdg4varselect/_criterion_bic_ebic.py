@@ -30,7 +30,9 @@ def log_binom(n, k):
     )
 
 
-def eBIC(theta_hd, log_likelihood, n) -> jnp.ndarray:  # pylint:disable = C0103
+def eBIC(  # pylint:disable = C0103
+    theta_hd, log_likelihood, n, gamma=1.0
+) -> jnp.ndarray:
     """Compute the extended Bayesian Information Criterion (eBIC) for a given model.
 
     Parameters
@@ -41,6 +43,8 @@ def eBIC(theta_hd, log_likelihood, n) -> jnp.ndarray:  # pylint:disable = C0103
         Log-likelihood of the model, evaluated at the estimated parameters.
     n : int
         Sample size used to estimate the model.
+    gamma: float
+        Tuning parameter for the eBIC penalty term.
 
     Returns
     -------
@@ -60,7 +64,7 @@ def eBIC(theta_hd, log_likelihood, n) -> jnp.ndarray:  # pylint:disable = C0103
 
     k = (theta_hd != 0).sum()
     assert k.shape == log_likelihood.shape
-    ebic_pen = 2 * log_binom(theta_hd.shape[0], k)
+    ebic_pen = 2 * gamma * log_binom(theta_hd.shape[0], k)
     assert ebic_pen.shape == log_likelihood.shape
 
     return -2 * log_likelihood + k * jnp.log(n) + ebic_pen
