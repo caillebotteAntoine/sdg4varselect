@@ -291,6 +291,48 @@ class MultiGDResults(Sdg4vsResults):
             chrono=self.chrono + x.chrono, results=x.results + self.results
         )
 
+    def melt(self, x):
+        """Merge two MultiGDResults instances together by applying mean operation.
+
+        Parameters
+        ----------
+        x : MultiGDResults
+            Another MultiGDResults instance to merge.
+
+        Returns
+        -------
+        MultiGDResults
+            A new MultiGDResults instance with merged results.
+        """
+        assert len(self.results) == len(
+            x.results
+        ), "Both MultiGDResults must have the same number of GDResults instances to merge."
+
+        new_results = []
+        for self_res, x_res in zip(self.results, x.results):
+            merged_res = GDResults(
+                theta=(self_res.theta + x_res.theta) / 2,
+                theta_reals1d=None,
+                fim=None,
+                grad=None,
+                grad_precond=None,
+                log_likelihood=(self_res.log_likelihood + x_res.log_likelihood) / 2,
+                bic=(
+                    (self_res.bic + x_res.bic) / 2
+                    if self_res.bic is not None and x_res.bic is not None
+                    else None
+                ),
+                ebic=(
+                    (self_res.ebic + x_res.ebic) / 2
+                    if self_res.ebic is not None and x_res.ebic is not None
+                    else None
+                ),
+                chrono=self_res.chrono + x_res.chrono,
+            )
+            new_results.append(merged_res)
+
+        return MultiGDResults(chrono=self.chrono + x.chrono, results=new_results)
+
     # === property === #
     @property
     def theta_star(self):
@@ -580,6 +622,28 @@ class RegularizationPath(MultiGDResults):
         out = super().__add__(x)
         out.lbd_set = jnp.concatenate([self.lbd_set, x.lbd_set])
         return out
+
+    def melt(self, x):
+        """Merge two RegularizationPath instances together by applying mean operation.
+
+        Parameters
+        ----------
+        x : RegularizationPath
+            Another RegularizationPath instance to merge.
+
+        Returns
+        -------
+        RegularizationPath
+            A new RegularizationPath instance with merged results and lbd_set.
+        """
+        assert self.lbd_set.shape == x.lbd_set.shape, (
+            "Both RegularizationPath must have the same lbd_set shape to merge."
+            f" {self.lbd_set.shape} != {x.lbd_set.shape}"
+        )
+        out = super().melt(x)
+        return RegularizationPath(
+            chrono=out.chrono, results=out.results, lbd_set=self.lbd_set
+        )
 
     def standardize(self):
         """Standardizes the regularization path by selecting models with the lowest BIC/eBIC.
